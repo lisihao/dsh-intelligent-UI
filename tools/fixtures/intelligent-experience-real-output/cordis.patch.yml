@@ -1,0 +1,4 @@
+# Test-only plugin installed only in the helper's uniquely named profile.
+- insert:
+    - id: intelligent-experience-real-output
+      name: '@lisihao/dsh-solar-intelligent-experience-real-output'

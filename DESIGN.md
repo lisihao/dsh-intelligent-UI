@@ -1,0 +1,266 @@
+---
+name: DSH Intelligent Experience Platform
+description: Source-led Undertow presentation inside the official DSH conversation.
+colors:
+  content-default: "#24262b"
+  host-border-fallback: "#b9bdc4"
+  content-bg-light: "#f4f6f8"
+  content-card-light: "#fbfcfd"
+  content-line-light: "#cdd5dc"
+  content-text-light: "#1a2028"
+  content-muted-light: "#4a5560"
+  primary-light: "#4a6a80"
+  content-soft-light: "#e9edf1"
+  content-bg-dark: "#0c0e11"
+  content-card-dark: "#1a1f26"
+  content-line-dark: "#2a323c"
+  content-text-dark: "#e8ebee"
+  content-muted-dark: "#adb5bf"
+  primary-dark: "#98b0c2"
+  content-soft-dark: "#08090c"
+  sand-light: "#946b35"
+  sand-dark: "#cfb595"
+  rose-light: "#8b5263"
+  rose-dark: "#c49aa4"
+  teal-light: "#3c6c57"
+  teal-dark: "#93b3a2"
+  host-label: "var(--dsw-alias-label-primary, #202124)"
+  host-border: "var(--dsw-alias-border-l2, #b9bdc4)"
+typography:
+  headline:
+    fontFamily: "'DSH Recursive', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    fontSize: "30px"
+    fontWeight: 360
+    lineHeight: 1.4
+    letterSpacing: "-0.02em"
+  title:
+    fontSize: "21px"
+    fontWeight: 360
+    lineHeight: 1.4
+  body:
+    fontFamily: "'DSH Recursive', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    fontSize: "15px"
+    lineHeight: 1.7
+    fontVariation: "'CASL' 0, 'MONO' 0, 'slnt' 0, 'CRSV' 0"
+  card-title:
+    fontSize: "13px"
+    lineHeight: 1.6
+  card-foot:
+    fontSize: "12px"
+    lineHeight: 1.75
+  basis:
+    fontSize: "11px"
+  mode-label:
+    fontSize: "13px"
+  code:
+    fontFamily: "'DSH Recursive', 'SF Mono', monospace"
+    fontVariation: "'MONO' 1, 'CASL' 0"
+  raw-content:
+    fontSize: "12px"
+rounded:
+  reading-narrow: "24px"
+  flow-node: "20px"
+  source-table: "18px"
+  list-item: "16px"
+  color-field: "10px"
+  inline-code: "4px"
+  control: "5px"
+  card: "22px"
+  reading-surface: "28px"
+  field: "6px"
+  mode-control: "999px"
+spacing:
+  compact: "4px"
+  label: "8px"
+  section: "12px"
+  panel: "16px"
+  chart-gap: "16px 20px"
+  block: "24px"
+components:
+  action-button:
+    backgroundColor: "transparent"
+    textColor: "inherit"
+    rounded: "{rounded.control}"
+    padding: "4px 9px"
+  output-mode-select:
+    backgroundColor: "transparent"
+    textColor: "inherit"
+    padding: "4px 6px"
+  mode-control:
+    rounded: "{rounded.mode-control}"
+    padding: "3px 5px 3px 10px"
+  content-surface:
+    rounded: "{rounded.reading-surface}"
+    padding: "clamp(16px, 2.5vw, 24px)"
+  chart-card:
+    rounded: "{rounded.card}"
+  chart-header:
+    padding: "10px 16px"
+  chart-footer:
+    padding: "4px 16px 8px"
+  source-table:
+    rounded: "{rounded.card}"
+  board-search:
+    backgroundColor: "var(--iexp-soft)"
+    textColor: "var(--iexp-text)"
+    rounded: "{rounded.field}"
+    padding: "8px 12px"
+  flow-node:
+    rounded: "{rounded.card}"
+    padding: "16px 18px"
+---
+
+# Design System: DSH Intelligent Experience Platform
+
+## Overview
+
+**Creative North Star: "Source-led reading in Undertow"**
+
+The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.
+
+The official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.
+
+**Key Characteristics:**
+
+- Continuous prose and compact comparisons share the configurable quiet gray content surface; data cards use rounded elevation.
+- Composition follows explicit source structure rather than decorative tiles.
+- Complete tables, records and relationship sources remain inspectable.
+- One host-header selector controls presentation, original and comparison modes.
+
+Browser finish review on 2026-10-31 accepted the expanded candidate across ten report, flow, board and record captures, including narrow, desktop and the user's wide viewport. Installed official DSH acceptance passed on 2026-10-31 for the actual source graph, task board, record selection and chapter fan; a subsequent refresh-state correction preserved disclosures across polling without changing visual tokens.
+
+## Colors
+
+Frontmatter retains the measured Empryo reference and chart-series palette. Active content surface roles are generated in `src/appearance.ts` from the persisted background choice. Default is #24262b at alpha 0.72, with blur(4px) saturate(110%); disabling transparency uses alpha 1 and no blur. Ink, muted ink and blue accent adapt to light/dark choices and actual composite contrast. For a midtone that cannot preserve 4.5:1 at alpha 0.72 over both white and black underlays, opacity increases only as needed. Cards and hover surfaces use subtle tonal changes.
+
+### Primary
+
+- **Slate blue / ice blue:** links, outline icons, selection, focus, comparison strokes and the first chart series.
+
+### Secondary
+
+- **Sand, rose and teal:** additional chart series with the host scheme's corresponding contrast.
+
+### Neutral
+
+- **Pale canvas / charcoal:** the continuous reading surface.
+- **Raised paper / graphite:** chart cards, task cards and relationship nodes.
+- **Sunken paper:** code, table headings, board columns and the relationship canvas.
+- **Slate rule:** table rows, section boundaries, controls and source disclosures.
+- **Primary and softened ink:** source text and secondary explanation respectively.
+- **Host label and border:** native wrappers and the shared mode control retain official tokens.
+
+**The Content Preference Rule.** Plugin Settings → 内容外观 offers 半透明背景, a native color well, editable #RRGGBB and 恢复默认外观. The user explicitly requested this content preference; it does not change official navigation, host theme or credentials. Legacy settings without appearance use the default without an implicit file migration.
+
+OpenUI's OS-preference fallback root selectors are removed during CSS bundling so they do not override the resolved host theme. Vendor portal styles remain available for OpenUI dialogs and dropdowns.
+
+## Typography
+
+**Content Font:** bundled unmodified Recursive Latin variable font, registered as DSH Recursive, with platform CJK sans fallbacks. Its WOFF2 and OFL travel together without a remote font request. The body uses CASL 0 and MONO 0; code switches to MONO 1. Shell controls retain platform sans.
+
+### Hierarchy
+
+- **Headline and title:** light Recursive report headings use the frontmatter roles; the main heading is limited to 29ch. Third-level headings use 17px, lower headings 15px, all at the same heading weight and tracking.
+- **Body:** the frontmatter body role; top-level paragraphs, lists and blockquotes have a 74ch maximum measure.
+- **Figure and task titles:** compact data labels; chart titles use 13px, task titles 14px and flow labels 15px. Figure basis text uses its smaller muted role.
+- **Tables and disclosures:** 12px text with tabular numerals for quantitative regions. Compact comparison labels and values use 13px with 1.55 line height.
+- **Raw content:** wrapping preformatted text preserves the original strings.
+
+At the narrow breakpoint, body text becomes 14px and the main report heading 23px. These adaptations do not change the official host type system.
+
+## Layout
+
+The 28px rounded reading surface (24px at narrow widths) is centered with a 1240px maximum width and the responsive inset in frontmatter. The official-slot wrapper keeps its 12px grid gap/padding. Prose remains in document order; it is not divided into individual cards.
+
+Figures use an auto-fit grid with `minmax(min(100%, 310px), 1fr)`, the chart-gap token and a 1160px maximum width. A solitary figure caps at 760px. Eligible comparisons retain direct endpoint labels inside the same rounded data-card material as other charts. Supported charts retain a separated header, plot and disclosure footer.
+
+At 560px and below, content insets and figure padding tighten, full-table summaries wrap and helper text hides. Tables scroll inside focusable labeled regions. Comparison mode uses `repeat(auto-fit, minmax(min(100%, 280px), 1fr))` with a 16px gap; raw strings wrap anywhere.
+
+Boards use horizontally scrollable columns of at least 220px, with independently scrollable columns capped at 640px. Master/detail uses a 26% list with a 180px minimum, a flexible detail pane sized to its own content and a 20px gap; at the narrow breakpoint the list becomes horizontal above the detail. The chapter index uses two intrinsic 240px text columns. Its optional SVG fan hides at 760px and below; the complete text index remains.
+
+## Elevation & Depth
+
+The content surface has diffuse depth; data cards, tasks and record detail use 22px corners and a soft 0 10px 28px -14px shadow. Fine-pointer hover raises them 3px, changes the surface tone and accent boundary, and deepens the shadow over 180ms. Focus-within retains tonal/depth emphasis with visible keyboard outlines. The flow canvas lifts 2px as a whole so nodes and edge ports stay aligned; individual 20px nodes change tone and boundary. Reduced motion removes lift/transitions and stops relationship-edge animation.
+
+**The Source Stays Reachable Rule.** Visualizations supplement source content. Keep qualifications, exact selected cells, complete tables, original records and raw/comparison access available.
+
+## Shapes
+
+Reading surfaces use 28px corners (24px narrow); charts, tasks and record details use 22px; flow viewport/columns use 24px, nodes 20px and source tables/heading index 18px. Prose remains continuous rather than one card per paragraph. Existing code blocks retain their compact radius. Fields and flow buttons use the field radius; native output actions retain the control radius. The single mode control is a pill. One-pixel rules define data boundaries. Lucide outline SVGs remain semantic icons; no reference screenshots or brand assets ship.
+
+## Components
+
+### Shared mode selector and actions
+
+One labeled native select in the conversation header offers 展示, 原文 and 对照 with the accessible name 输出显示方式. It starts in 展示, stays transient per conversation and clears on unload. Raw mode keeps the rendered region mounted. Explicit actions remain separate from display selection; native settings retain their ordinary controls and errors.
+
+### Comparisons and maintained charts
+
+A local thin meter adapter handles one nonnegative finite series with two to six nonempty category labels. Each original value sits beside a shared-scale organic stroke; a zero remains zero. Complex categorical and time-series plots continue through unmodified OpenUI. This is one compact benchmark grammar, not every Empryo benchmark variant.
+
+OpenUI categorical bars retain full labels and source values. Their height follows `max(230, labels × (30 + series × 26) + 56 + (series > 1 ? 50 : 0))`; line charts use 280px. Animation is disabled. Approximation/exclusion notices remain visible; native disclosures expose selection reasons and exact source strings. Chart failure retains the complete table and reports an error.
+
+### Complete source tables
+
+A labeled 完整原表 disclosure preserves every row, column and source wording when a supplementary chart or board exists. Unsupported tables stay directly visible. Compact tabular type, inset headings, row separators and soft hover support exact reading without widening the page.
+
+### Relationships and explicit sequences
+
+Strict graph JSON requires explicit nodes and edges; duplicate/missing IDs, extra fields and invalid endpoints fail visibly with original content retained. Markdown flows use top-level plain arrow chains or simple ordered lists in an explicit workflow/steps context. Code, quotes, nested/rich items and ordinary enumerated findings remain Markdown.
+
+Published React Flow 12.12 and ELK 0.12 supply a read-only, pan/zoom canvas with rounded routed edges and 240px nodes. Initial framing prioritizes readable labels; an explicit overview can fit the whole graph. Keyboard selection highlights direct neighbors and lists exact relations. Motion can pause/resume and honors reduced motion. Edges express source order/relationships, never execution status. Layout failure preserves readable node/edge lists and source text.
+
+### Task board and record detail
+
+Boards require identifiable task/title and actual status fields; Markdown tables require an explicit task header. Status labels and first-occurrence order stay exact. Local search filters title, description and status with visible counts and an empty result message. Long task titles disclose their full text. Search and selection are transient presentation state; there is no drag, task writeback or claimed synchronization.
+
+Homogeneous named records with substantial descriptions can use master/detail. The selected object's complete description, non-internal fields and original record remain accessible. The list uses native buttons and an explicit selected state; narrow layout retains the same selection controls.
+
+### Chapter navigation
+
+Documents with four to one hundred H2/H3 entries receive a complete heading index with real focusable anchor targets. A small native SVG fan supplements it only for four to seven short H2 labels; long labels and narrow widths use the conventional index. Child counts come from actual headings. This orientation aid is not an execution or dependency graph.
+
+### Embedded apps
+
+MCP Apps retain their separate application surface and explicit open action. This system does not replace official navigation/settings or define embedded-app branding.
+
+## Do's and Don'ts
+
+### Do:
+
+- **Do** choose composition from explicit source structure while keeping prose in document order.
+- **Do** scope configurable surface appearance to plugin content and keep the single conversation-header selector.
+- **Do** retain exact source strings, units, exclusions, qualifications and complete sources.
+- **Do** keep the local Recursive font and OFL together.
+- **Do** distinguish browser review from installed official DSH acceptance.
+
+### Don't:
+
+- **Don't** wrap every paragraph in a card.
+- **Don't** invent data, graph edges, task status or execution success for visual effect.
+- **Don't** alter host theme or introduce per-output appearance/display controls.
+- **Don't** promote fixture controls, private report content or detector preferences into product rules.
+- **Don't** ship reference screenshots or infer app acceptance from browser captures.
+
+Not canonized: two already joined numeric expressions in the report source remain unchanged; presentation must not infer missing formula operators. Advisory detector preferences are not implementation rules. No shipping raster was introduced.
+
+## Compact reading refinement (2026-10-31)
+
+The user requested slightly denser content while retaining the accepted material. Body size stays 15px (14px narrow); line height is 1.7, paragraph spacing 10px and the maximum reading inset 24px. H2 separates chapters with 32px above plus 16px rule inset and 12px below; H3 uses 24/10px. Comparison rows use a 12px gap with a 24px mark/value region. Source table cells use 8px vertical padding. Native disclosures and search retain 36px and 40px target heights. Master/detail aligns items at the start, uses a 20px gap and a 480px scrollable list; short details are no longer stretched. Graph node and viewport geometry stay unchanged, with only outer margins tightened.
+
+## Visible transparency shortcut (2026-10-31)
+
+A single **开启透明** checkbox sits beside the conversation-header display selector and shares the existing persisted appearance state with Settings. It preserves the selected color and takeover/OpenUI/MCP flags, uses revision-checked saves, disables while saving and exposes failure without claiming success. Translucent dark gray starts at alpha 0.72 with 4px blur so the existing wallpaper is more visible; contrast protection can increase opacity for custom midtones. Opaque mode keeps alpha 1 and no blur. The same preference supplies neutral tokens to the public conversation-view outlet when takeover is on. Original independent page components and controls remain intact; known owner card selectors add consistent radii and depth. Turning takeover off removes the additional page rules. Unknown embedded apps, iframe interiors and portals stay separate; the explicit ThoughtDAG exception is recorded below.
+
+## Independent conversation pages
+
+The published `[data-slot="conversation.view"]` outlet is an inheritance boundary, not a replacement component. Neutral background, card, text, border and radius tokens apply while takeover is enabled; semantic status meanings remain with the original owner; blue focus/brand, green success, amber warning, red error and inverse-button text adapt for contrast. Persona, Mnemon, workflow studio, Bench and both context views retain their native layout, controls, scrolling and graph geometry. Known cards use 20px corners, restrained depth and hover tint without translation; no external backdrop-filter or new containing block is introduced. IEP-owned content is excluded from an extra root backing layer. The entire adapter lives in the disposable appearance stylesheet; off/unload restores the original cascade.
+
+
+## Downloadable themes (2026-10-31)
+
+The user requested selectable downloadable theme packages. [The theme contract](docs/design/experience-themes.md) owns the format and lifecycle. Empryo remains the default; Plain supplies a restrained opaque alternative. Linen is a downloadable/importable example with warm paper, serif body text and green focus. V1 packages contain validated JSON tokens only, with no executable code, CSS or remote assets. Selection, import and removal use the existing revision queue and atomic settings file. Existing settings without a theme remain readable without an implicit rewrite.
+
+Settings exposes selection, selected-package export, example download, local import and custom-theme removal. Import does not activate automatically. Switching themes preserves mounted source disclosures and original data. Typography, semantic colors, chart palettes, density, corners, hover and depth belong to the theme; the user's color/transparency choice remains separately adjustable.
+
+The same owned stylesheet maps compatible independent-page roles without changing their code, configuration or data. A bounded same-origin ThoughtDAG bridge owns only its injected style and listeners. Its logo lockup retains the original font metrics so the owner toolbar does not obscure the title; body/cards retain the selected theme. Turning takeover off or disposing IEP removes both styles. Unknown frames are excluded.

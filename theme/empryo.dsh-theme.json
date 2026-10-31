@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar",
+  "license": "MIT",
+  "id": "empryo",
+  "name": "Empryo",
+  "description": "深灰半透明、柔和圆角与悬浮卡片，沿用当前 Empryo 参考风格。",
+  "appearance": {
+    "backgroundColor": "#24262b",
+    "translucent": true
+  },
+  "tokens": {
+    "accentDark": "#98b0c2",
+    "accentLight": "#4a6a80",
+    "success": "#3f9165",
+    "warning": "#b27d2b",
+    "error": "#be3a48",
+    "paletteDark": [
+      "#98b0c2",
+      "#cfb595",
+      "#c49aa4",
+      "#93b3a2"
+    ],
+    "paletteLight": [
+      "#4a6a80",
+      "#946b35",
+      "#8b5263",
+      "#3c6c57"
+    ],
+    "panelRadius": 28,
+    "cardRadius": 22,
+    "nodeRadius": 20,
+    "controlRadius": 12,
+    "density": "compact",
+    "font": "recursive",
+    "translucentAlpha": 0.72,
+    "blur": 4,
+    "hoverLift": 3,
+    "shadow": "soft",
+    "comparison": "organic"
+  }
+}

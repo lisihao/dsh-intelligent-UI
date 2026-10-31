@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T13:20:13.963583+00:00",
+  "title": "Design System: DSH Intelligent Experience Platform",
+  "extensions": {
+    "typographyMeta": {
+      "body": {
+        "displayName": "Recursive with platform CJK fallback",
+        "purpose": "Plugin content only; official shell controls retain platform sans."
+      },
+      "code": {
+        "displayName": "Recursive mono axis",
+        "purpose": "Code blocks use MONO 1 and CASL 0."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-rest",
+        "value": "0 10px 28px -14px var(--iexp-shadow)",
+        "purpose": "Rounded floating cards; adaptive shadow color, alpha .38 dark / .14 light."
+      },
+      {
+        "name": "card-focus",
+        "value": "0 18px 38px -18px var(--iexp-shadow)",
+        "purpose": "Hover/focus-within with subtle card tone and accent boundary."
+      },
+      {
+        "name": "flow-selection",
+        "value": "0 8px 20px -14px var(--iexp-shadow)",
+        "purpose": "Selected relationship node only."
+      },
+      {
+        "name": "flow-controls",
+        "value": "0 3px 14px -7px var(--iexp-shadow)",
+        "purpose": "Canvas navigation controls."
+      }
+    ],
+    "motion": [
+      {
+        "name": "card-emphasis",
+        "value": "transform/background/border/shadow 180ms ease-out",
+        "purpose": "Fine-pointer lift 3px; disabled under reduced motion. Keyboard focus keeps tonal emphasis."
+      },
+      {
+        "name": "source-relationships",
+        "value": "React Flow animated edges; disabled by pause or prefers-reduced-motion",
+        "purpose": "Source relationship emphasis; never execution evidence."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-content",
+        "value": "560px"
+      },
+      {
+        "name": "chapter-text-fallback",
+        "value": "760px"
+      }
+    ],
+    "referenceFoundation": {
+      "document": "docs/design/empryo-foundation.md",
+      "tokens": "docs/design/empryo-tokens.json",
+      "atlas": "docs/design/empryo-atlas.html",
+      "status": "Reference authority; measured Undertow roles and the bounded source-led layouts are implemented. Browser finish review and official DSH layout acceptance passed; unchanged Markdown disclosures persist across polling.",
+      "validPages": 321,
+      "directVisualPages": 105
+    },
+    "surfaceRefinement": {
+      "authority": "Explicit user request 2026-10-31; overrides earlier flat/square content surfaces",
+      "defaultColor": "#24262b",
+      "defaultAlpha": 0.72,
+      "blur": "4px",
+      "readingRadius": "28px / 24px narrow",
+      "cardRadius": "22px",
+      "hoverLift": "-3px / flow canvas -2px",
+      "duration": "180ms",
+      "reducedMotion": "No lift or transitions",
+      "preferenceScope": "Plugin content only; persisted with existing settings CAS"
+    },
+    "densityRefinement": {
+      "bodyLineHeight": 1.7,
+      "paragraphMargin": "10px 0",
+      "readingInsetMax": "24px",
+      "chartGap": "16px 20px",
+      "comparisonRowGap": "12px",
+      "masterDetailGap": "20px",
+      "masterDetailAlignment": "start",
+      "listMaxHeight": "480px",
+      "bodySizesUnchanged": true,
+      "disclosureMinHeight": "36px",
+      "searchMinHeight": "40px"
+    },
+    "transparencyShortcut": {
+      "label": "开启透明",
+      "placement": "Conversation header beside shared display select",
+      "scope": "IEP-owned content and reversible neutral appearance of conversation-view pages; embedded apps/portals separate",
+      "persistence": "Existing appearance service CAS; shared with settings"
+    },
+    "independentPages": {
+      "anchor": "[data-slot=\"conversation.view\"]",
+      "method": "Additive CSS neutral-variable inheritance; original renderer and entries retained",
+      "activation": "takeover=true",
+      "restore": "Remove page rules on off; exact stylesheet disposal on unload",
+      "cards": "20px radius, soft shadow and hover tint; no transform",
+      "unchanged": "DOM, components, business APIs, semantic state colors, scrolling and graph geometry",
+      "observedOwners": [
+        "Persona 0.1.4",
+        "Mnemon 0.5.32",
+        "native-collaboration studio",
+        "Solar Bench",
+        "dsh-context 0.73.3",
+        "billion-context 0.1.209"
+      ]
+    },
+    "themePackages": {
+      "contract": "docs/design/experience-themes.md",
+      "format": "Data-only .dsh-theme.json v1; no CSS, JavaScript or remote assets",
+      "builtIns": [
+        "empryo",
+        "plain"
+      ],
+      "downloadableExample": "linen",
+      "persistence": "Existing owner settings CAS; import does not activate",
+      "restoration": "Remove owned styles on takeover off or plugin disposal; no other plugin modifications",
+      "knownFrameException": "Same-origin ThoughtDAG only; original logo font metrics retained"
+    }
+  },
+  "components": [
+    {
+      "name": "Session display mode",
+      "kind": "input",
+      "refersTo": "mode-control",
+      "description": "One native host-header selector controls every output in the conversation.",
+      "html": "<label class=\"ds-mode-label\"><svg aria-hidden=\"true\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 9h18M9 9v12\"/></svg>显示 <select class=\"ds-mode-select\" aria-label=\"输出显示方式\"><option>展示</option><option>原文</option><option>对照</option></select></label>",
+      "css": ".ds-mode-label{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font:13px system-ui,sans-serif;color:var(--dsw-alias-label-primary,#202124);border:1px solid var(--dsw-alias-border-l2,#b9bdc4);border-radius:999px;padding:3px 5px 3px 10px}.ds-mode-select{padding:4px 6px;border:0;color:inherit;background:transparent;cursor:pointer}.ds-mode-select:focus-visible{outline:2px solid currentColor;outline-offset:2px}"
+    },
+    {
+      "name": "Output action button",
+      "kind": "button",
+      "refersTo": "action-button",
+      "description": "Explicit action such as opening a separate embedded application.",
+      "html": "<button class=\"ds-action\" type=\"button\">打开 MCP App</button>",
+      "css": ".ds-action{padding:4px 9px;margin-inline-end:4px;border:1px solid var(--dsw-alias-border-l2,#b9bdc4);border-radius:5px;color:inherit;background:transparent;cursor:pointer}.ds-action:focus-visible{outline:2px solid currentColor;outline-offset:2px}"
+    },
+    {
+      "name": "Evidence card header and footer",
+      "kind": "card",
+      "refersTo": "chart-card",
+      "description": "Separated icon/title/basis header and source footer around a maintained chart. The preview illustrates the wrapper without fabricating a plot.",
+      "html": "<figure class=\"ds-card\"><figcaption class=\"ds-card-head\"><span class=\"ds-card-title\"><svg aria-hidden=\"true\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 9h18M9 9v12\"/></svg><strong>数值比较</strong></span><span class=\"ds-basis\">原表数值</span></figcaption><div class=\"ds-card-foot\"><p>图表保留原文单位与选取口径。</p></div></figure>",
+      "css": ".ds-card{margin:0;min-width:0;background:var(--iexp-card,#fbfcfd);color:var(--iexp-text,#1a2028);border:1px solid var(--iexp-line,#cdd5dc);border-radius:12px;overflow:clip;font-family:'DSH Recursive', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;box-shadow:0 12px 32px -20px var(--iexp-shadow,rgb(26 40 55 / 8%));transition:border-color 220ms ease-out,box-shadow 220ms ease-out}.ds-card:is(:hover,:focus-within){border-color:var(--iexp-accent,#4a6a80);box-shadow:0 16px 40px -20px var(--iexp-shadow,rgb(26 40 55 / 8%))}.ds-card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:14px 18px;border-bottom:1px solid var(--iexp-line,#cdd5dc)}.ds-card-title{display:flex;align-items:center;gap:9px;font-size:13px;line-height:1.6}.ds-card-title svg{color:var(--iexp-accent,#4a6a80)}.ds-basis{font-size:11px;color:var(--iexp-muted,#4a5560);font-variant-numeric:tabular-nums}.ds-card-foot{padding:4px 18px 10px;font-size:12px;line-height:1.75;color:var(--iexp-muted,#4a5560)}@media(prefers-reduced-motion:reduce){.ds-card{transition:none}}"
+    },
+    {
+      "name": "Source disclosure",
+      "kind": "custom",
+      "description": "Native details keep selection notes and exact source data accessible.",
+      "html": "<details class=\"ds-disclosure\"><summary><svg aria-hidden=\"true\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 9h18M9 9v12\"/></svg>图表所用原始数据</summary><p>选取的原始单元格字符串保留在此区域。</p></details>",
+      "css": ".ds-disclosure{border-top:1px solid var(--iexp-line,#cdd5dc);padding-top:2px;font:12px/1.75 'DSH Recursive', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;color:var(--iexp-muted,#4a5560)}.ds-disclosure summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;min-height:36px}.ds-disclosure summary::-webkit-details-marker{display:none}.ds-disclosure summary::after{content:'+';margin-inline-start:auto;font-size:16px}.ds-disclosure[open] summary::after{content:'−'}.ds-disclosure summary:hover{color:var(--iexp-text,#1a2028)}.ds-disclosure summary:focus-visible{outline:2px solid var(--iexp-accent,#4a6a80);outline-offset:3px;border-radius:4px}.ds-disclosure p{margin:8px 0;padding-bottom:12px}"
+    },
+    {
+      "name": "Source table",
+      "kind": "custom",
+      "refersTo": "source-table",
+      "description": "Bounded scroll region for all original rows and columns.",
+      "html": "<div class=\"ds-source\" tabindex=\"0\" role=\"region\" aria-label=\"原始数据表格\"><table class=\"ds-table\"><thead><tr><th>原表项目</th><th>原始值</th></tr></thead><tbody><tr><td>来源项目</td><td>来源单元格</td></tr></tbody></table></div>",
+      "css": ".ds-source{overflow-x:auto;max-width:100%;background:var(--iexp-card,#fbfcfd);border:1px solid var(--iexp-line,#cdd5dc);border-radius:12px;margin:10px 0}.ds-source:focus-visible{outline:2px solid var(--iexp-accent,#4a6a80);outline-offset:3px}.ds-table{width:100%;border-collapse:collapse;font:12px 'DSH Recursive', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;font-variant-numeric:tabular-nums;color:var(--iexp-text,#1a2028)}.ds-table th,.ds-table td{padding:12px 14px;border-bottom:1px solid var(--iexp-line,#cdd5dc);line-height:1.7;text-align:start}.ds-table th{color:var(--iexp-muted,#4a5560);font-weight:500;background:var(--iexp-soft,#e9edf1)}.ds-table tbody tr:last-child td{border-bottom:0}.ds-table tbody tr:hover td{background:var(--iexp-soft,#e9edf1)}"
+    },
+    {
+      "name": "Responsive comparison",
+      "kind": "custom",
+      "description": "Rendered and original regions stack by available width without a separate mode control.",
+      "html": "<div class=\"ds-compare\"><div><strong>展示</strong><p>内容区域</p></div><div><strong>原始内容</strong><pre class=\"ds-raw\">原始内容</pre></div></div>",
+      "css": ".ds-compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;min-width:0;color:var(--dsw-alias-label-primary,#202124);font-family:system-ui,sans-serif}.ds-raw{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;margin:0;font-size:12px}"
+    },
+    {
+      "name": "Board search",
+      "kind": "input",
+      "refersTo": "board-search",
+      "description": "Local filtering of actual task titles, descriptions and statuses; no source mutation.",
+      "html": "<input class=\"ds-board-search\" type=\"search\" aria-label=\"搜索任务\" placeholder=\"搜索任务、说明或状态\">",
+      "css": ".ds-board-search{width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--iexp-line,#cdd5dc);border-radius:6px;color:var(--iexp-text,#1a2028);background:var(--iexp-soft,#e9edf1);font:13px \"DSH Recursive\",sans-serif}.ds-board-search::placeholder{color:var(--iexp-muted,#4a5560)}.ds-board-search:focus-visible{outline:2px solid var(--iexp-accent,#4a6a80);outline-offset:3px}"
+    },
+    {
+      "name": "Flow action",
+      "kind": "button",
+      "description": "Read-only canvas actions keep native hover, active, focus and disabled states.",
+      "html": "<button class=\"ds-flow-action\" type=\"button\">回到起点</button>",
+      "css": ".ds-flow-action{font:13px \"DSH Recursive\",sans-serif;color:var(--iexp-text,#1a2028);background:var(--iexp-card,#fbfcfd);border:1px solid var(--iexp-line,#cdd5dc);border-radius:6px;min-height:36px;padding:5px 12px;cursor:pointer}.ds-flow-action:hover:not(:disabled){border-color:var(--iexp-accent,#4a6a80);background:var(--iexp-soft,#e9edf1)}.ds-flow-action:active:not(:disabled){background:var(--iexp-soft,#e9edf1)}.ds-flow-action:focus-visible{outline:2px solid var(--iexp-accent,#4a6a80);outline-offset:3px}.ds-flow-action:disabled{color:var(--iexp-muted,#4a5560);cursor:default}"
+    },
+    {
+      "name": "Master/detail selection",
+      "kind": "nav",
+      "description": "Native object selection; full descriptions and records remain in the adjacent detail pane.",
+      "html": "<nav class=\"ds-object-list\" aria-label=\"选择对象\"><button type=\"button\" aria-pressed=\"true\"><strong>所选对象</strong><span>原始记录说明</span></button><button type=\"button\" aria-pressed=\"false\"><strong>另一对象</strong><span>原始记录说明</span></button></nav>",
+      "css": ".ds-object-list{border-inline-start:1px solid var(--iexp-line,#cdd5dc)}.ds-object-list button{display:block;width:100%;text-align:start;font:inherit;color:var(--iexp-text,#1a2028);background:transparent;border:0;border-radius:0;padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--iexp-line,#cdd5dc)}.ds-object-list button[aria-pressed=true]{background:var(--iexp-card,#fbfcfd);box-shadow:inset 1px 0 var(--iexp-accent,#4a6a80)}.ds-object-list button:hover{background:var(--iexp-soft,#e9edf1)}.ds-object-list button:focus-visible{outline:2px solid var(--iexp-accent,#4a6a80);outline-offset:3px}.ds-object-list strong{display:block;font-size:14px;font-weight:500}.ds-object-list span{display:block;margin-top:6px;color:var(--iexp-muted,#4a5560);font-size:12px;line-height:1.7}"
+    },
+    {
+      "name": "Compact comparison row",
+      "kind": "custom",
+      "description": "Unboxed direct-label meter; shared-scale CSS width preserves the original numeric value. Illustrative value only.",
+      "html": "<div class=\"ds-comparison-row\"><span class=\"ds-comparison-label\">示例项目</span><div class=\"ds-comparison-measure\"><div class=\"ds-comparison-meter\" role=\"meter\" aria-label=\"示例项目\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-valuetext=\"50\"><span class=\"ds-comparison-stroke\"></span></div><span class=\"ds-comparison-value\" aria-hidden=\"true\">50</span></div></div>",
+      "css": ".ds-comparison-row{color:var(--iexp-text,#1a2028);font-variant-numeric:tabular-nums}.ds-comparison-label{display:block;margin-block-end:5px;font:13px/1.55 \"DSH Recursive\",sans-serif}.ds-comparison-measure{position:relative;width:calc(100% - 11ch);min-height:29px}.ds-comparison-meter{position:absolute;top:0;width:100%;height:17px;padding-block:3px}.ds-comparison-meter::before{content:\"\";position:absolute;inset-inline:0;top:8px;height:1px;background:var(--iexp-line,#cdd5dc)}.ds-comparison-stroke{position:relative;display:block;width:50%;height:11px;background:var(--iexp-accent,#4a6a80);border-radius:4% 3% 5% 2% / 42% 56% 38% 58%}.ds-comparison-value{position:relative;display:block;top:-3px;inset-inline-start:50%;margin-inline-start:9px;width:10ch;font:13px/1.55 \"DSH Recursive\",sans-serif}@media(forced-colors:active){.ds-comparison-stroke{background:CanvasText;forced-color-adjust:none}.ds-comparison-meter::before{background:GrayText;forced-color-adjust:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Source-led reading in Undertow",
+    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation, settings and appearance. Plugin content uses the measured Undertow light/dark palette, local Recursive typography and Lucide outlines. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.",
+    "keyCharacteristics": [
+      "Unboxed prose and compact comparisons share quiet Undertow surfaces.",
+      "Composition follows explicit source structure rather than decorative tiles.",
+      "Complete tables, records and relationship sources remain inspectable.",
+      "One host-header selector controls presentation, original and comparison modes."
+    ],
+    "rules": [
+      {
+        "name": "Scoped Theme Preference",
+        "body": "User-selected data-only theme controls IEP and compatible scoped surfaces; official application preferences remain owned by DSH.",
+        "section": "colors"
+      },
+      {
+        "name": "The Source Stays Reachable Rule",
+        "body": "Visualizations supplement source content. Keep qualifications, exact selected cells, complete tables, original records and raw/comparison access available.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do choose composition from explicit source structure while keeping prose in document order.",
+      "Do use the host's resolved scheme and the single conversation-header selector.",
+      "Do retain exact source strings, units, exclusions, qualifications and complete sources.",
+      "Do keep the local Recursive font and OFL together.",
+      "Do distinguish browser review from installed official DSH acceptance."
+    ],
+    "donts": [
+      "Don't wrap every paragraph or compact comparison in a card.",
+      "Don't invent data, graph edges, task status or execution success for visual effect.",
+      "Don't add per-output theme or display selectors; use shared Settings and conversation controls.",
+      "Don't promote fixture controls, private report content or detector preferences into product rules.",
+      "Don't ship reference screenshots or infer app acceptance from browser captures."
+    ]
+  }
+}

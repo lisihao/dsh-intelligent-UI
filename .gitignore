@@ -1,0 +1,12 @@
+lib/
+node_modules/
+.acceptance/
+tsconfig.build.json
+tools/browser-experience/fixture.js
+tools/mcp-fixture-*-compiled.mjs
+
+# Local packages, reports and private acceptance evidence
+*.tgz
+coverage/
+*.tsbuildinfo
+.DS_Store

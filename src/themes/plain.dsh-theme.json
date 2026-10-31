@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar",
+  "license": "MIT",
+  "id": "plain",
+  "name": "简洁",
+  "description": "实心深灰、系统字体与标准图表，减少装饰并保持紧凑。",
+  "appearance": {
+    "backgroundColor": "#1b1b1c",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#a7c7e7",
+    "accentLight": "#315d7d",
+    "success": "#3f9165",
+    "warning": "#b27d2b",
+    "error": "#be3a48",
+    "paletteDark": [
+      "#a7c7e7",
+      "#d4bd86",
+      "#d6a6b4",
+      "#9ac6b0"
+    ],
+    "paletteLight": [
+      "#315d7d",
+      "#85652f",
+      "#83465c",
+      "#346650"
+    ],
+    "panelRadius": 12,
+    "cardRadius": 8,
+    "nodeRadius": 8,
+    "controlRadius": 6,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.86,
+    "blur": 0,
+    "hoverLift": 0,
+    "shadow": "none",
+    "comparison": "standard"
+  }
+}

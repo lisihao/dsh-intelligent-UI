@@ -1,0 +1,22 @@
+export const OPENUI_VISUAL_SAMPLE = `root = Stack([header, intro, legend, trendHeader, trend, compareHeader, comparison, note, formHeader, form])
+header = CardHeader("服务响应时间（演示）", "本地合成数据 · 不代表真实模型或 DSH 性能")
+intro = TextContent("以下数字均为合成示例，仅用于展示图表，不代表真实模型、DSH 或生产环境的性能测量。")
+legend = Stack([latencyIcon, fixtureIcon], "row", "xl", "center", "start", true)
+latencyIcon = IconText(activityIcon, "neutral", "m", "响应时间趋势", "合成示例 · 毫秒", false, "horizontal")
+activityIcon = Icon("activity", "charts")
+fixtureIcon = IconText(shieldIcon, "neutral", "m", "数据说明", "全部为合成数据", false, "horizontal")
+shieldIcon = Icon("shield-check", "security")
+trendHeader = InlineHeader("响应时间趋势", "第 1 次至第 6 次模拟检查 · 毫秒")
+trend = LineChart(checks, [p50, p95], "natural", "检查轮次", "响应时间（毫秒）")
+checks = ["第1次", "第2次", "第3次", "第4次", "第5次", "第6次"]
+p50 = Series("P50", [260, 238, 221, 210, 191, 184])
+p95 = Series("P95", [510, 472, 451, 423, 390, 371])
+compareHeader = InlineHeader("方案对比", "合成示例 · 响应时间（毫秒）")
+comparison = BarChart(scenarios, [response], "grouped", "方案", "响应时间（毫秒）")
+scenarios = ["方案 A", "方案 B"]
+response = Series("响应时间（毫秒）", [240, 210])
+note = Callout("info", "合成数据", "所有数值均为演示数据，不代表真实模型、DSH 或任何生产环境的性能。")
+formHeader = InlineHeader("本地备注", "输入的内容会自动保存。")
+form = Form("contact", formButtons, [nameField])
+nameField = FormControl("备注", Input("name", "输入本地备注", "text"))
+formButtons = Buttons([Button("备注会自动保存")])`

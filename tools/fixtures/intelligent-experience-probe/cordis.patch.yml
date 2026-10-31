@@ -1,0 +1,4 @@
+# Test-only row installed only into an ephemeral profile.
+- insert:
+    - id: intelligent-experience-probe
+      name: '@lisihao/dsh-solar-intelligent-experience-probe'

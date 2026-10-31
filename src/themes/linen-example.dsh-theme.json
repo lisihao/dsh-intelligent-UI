@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar",
+  "license": "MIT",
+  "id": "linen",
+  "name": "亚麻纸",
+  "description": "暖白纸色、墨绿强调和衬线标题，适合长文与报告阅读。",
+  "appearance": {
+    "backgroundColor": "#f6f1e8",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#a6c6b4",
+    "accentLight": "#476559",
+    "success": "#3f9165",
+    "warning": "#b27d2b",
+    "error": "#be3a48",
+    "paletteDark": [
+      "#a6c6b4",
+      "#d4bd86",
+      "#d6a6b4",
+      "#a7c7e7"
+    ],
+    "paletteLight": [
+      "#476559",
+      "#85652f",
+      "#83465c",
+      "#315d7d"
+    ],
+    "panelRadius": 16,
+    "cardRadius": 12,
+    "nodeRadius": 12,
+    "controlRadius": 8,
+    "density": "comfortable",
+    "font": "serif",
+    "translucentAlpha": 0.86,
+    "blur": 0,
+    "hoverLift": 0,
+    "shadow": "soft",
+    "comparison": "standard"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "themes": [
+    {
+      "id": "empryo",
+      "name": "Empryo",
+      "version": "1.0.0",
+      "file": "empryo.dsh-theme.json",
+      "sha256": "1665075d26b5ea40ecb7532de7fba24316c83014c9eb91f0725ed461d411fb27"
+    }
+  ]
+}

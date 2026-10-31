@@ -1,0 +1,4 @@
+# Test-only row installed in a unique, retained canary profile.
+- insert:
+    - id: intelligent-experience-canary
+      name: '@lisihao/dsh-solar-intelligent-experience-canary'
