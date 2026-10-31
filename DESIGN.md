@@ -42,6 +42,20 @@ typography:
     fontSize: "15px"
     lineHeight: 1.7
     fontVariation: "'CASL' 0, 'MONO' 0, 'slnt' 0, 'CRSV' 0"
+  settings-body:
+    fontSize: "14px"
+    lineHeight: 1.6
+  settings-title:
+    fontSize: "20px"
+    fontWeight: 600
+  report-subheading:
+    fontSize: "17px"
+  code-body:
+    fontSize: "16px"
+  narrow-headline:
+    fontSize: "23px"
+  layout-heading:
+    fontSize: "18px"
   card-title:
     fontSize: "13px"
     lineHeight: 1.6
@@ -58,6 +72,7 @@ typography:
   raw-content:
     fontSize: "12px"
 rounded:
+  settings-preview: "12px"
   reading-narrow: "24px"
   flow-node: "20px"
   source-table: "18px"
@@ -264,3 +279,9 @@ The user requested selectable downloadable theme packages. [The theme contract](
 Settings exposes selection, selected-package export, example download, local import and custom-theme removal. Import does not activate automatically. Switching themes preserves mounted source disclosures and original data. Typography, semantic colors, chart palettes, density, corners, hover and depth belong to the theme; the user's color/transparency choice remains separately adjustable.
 
 The same owned stylesheet maps compatible independent-page roles without changing their code, configuration or data. A bounded same-origin ThoughtDAG bridge owns only its injected style and listeners. Its logo lockup retains the original font metrics so the owner toolbar does not obscure the title; body/cards retain the selected theme. Turning takeover off or disposing IEP removes both styles. Unknown frames are excluded.
+
+## Settings control refinement (2026-10-31)
+
+The plugin settings use a 14px platform-sans body, 20px title and one 36px control height. Buttons, fields and selectors share 10px corners; fieldsets use 16px corners, preview 12px, and the settings backing 20px. Groups use 8/12/16px spacing. Current theme, repository source and local files retain their order with light rules instead of nested decorative cards. The selected theme preview shows its name, origin/version and four swatches together. Only browsing the saved catalog is emphasized; repository/export actions are text links. The file picker keeps a native input with a Chinese label, a visible keyboard focus outline and disabled behavior.
+
+The settings backing uses the user's selected background color at full opacity so report text cannot bleed through the form. This is a local reading requirement of settings; report transparency, cards, hover behavior and the visible transparency shortcut are unchanged. Styles apply only within `.dsh-experience.iexp-settings` and leave with the plugin stylesheet. At 320px, controls wrap without hiding labels or reducing the 14px body.

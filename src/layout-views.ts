@@ -10,8 +10,8 @@ function SourceRecords({ records }: { records: unknown }): ReactElement {
 export function BoardView({ plan }: { plan: BoardPlan }): ReactElement {
   const count = plan.records.length
   const [query, setQuery] = useState('')
-  const needle = query.trim().toLocaleLowerCase()
-  const groups = plan.groups.map(group => ({ ...group, items: group.items.filter(item => !needle || [item.title, item.description, group.status].join(' ').toLocaleLowerCase().includes(needle)) }))
+  const needle = query.trim().toLocaleLowerCase('en-US')
+  const groups = plan.groups.map(group => ({ ...group, items: group.items.filter(item => !needle || [item.title, item.description, group.status].join(' ').toLocaleLowerCase('en-US').includes(needle)) }))
   const matched = groups.reduce((sum, group) => sum + group.items.length, 0)
   const columns = groups.map((group, index) => h('section', { key: index, className: 'iexp-board-column', 'aria-label': `状态：${group.status}` },
     h('h4', null, group.status, h('span', null, String(group.items.length))),

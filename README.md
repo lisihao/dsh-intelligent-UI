@@ -77,3 +77,7 @@ The [Empryo reference analysis](docs/design/empryo-foundation.md), [token catalo
 ## License
 
 [MIT](LICENSE). Bundled Recursive font files retain the SIL Open Font License in `assets/Recursive-OFL.txt`; dependency attribution and redistribution notes are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). OpenUI, React Flow, ELK and other projects are consumed through pinned published packages behind this plugin's adapters, without carried upstream source patches.
+
+### Settings layout
+
+Theme selection, online sources and local theme files use compact groups and a shared control scale. Settings have an opaque backing in the selected background color to keep underlying report text from interfering with controls; content transparency and hover effects remain independently adjustable.
