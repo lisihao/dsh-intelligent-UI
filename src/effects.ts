@@ -65,7 +65,7 @@ class EffectBoundary extends Component<{ children?: ReactNode, fallback?: ReactN
  * reduced motion, unsupported providers, hidden pages, and streaming updates.
  * The provider owns the GPU lifecycle; unmounting the component triggers cleanup.
  */
-export function VisualEffectSlot({ id, children }: { id: VisualEffectId, children: ReactNode }): ReactElement {
+export function VisualEffectSlot({ id, children }: { id: VisualEffectId, children?: ReactNode }): ReactElement {
   const entries = useSyncExternalStore(visualEffects.subscribe, visualEffects.getSnapshot, visualEffects.getSnapshot)
   const manifest = entries.get(id)
   const container = useRef<HTMLDivElement>(null)
