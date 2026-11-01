@@ -80,6 +80,12 @@ Plugin-owned data is confined to `$DSH_HOME/solar/intelligent-experience-platfor
 
 Appearance support is a bounded adapter to known public conversation-view outlets and neutral variables. Persona, Mnemon memory, context, execution and benchmark controls remain owned by their respective plugins. Their appearance compatibility does not imply that every business operation has been tested. Billion-context's pre-existing unbound-proxy behavior is not fixed by this plugin. The known same-origin ThoughtDAG canvas has an explicit reversible stylesheet bridge; unknown frames, cross-origin apps and unrelated portals are excluded. See [upgrade boundaries](UPGRADING.md) before changing host or external-plugin versions.
 
+### Optional visual effects (experimental)
+
+Generated content saved through `solar_present` may specify `effectId: "iexp.headline-reveal"` to apply a short, one-shot title reveal. It is disabled unless explicitly requested, is limited to the first Markdown H1 of the generated artifact (up to 120 characters), and respects reduced-motion preferences. Raw/comparison views and streaming output retain their original presentation. The effect is implemented locally without upstream component code.
+
+The optional `canvasui.decrypt-reveal` provider slot exists for a separately authorized Canvas UI integration. No Canvas UI runtime, shader or component source is shipped or registered by default. An unavailable provider leaves the original content readable. See [Canvas UI integration status](docs/integrations/canvasui.md) for the license boundary and remaining native-DSH checks.
+
 ## Development
 
 Use Node **22.19+ within v22, or v24+**, and pnpm **10.31.0**. All required DSH packages are published dependencies pinned to the baseline; no host source checkout is required.

@@ -1,4 +1,5 @@
 import { ThemeButton, ThemeInput, ThemeToggle, ThemeLoader } from './theme-components.js'
+import { installBuiltInVisualEffects, visualEffectSchema } from './effects.js'
 import { createElement as h, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
@@ -145,7 +146,8 @@ function McpInline({ api, sessionId, callId, enabled, onContinue }: { api?: Clie
 }
 function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled }: { tool: Tool, inspect?: (id: never) => void, openuiEnabled?: boolean, onContinue?: Continue, sessionId: string, widgetStateApi?: WidgetStateApi, api?: ClientApi, mcpEnabled?: boolean }): ReactElement {
   const meta = tool.meta && typeof tool.meta === 'object' ? tool.meta as Record<string, unknown> : undefined
-  const artifact = meta?.type === 'solar-experience' && (meta.protocol === 'content' || meta.protocol === 'openui') && typeof meta.label === 'string' && typeof meta.artifactId === 'string' ? { formatVersion: 1 as const, id: meta.artifactId, createdAt: '', source: { sessionId, kind: 'tool' as const, label: meta.label }, protocol: meta.protocol, payload: meta.payload, raw: meta.payload, providerId: 'solar-present' } : undefined
+  const parsedEffect = visualEffectSchema.safeParse(meta?.effectId)
+  const artifact = meta?.type === 'solar-experience' && (meta.protocol === 'content' || meta.protocol === 'openui') && typeof meta.label === 'string' && typeof meta.artifactId === 'string' ? { formatVersion: 1 as const, id: meta.artifactId, createdAt: '', source: { sessionId, kind: 'generated' as const, label: meta.label }, protocol: meta.protocol, payload: meta.payload, raw: meta.payload, providerId: 'solar-present', ...(parsedEffect.success ? { effectId: parsedEffect.data } : {}) } : undefined
   return h('details', { open: true, className: 'dsh-experience', style: styles.section }, h('summary', null, `${tool.name || '工具调用'} · ${tool.isError ? '失败' : tool.kind === 'tool-result' ? '已完成' : '执行中'}`), tool.isError && h('pre', { role: 'alert', style: styles.raw }, rawText(tool.error)), artifact ? h(ArtifactView, { artifact: artifact as Parameters<typeof ArtifactView>[0]['artifact'], displayMode: 'visual', openuiEnabled, onContinue, stateApi: widgetStateApi }) : tool.content !== undefined && h(ContentView, { value: tool.content }), tool.kind === 'tool-result' && h(McpInline, { api, sessionId, callId: tool.callId, enabled: !!mcpEnabled, onContinue }), inspect && h(ThemeButton, { type: 'button', style: styles.button, onClick: () => inspect(tool.callId as never) }, '查看调用详情'), h('details', null, h('summary', null, '原始调用与结果'), h('pre', { style: styles.raw }, rawText(tool))), ...tool.subCalls.map((child, i) => h(ToolTree, { key: i, tool: child, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled })))
 }
 function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps })) }
@@ -167,6 +169,7 @@ export function apply(ctx: Context): void {
   }, 'intelligent-experience: theme')
   ctx.effect(() => () => displayModes.clear(), 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
+  ctx.effect(() => installBuiltInVisualEffects(), 'intelligent-experience: effects')
   ctx.effect(() => ctx.provide('solarExperienceUi', openUiWidgets), 'intelligent-experience: widgets')
   const store = new ExperienceStore()
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')

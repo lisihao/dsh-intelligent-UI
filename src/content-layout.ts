@@ -97,11 +97,12 @@ function orderedFlow(source: string, list: List, context: string): FlowPlan | un
 }
 
 /** CommonMark/GFM AST positions are UTF-16 offsets, matching String.slice and the source renderer. */
-export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], outline?: HeadingIndexPlan } {
+export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], outline?: HeadingIndexPlan, titleStart?: number } {
   if (markdown.length > MAX_MARKDOWN_LENGTH) return { flows: [] }
   const root = processor.parse(markdown) as Root
   const flows: FlowPlan[] = [], entries: HeadingEntry[] = []
   let parent: number | undefined
+  let titleStart: number | undefined
   let heading = '', preceding = ''
   // Only top-level prose is eligible; quoted examples, code and table cells are not workflow assertions.
   for (const node of root.children) {
@@ -110,7 +111,7 @@ export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], out
     preceding = node.type === 'paragraph' ? nodeText(node) : ''
     if (node.type === 'heading') {
       heading = nodeText(node)
-      if (node.depth === 1) parent = undefined
+      if (node.depth === 1) { parent = undefined; titleStart ??= node.position?.start.offset }
       if (node.depth !== 2 && node.depth !== 3) continue
       const sourceSpan = span(markdown, node)
       if (!sourceSpan) continue
@@ -120,7 +121,7 @@ export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], out
       entries.push(entry)
     }
   }
-  return { flows, ...(entries.length >= 4 && entries.length <= 100 ? { outline: { kind: 'heading-index' as const, entries } } : {}) }
+  return { flows, ...(titleStart === undefined ? {} : { titleStart }), ...(entries.length >= 4 && entries.length <= 100 ? { outline: { kind: 'heading-index' as const, entries } } : {}) }
 }
 
 const nonempty = (maximum: number) => z.string().max(maximum).refine(value => value.trim().length > 0, 'Expected nonempty text')

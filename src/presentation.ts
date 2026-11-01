@@ -1,4 +1,5 @@
 import { UiverseRenderScope } from './uiverse-render.js'
+import { VisualEffectSlot, type VisualEffectId } from './effects.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
 import { Component, Fragment, createElement as h, useCallback, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type ReactElement, type ReactNode, type ComponentProps } from 'react'
 import { Renderer, type LibraryExtension, type ActionEvent } from '@openuidev/react-lang'
@@ -130,7 +131,7 @@ function flowPlan(plan: FlowPlan): FlowViewPlan {
 function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
-function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
+function MarkdownContent({ text, isStreaming, effectId }: { text: string, isStreaming: boolean, effectId?: VisualEffectId }): ReactElement {
   const tables = useMemo(() => isStreaming ? [] : parseMarkdownTables(text), [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
@@ -141,7 +142,9 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
     const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number } } } }) => {
       const start = node?.position?.start.offset, icon = selectIcon(headingText(children))
       const heading = h(`h${level}`, { id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
-      return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
+      const decorated = level === 1 && !isStreaming && effectId && start === layout.titleStart && headingText(children).length <= 120
+        ? h(VisualEffectSlot, { id: effectId }, heading) : heading
+      return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), decorated) : decorated
     }]))
     return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
@@ -160,7 +163,7 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         return h('div', { className: 'iexp-table-group' }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
-  }, [layout, prefix, tables, sections])
+  }, [layout, prefix, tables, sections, effectId, isStreaming])
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
 function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming: boolean }): ReactElement {
@@ -180,13 +183,13 @@ function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-export function ContentView({ value, isStreaming = false }: { value: unknown, isStreaming?: boolean }): ReactElement {
+export function ContentView({ value, isStreaming = false, effectId }: { value: unknown, isStreaming?: boolean, effectId?: VisualEffectId }): ReactElement {
   const theme = useExperienceTheme()
   let content: ReactNode
   if (typeof value === 'string') {
     let decoded: unknown, parsed = false
     try { if (/^\s*[\[{]/.test(value)) { decoded = JSON.parse(value); parsed = true } } catch { /* Ordinary Markdown remains unchanged. */ }
-    content = parsed ? h(StructuredContent, { value: decoded, isStreaming }) : h(MarkdownContent, { text: value, isStreaming })
+    content = parsed ? h(StructuredContent, { value: decoded, isStreaming }) : h(MarkdownContent, { text: value, isStreaming, effectId })
   } else if (Array.isArray(value) && value.length > 0 && value.every(x => x && typeof x === 'object' && (x as { type?: unknown }).type === 'text' && typeof (x as { text?: unknown }).text === 'string')) {
     content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming }))
   } else content = h(StructuredContent, { value, isStreaming })
@@ -240,6 +243,8 @@ export function assistantContent(value: unknown): unknown {
 
 export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = false, onContinue, stateApi, mcpApi, displayMode }: { displayMode?: DisplayMode, artifact: ExperienceArtifact, openuiEnabled?: boolean, isStreaming?: boolean, stateApi?: WidgetStateApi, mcpApi?: McpUiApi, onContinue?: (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void> }): ReactElement {
   const theme = useExperienceTheme()
+  const sharedMode = useDisplayMode(artifact.source.sessionId)
+  const activeMode = displayMode ?? sharedMode
   const library = useSyncExternalStore(openUiWidgets.subscribe, openUiWidgets.getSnapshot, openUiWidgets.getSnapshot)
   const [pending] = useState(() => new Set<AbortController>())
   useEffect(() => () => { pending.forEach(controller => controller.abort()); pending.clear() }, [pending])
@@ -287,6 +292,7 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
       ? h('p', { role: 'status' }, 'OpenUI 展示已关闭。请查看原始内容。')
     : artifact.protocol === 'mcp-app'
       ? h(McpContent, { artifact, api: mcpApi })
-      : h(ContentView, { value: artifact.source.kind === 'assistant' ? assistantContent(artifact.payload) : artifact.payload, isStreaming })
+      : h(ContentView, { value: artifact.source.kind === 'assistant' ? assistantContent(artifact.payload) : artifact.payload, isStreaming,
+          effectId: activeMode === 'visual' && artifact.source.kind === 'generated' && artifact.protocol === 'content' ? artifact.effectId : undefined })
   return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual))))
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { visualEffectSchema } from './effects.js'
 import { themeSourceSchema, type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
 import { appearanceSchema, themeIdSchema, themePreferenceSchema, type InstallThemeInput, type RemoveThemeInput } from './theme-contracts.js'
 export { appearanceSchema } from './theme-contracts.js'
@@ -29,7 +30,7 @@ export const sourceSchema = z.strictObject({
 export const artifactSchema = z.strictObject({
   formatVersion: z.literal(1), id: z.uuid(), createdAt: z.string(), source: sourceSchema,
   protocol: z.enum(['content', 'openui', 'mcp-app']), raw: z.json(),
-  payload: z.json(), providerId: z.string().min(1).max(200),
+  payload: z.json(), providerId: z.string().min(1).max(200), effectId: visualEffectSchema.optional(),
 })
 export type ExperienceArtifact = z.infer<typeof artifactSchema>
 export const publishSchema = artifactSchema.omit({ id: true, createdAt: true, formatVersion: true })
