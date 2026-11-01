@@ -26,6 +26,15 @@ export function pageAppearanceCss(enabled: boolean): string {
     `${outlet} section[aria-label][style*="--dsw-alias-settings-card-fill"]`,
   ].join(',\n')
   return `
+/* The native shared scrollport already follows the tail. Give its active Chat
+   outlet the unused vertical space so short exchanges sit by the composer.
+   No row order, scroll ownership, viewport height or foreign page is changed. */
+[data-conversation-scroll] [data-slot="conversation.view"]:has([data-chat-flow]) {
+  display: flex !important;
+  flex: 1 0 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+}
 [data-dsh-thoughtdag] .dsh-td-overlay { background: transparent; }
 [data-dsh-thoughtdag] :is(.dsh-td-bar,.dsh-td-switch) { background: var(--iexp-card); color: var(--iexp-text); border-color: var(--iexp-line); font-family: var(--iexp-font); border-radius: var(--iexp-control-radius); }
 [data-dsh-thoughtdag] .dsh-td-brand { color: var(--iexp-text); }

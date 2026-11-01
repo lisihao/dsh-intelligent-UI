@@ -27,6 +27,17 @@ describe('reversible appearance of original conversation pages', () => {
       const css = () => document.querySelector('[data-solar-experience-appearance]')!.textContent!
       expect(css()).toContain('[data-slot="conversation.view"]')
       expect(css()).toContain('--dsw-alias-settings-card-fill: var(--iexp-card)')
+      const chat = document.createElement('div'); chat.dataset.slot = 'conversation.view'
+      chat.innerHTML = '<div data-chat-flow><p>First</p><p>Latest</p></div>'
+      const scrollport = document.createElement('div'); scrollport.dataset.conversationScroll = ''
+      scrollport.append(chat, foreign); document.body.append(scrollport)
+      const rules = [...document.querySelector<HTMLStyleElement>('[data-solar-experience-appearance]')!.sheet!.cssRules]
+      const layout = rules.find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.style.getPropertyValue('justify-content') === 'flex-end')!
+      expect(chat.matches(layout.selectorText)).toBe(true)
+      expect(foreign.matches(layout.selectorText)).toBe(false)
+      expect(layout.style.getPropertyPriority('display')).toBe('important')
+      expect([...chat.querySelectorAll('p')].map(p => p.textContent)).toEqual(['First', 'Latest'])
+      scrollport.replaceWith(foreign)
       store.update({ settings: { ...settings, takeover: false } })
       expect(css()).not.toContain('[data-slot="conversation.view"]')
       store.update({ settings })
