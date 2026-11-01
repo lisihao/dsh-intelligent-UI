@@ -16,6 +16,7 @@ await writeFile(join(root, 'tsconfig.build.json'), JSON.stringify({ extends: './
 execFileSync(join(root, 'node_modules/.bin/tsc'), ['-p', 'tsconfig.build.json'], { cwd: root, stdio: 'inherit' })
 await copyFile(join(root, 'assets/Recursive-OFL.txt'), join(root, 'lib/Recursive-OFL.txt'))
 await copyFile(join(root, 'assets/DM-Sans-OFL.txt'), join(root, 'lib/DM-Sans-OFL.txt'))
+await copyFile(join(root, 'assets/Uiverse-MIT.txt'), join(root, 'lib/Uiverse-MIT.txt'))
 await mkdir(join(root, 'lib/themes'), { recursive: true })
 await copyFile(join(root, 'src/themes/linen-example.dsh-theme.json'), join(root, 'lib/themes/linen.dsh-theme.json'))
 console.log('Built Intelligent Experience Platform with shared host React and fixed OpenUI dependencies.')

@@ -1,3 +1,4 @@
+import { ThemeButton, ThemeCard } from './theme-components.js'
 import { Component, Fragment, createElement as h, useCallback, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type ReactElement, type ReactNode, type ComponentProps } from 'react'
 import { Renderer, type LibraryExtension, type ActionEvent } from '@openuidev/react-lang'
 import { ThemeProvider, MarkDownRenderer, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, LineChart, BarChart, IconWrapper } from '@openuidev/react-ui'
@@ -105,7 +106,7 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
   const title = plan.title ?? (plan.kind === 'line' ? '时间趋势' : '数值比较')
   const notes = plan.notes ?? []
   const caveat = [notes.some(note => /近似|不是精确/.test(note)) && '含近似值', notes.some(note => /合计行/.test(note)) && '合计未参与比较', notes.some(note => /未纳入/.test(note)) && '含排除项', notes.some(note => /未使用列/.test(note)) && '仅展示选取列', notes.some(note => /未经审计|未审计|unaudited/i.test(note)) && '未经审计'].filter(Boolean).join(' · ')
-  return h('figure', { className: `iexp-chart-card${compact ? ' iexp-chart-comparison' : ''}`, 'aria-label': `自动生成的${title}`, 'data-auto-chart': plan.kind },
+  return h(ThemeCard, { as: 'figure', className: `iexp-chart-card${compact ? ' iexp-chart-comparison' : ''}`, 'aria-label': `自动生成的${title}`, 'data-auto-chart': plan.kind },
     h('figcaption', { className: 'iexp-card-head' }, h('span', { className: 'iexp-card-title' }, h('span', { 'aria-hidden': true, className: 'iexp-card-icon' }, h(IconWrapper, { name: plan.icon, size: 17 })), h('strong', null, title)), h('span', { className: 'iexp-card-basis' }, plan.basis || plan.series[0]?.unit || '原表数值')),
     h('div', { className: 'iexp-chart-plot' }, compact ? h(ComparisonPlot, { plan }) : plan.kind === 'line' ? h(LineChart, { ...chartProps, variant: 'linear', showDots: true, crosshair: true, highlight: true }) : h(BarChart, { ...chartProps, orientation: 'horizontal', internalLine: false, barRadius: 3, density: 'compact' })),
     h('div', { className: 'iexp-card-foot' }, caveat && h('p', { className: 'iexp-chart-caveat' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'info', size: 14 })), caveat),
@@ -215,7 +216,7 @@ function McpContent({ artifact, api }: { artifact: ExperienceArtifact, api?: Mcp
     if (!api || !instance) return Promise.reject(new Error('MCP App 未连接'))
     return api.mcpAction({ sessionId: artifact.source.sessionId, instanceId: instance.instanceId, commandId: crypto.randomUUID(), name, args })
   }, [api, instance, artifact.source.sessionId])
-  return h('div', null, !api ? h('p', { role: 'status' }, 'MCP App 服务不可用。请查看原始内容。') : !opened ? h('button', { type: 'button', style: styles.button, onClick: () => setOpened(true) }, '打开 MCP App') : null,
+  return h('div', null, !api ? h('p', { role: 'status' }, 'MCP App 服务不可用。请查看原始内容。') : !opened ? h(ThemeButton, { type: 'button', style: styles.button, onClick: () => setOpened(true) }, '打开 MCP App') : null,
     error && h('p', { role: 'alert' }, `MCP App 无法打开：${error}`),
     opened && !instance && !error && h('p', { role: 'status' }, '正在打开 MCP App…'),
     instance && h(McpAppView, { proxyUrl: instance.proxyUrl, html: instance.html, input: instance.input, result: instance.result, callTool }))

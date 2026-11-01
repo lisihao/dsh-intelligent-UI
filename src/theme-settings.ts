@@ -3,6 +3,7 @@ import type { ExperienceSettings } from './contracts.js'
 import { builtInThemes, MAX_THEME_BYTES, resolveTheme, themePackageSchema, type ThemePackage } from './theme-contracts.js'
 import { appearanceTokens } from './appearance.js'
 import { DEFAULT_THEME_SOURCE, DEFAULT_THEME_REPOSITORY, themeSourceSchema, themeSourceDirectory, type ThemeCatalog } from './theme-source.js'
+import { ThemeButton, ThemeInput, ThemeLoader, ThemeComponentPreview } from './theme-components.js'
 import linen from './themes/linen-example.dsh-theme.json' with { type: 'json' }
 
 const exampleTheme = themePackageSchema.parse(linen)
@@ -15,7 +16,8 @@ export function parseThemeFile(text: string): ThemePackage {
   const parsed = themePackageSchema.safeParse(value)
   if (!parsed.success) {
     const version = value && typeof value === 'object' && 'formatVersion' in value ? value.formatVersion : undefined
-    if (version !== 1) throw new Error('不支持这个主题包版本；当前支持 formatVersion 为 1 的主题包。')
+    if (version !== 1 && version !== 2) throw new Error('不支持这个主题包版本；当前支持 formatVersion 为 1 或 2 的主题包。')
+    if (version === 2) throw new Error('主题组件方案不受支持或字段无效，请更新智能体验插件并检查主题包。')
     throw new Error('主题包字段或数值不符合格式，请检查主题名称、配色和样式参数。')
   }
   return parsed.data
@@ -88,27 +90,28 @@ export function ThemeSettings({ settings, busy, onSelect, onInstall, onRemove, o
       h('div', null, h('strong', null, selected.name), h('span', { className: 'iexp-theme-meta' }, `${builtin ? '内置' : '已导入'} · ${selected.version}${selected.author ? ` · ${selected.author}` : ''}`)),
       h('span', { className: 'iexp-theme-palette' }, ...selected.tokens.paletteDark.slice(0, 4).map((color, index) => h('span', { key: index, style: { background: color } })))),
     selected.description && h('p', { className: 'iexp-setting-help' }, selected.description),
+    h(ThemeComponentPreview, { theme: selected }),
     h('div', { className: 'iexp-settings-group' },
       h('label', { htmlFor: `${id}-source` }, '主题来源'),
       h('form', { className: 'iexp-source-form', onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); void saveSource(sourceDraft) } },
-        h('input', { id: `${id}-source`, type: 'url', 'aria-label': '主题来源地址', 'aria-describedby': `${id}-source-help`, value: sourceDraft, maxLength: 2048, spellCheck: false, className: 'iexp-control iexp-source-input', onChange: (event: { currentTarget: HTMLInputElement }) => setSourceDraft(event.currentTarget.value) }),
-        h('div', { className: 'iexp-control-row' }, h('button', { type: 'submit', className: 'iexp-control', disabled: sourceDraft.trim() === source }, '保存来源'),
-          h('button', { type: 'button', className: 'iexp-control', disabled: source === DEFAULT_THEME_SOURCE, onClick: () => { void saveSource(DEFAULT_THEME_SOURCE) } }, '恢复默认来源'))),
+        h(ThemeInput, { id: `${id}-source`, type: 'url', 'aria-label': '主题来源地址', 'aria-describedby': `${id}-source-help`, value: sourceDraft, maxLength: 2048, spellCheck: false, className: 'iexp-control iexp-source-input', onChange: (event: { currentTarget: HTMLInputElement }) => setSourceDraft(event.currentTarget.value) }),
+        h('div', { className: 'iexp-control-row' }, h(ThemeButton, { type: 'submit', className: 'iexp-control', disabled: sourceDraft.trim() === source }, '保存来源'),
+          h(ThemeButton, { type: 'button', className: 'iexp-control', disabled: source === DEFAULT_THEME_SOURCE, onClick: () => { void saveSource(DEFAULT_THEME_SOURCE) } }, '恢复默认来源'))),
       h('p', { className: 'iexp-setting-help', id: `${id}-source-help` }, '默认连接独立 UI 项目的 theme/ 目录。也支持其他 GitHub 目录或含 index.json 的主题目录；保存后生效。'),
       h('div', { className: 'iexp-control-row' },
-        h('button', { type: 'button', className: 'iexp-control iexp-control-primary', disabled: loading, onClick: () => { void browse() } }, loading ? '正在读取主题…' : '浏览来源主题'),
+        h(ThemeButton, { type: 'button', className: 'iexp-control iexp-control-primary', disabled: loading, onClick: () => { void browse() } }, loading ? '正在读取主题…' : '浏览来源主题'),
         h('a', { className: 'iexp-setting-link', href: source === DEFAULT_THEME_SOURCE ? DEFAULT_THEME_REPOSITORY : source, target: '_blank', rel: 'noreferrer' }, '打开主题仓库')),
-      loading && h('p', { role: 'status', className: 'iexp-setting-feedback' }, '正在读取已保存来源的主题目录…'),
+      loading && h(ThemeLoader, { label: '正在读取已保存来源的主题目录…' }),
       catalog && (catalog.themes.length === 0 ? h('p', { role: 'status', className: 'iexp-setting-feedback' }, '这个来源还没有主题。可更换来源或导入本地主题包。') : h('ul', { 'aria-label': '来源主题', className: 'iexp-theme-catalog' }, ...catalog.themes.map(entry => h('li', { key: entry.id },
         h('span', null, entry.name, h('span', { className: 'iexp-setting-help' }, ` · ${entry.version}`)),
-        h('button', { type: 'button', className: 'iexp-control', onClick: () => { void run(() => onDownload(catalog.source, entry.id), `「${entry.name}」已就绪，可在上方选择启用。`) } }, '下载导入')))))),
+        h(ThemeButton, { type: 'button', className: 'iexp-control', onClick: () => { void run(() => onDownload(catalog.source, entry.id), `「${entry.name}」已就绪，可在上方选择启用。`) } }, '下载导入')))))),
     h('div', { className: 'iexp-settings-group' },
       h('span', null, '本地主题包'),
       h('div', { className: 'iexp-control-row' },
         h('label', { className: 'iexp-control iexp-file-control' }, '导入主题包', h('input', { type: 'file', accept: '.json,.dsh-theme.json,application/json', 'aria-label': '导入主题包', onChange: (event: { currentTarget: HTMLInputElement }) => { void importFile(event.currentTarget) } })),
         h('a', { className: 'iexp-setting-link', download: `${selected.id}.dsh-theme.json`, href: downloadHref(selected) }, '下载主题包'),
         h('a', { className: 'iexp-setting-link', download: `${exampleTheme.id}.dsh-theme.json`, href: downloadHref(exampleTheme) }, '下载示例主题'),
-        !builtin && h('button', { type: 'button', className: 'iexp-control', title: '移除正在使用的主题后恢复 Empryo', onClick: () => { void run(() => onRemove(selected.id), '主题已移除，已恢复 Empryo。') } }, '移除此主题')),
+        !builtin && h(ThemeButton, { type: 'button', className: 'iexp-control', title: '移除正在使用的主题后恢复 Empryo', onClick: () => { void run(() => onRemove(selected.id), '主题已移除，已恢复 Empryo。') } }, '移除此主题')),
       h('p', { className: 'iexp-setting-help' }, '导入 .dsh-theme.json 文件后，在上方选择即可启用。主题只改变已适配内容与页面的外观，保留原文、数据和操作。')),
     reading && h('p', { role: 'status', className: 'iexp-setting-feedback' }, '正在读取主题包…'),
     notice && h('p', { role: 'status', className: 'iexp-setting-feedback' }, notice),

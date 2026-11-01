@@ -1,0 +1,82 @@
+{
+  "formatVersion": 1,
+  "commit": "adbd2adde0a299a3956ea288fb444ec01891ca41",
+  "provenance": "Exact selected paths/hashes from the independently generated 3802-entry pinned Galaxy catalog; case-sensitive identifiers, not filesystem path lookups.",
+  "files": [
+    {
+      "file": "Buttons/Praashoo7_brown-quail-45.html",
+      "sha256": "3e92ec1add46e9b17a5fee684a60b7d4387ec5bfb0ba78c9020ca08fef9a6b98",
+      "framework": "css"
+    },
+    {
+      "file": "Inputs/lenfear23_helpless-swan-97.html",
+      "sha256": "8781fde5f5e9ba2107ac582db6c47fa87e874878e277c9a22d535ba87c8bd80f",
+      "framework": "css"
+    },
+    {
+      "file": "Toggle-switches/mobinkakei_great-skunk-8.html",
+      "sha256": "451467d595aa144d96596b4fec5dc8376a502b94d5fc3bcae3afb69393267683",
+      "framework": "css"
+    },
+    {
+      "file": "Cards/Sashank02_new-warthog-10.html",
+      "sha256": "a724042c02d8bd688abc684c1c7cbc52c18b7a7616f8154eaa7d3c9d197e766d",
+      "framework": "css"
+    },
+    {
+      "file": "loaders/angelo2004-mateus_neat-owl-38.html",
+      "sha256": "df36b1649fa458407976105e2369cdcc2f783737ac74e30b2440a4ee27594650",
+      "framework": "css"
+    },
+    {
+      "file": "Buttons/akshat-patel28_grumpy-lizard-55.html",
+      "sha256": "00eede23881893fb4dbc717bf3798cef5a3ba56f2ac75653feae8639c89ef76f",
+      "framework": "css"
+    },
+    {
+      "file": "Inputs/Cksunandh_purple-moose-3.html",
+      "sha256": "060786c8d87016fcffdb2c6085cd9ef1e9494bf0a67a0621bc07f130724b9e93",
+      "framework": "css"
+    },
+    {
+      "file": "Toggle-switches/vikramsinghnegi_evil-lion-15.html",
+      "sha256": "949bc23b36b5792d9ec65e68b2da1e823ed455cc6ebdd32b33a12b3e547b1f52",
+      "framework": "css"
+    },
+    {
+      "file": "Cards/SteveBloX_dangerous-warthog-85.html",
+      "sha256": "48a1c2e2cd51a9ab38c09c0d06cc85d19e9156b64480ebb2d9f44dd3533fed3e",
+      "framework": "css"
+    },
+    {
+      "file": "loaders/Mike11jr_ancient-mule-46.html",
+      "sha256": "376e75d41174fc662aa5704225b0ea9bae9350b1057b5d31a701368c04707b1b",
+      "framework": "css"
+    },
+    {
+      "file": "Buttons/rrr63_empty-cow-96.html",
+      "sha256": "a383f938bb31e5cf72e181fee8dda81c899a266472432b355f68645f7cf7e22b",
+      "framework": "css"
+    },
+    {
+      "file": "Inputs/anniekoop_nasty-impala-89.html",
+      "sha256": "04753f6d656a0155bf166c54f602e6c44e14113f04be8a6a644c07978d7bbd61",
+      "framework": "css"
+    },
+    {
+      "file": "Toggle-switches/ICe1BotMaker_quick-goat-3.html",
+      "sha256": "d9973f3a4d73b5dbc4158fd0215b646c4c4a9831a79c7b40678a8e87aa76067d",
+      "framework": "css"
+    },
+    {
+      "file": "Cards/0xnihilism_average-mole-62.html",
+      "sha256": "5043e8e3b44bd1e0945285eee7d7216d86b04ff1c73b5268dd26d07c2d0ca929",
+      "framework": "css"
+    },
+    {
+      "file": "loaders/G4b413l_cuddly-turkey-4.html",
+      "sha256": "9c498c031eb642e3b4130f96b3fea92929ab0ac4f38bf03c762eef170e0f596b",
+      "framework": "css"
+    }
+  ]
+}

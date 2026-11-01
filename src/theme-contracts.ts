@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import empryo from './themes/empryo.dsh-theme.json' with { type: 'json' }
 import plain from './themes/plain.dsh-theme.json' with { type: 'json' }
+import relief from './themes/uiverse-soft-relief.dsh-theme.json' with { type: 'json' }
+import glass from './themes/uiverse-clear-glass.dsh-theme.json' with { type: 'json' }
+import outline from './themes/uiverse-mechanical-outline.dsh-theme.json' with { type: 'json' }
 
 export const MAX_THEME_BYTES = 32 * 1024
 export const MAX_IMPORTED_THEMES = 32
@@ -10,7 +13,7 @@ export const appearanceSchema = z.strictObject({ backgroundColor: hex, transluce
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
 
 /** Portable data only: no free CSS, executable extensions or external assets. */
-export const themePackageSchema = z.strictObject({
+const themeV1Schema = z.strictObject({
   formatVersion: z.literal(1), kind: z.literal('dsh-experience-theme'),
   id: themeIdSchema, name: z.string().trim().min(1).max(80), version: z.string().max(64).regex(semver),
   author: z.string().trim().min(1).max(120).optional(), description: z.string().max(300).optional(),
@@ -26,11 +29,16 @@ export const themePackageSchema = z.strictObject({
     hoverLift: z.number().min(0).max(6), shadow: z.enum(['soft', 'none']), comparison: z.enum(['organic', 'standard']),
     composition: z.enum(['document', 'continuous']).optional(),
   }),
-}).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= MAX_THEME_BYTES, { message: 'THEME_PACKAGE_TOO_LARGE: Theme package exceeds 32 KiB.' })
+})
+export const componentSetSchema = z.enum(['soft-relief', 'clear-glass', 'mechanical-outline'])
+export type ComponentSet = z.infer<typeof componentSetSchema>
+const themeV2Schema = themeV1Schema.extend({ formatVersion: z.literal(2), componentSet: componentSetSchema })
+export const themePackageSchema = z.discriminatedUnion('formatVersion', [themeV1Schema, themeV2Schema]).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= MAX_THEME_BYTES, { message: 'THEME_PACKAGE_TOO_LARGE: Theme package exceeds 32 KiB.' })
 export type ThemePackage = z.infer<typeof themePackageSchema>
 
 export const builtInThemes: readonly ThemePackage[] = Object.freeze([
   themePackageSchema.parse(empryo), themePackageSchema.parse(plain),
+  themePackageSchema.parse(relief), themePackageSchema.parse(glass), themePackageSchema.parse(outline),
 ])
 
 export const themePreferenceSchema = z.strictObject({

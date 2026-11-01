@@ -1,0 +1,45 @@
+{
+  "formatVersion": 2,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar · Uiverse contributors",
+  "license": "MIT",
+  "id": "uiverse-clear-glass",
+  "name": "清透玻璃 · Clear glass",
+  "description": "源自 Uiverse 官方归档的真实组件适配；原始源码与作者见组件预览。仅替换智能体验自有控件，其他页面仅兼容外观。",
+  "appearance": {
+    "backgroundColor": "#202e3a",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#a4d9ec",
+    "accentLight": "#315d7d",
+    "success": "#3f9165",
+    "warning": "#b27d2b",
+    "error": "#be3a48",
+    "paletteDark": [
+      "#a7c7e7",
+      "#d4bd86",
+      "#d6a6b4",
+      "#9ac6b0"
+    ],
+    "paletteLight": [
+      "#315d7d",
+      "#85652f",
+      "#83465c",
+      "#346650"
+    ],
+    "panelRadius": 12,
+    "cardRadius": 16,
+    "nodeRadius": 8,
+    "controlRadius": 12,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.86,
+    "blur": 12,
+    "hoverLift": 0,
+    "shadow": "soft",
+    "comparison": "standard"
+  },
+  "componentSet": "clear-glass"
+}

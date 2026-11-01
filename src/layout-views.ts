@@ -1,3 +1,4 @@
+import { ThemeButton, ThemeInput, ThemeCard } from './theme-components.js'
 import { createElement as h, useState, type ReactElement } from 'react'
 import { IconWrapper } from '@openuidev/react-ui'
 import type { BoardItem, BoardPlan, HeadingIndexPlan, MasterDetailPlan } from './content-layout.js'
@@ -15,10 +16,10 @@ export function BoardView({ plan }: { plan: BoardPlan }): ReactElement {
   const matched = groups.reduce((sum, group) => sum + group.items.length, 0)
   const columns = groups.map((group, index) => h('section', { key: index, className: 'iexp-board-column', 'aria-label': `状态：${group.status}` },
     h('h4', null, group.status, h('span', null, String(group.items.length))),
-    ...group.items.map((item, row) => h('article', { key: row, className: 'iexp-task' }, item.title.length > 160 ? h('details', { className: 'iexp-task-long-title' }, h('summary', { 'aria-label': '展开或收起完整任务标题' }, h('h5', null, item.title))) : h('h5', null, item.title), item.description && h('p', null, item.description)))))
+    ...group.items.map((item, row) => h(ThemeCard, { as: 'article', key: row, className: 'iexp-task' }, item.title.length > 160 ? h('details', { className: 'iexp-task-long-title' }, h('summary', { 'aria-label': '展开或收起完整任务标题' }, h('h5', null, item.title))) : h('h5', null, item.title), item.description && h('p', null, item.description)))))
   return h('section', { className: 'iexp-board', 'data-content-layout': 'board', 'aria-label': '按原始状态分组的任务看板' },
     h('div', { className: 'iexp-layout-head' }, h('h3', null, h(IconWrapper, { name: 'columns-3', size: 18 }), '任务看板'), h('span', null, `${needle ? `${matched} / ` : ''}${count} 项任务 · 按原始状态分组`)),
-    h('input', { type: 'search', className: 'iexp-board-search', 'aria-label': '搜索任务', placeholder: '搜索任务、说明或状态', value: query, onChange: (event: { currentTarget: HTMLInputElement }) => setQuery(event.currentTarget.value) }),
+    h(ThemeInput, { type: 'search', className: 'iexp-board-search', 'aria-label': '搜索任务', placeholder: '搜索任务、说明或状态', value: query, onChange: (event: { currentTarget: HTMLInputElement }) => setQuery(event.currentTarget.value) }),
     !matched && h('p', { role: 'status', className: 'iexp-board-empty' }, '没有匹配的任务，清空搜索可查看全部记录。'),
     h('div', { className: 'iexp-board-columns', tabIndex: 0, role: 'region', 'aria-label': '任务分组，窄屏可横向滚动' }, ...columns),
     h(SourceRecords, { records: plan.records }))
@@ -35,7 +36,7 @@ export function MasterDetailView({ plan }: { plan: MasterDetailPlan }): ReactEle
   const [selected, setSelected] = useState(0)
   const index = Math.min(selected, plan.items.length - 1), item = plan.items[index]!
   return h('section', { className: 'iexp-master-detail', 'data-content-layout': 'master-detail', 'aria-label': '对象列表与详情' },
-    h('div', { className: 'iexp-object-list', 'aria-label': '选择对象' }, ...plan.items.map((entry, i) => h('button', { key: i, type: 'button', onClick: () => setSelected(i), 'aria-pressed': i === index }, h('strong', null, entry.title), h('span', null, entry.description)))),
+    h('div', { className: 'iexp-object-list', 'aria-label': '选择对象' }, ...plan.items.map((entry, i) => h(ThemeButton, { key: i, type: 'button', onClick: () => setSelected(i), 'aria-pressed': i === index }, h('strong', null, entry.title), h('span', null, entry.description)))),
     h('div', { className: 'iexp-object-detail', 'aria-live': 'polite' }, h('h3', null, item.title), h('p', { className: 'iexp-object-description' }, item.description), h(DetailFields, { item }), h(SourceRecords, { records: item.record })))
 }
 

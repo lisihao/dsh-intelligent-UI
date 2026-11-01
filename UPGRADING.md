@@ -62,3 +62,12 @@ Optional `tokens.composition: document | continuous` extends format-v1 themes wi
 ## Paper display font (2026-11-01)
 
 `assets/dm-sans-latin-wght-normal.woff2` is the unmodified Latin weight-variable normal font from `@fontsource-variable/dm-sans@5.3.0` (https://registry.npmjs.org/@fontsource-variable/dm-sans/-/dm-sans-5.3.0.tgz), OFL-1.1. Font SHA-256: `9fea608a947e67020c33cad9a6fe3d60c54119dfb8cff87768a8117a15ed7543`. Its complete license is `assets/DM-Sans-OFL.txt`, copied to `lib/DM-Sans-OFL.txt` on build. Esbuild embeds it through `style.ts`; Chinese uses the platform fallback. Verify the asset hash and license, rebuild, check actual font loading and inspect Chinese/Latin headings at shipping widths. No commercial font is copied.
+
+
+## Uiverse compiled component sets
+
+Source pin: `uiverse-io/galaxy@adbd2adde0a299a3956ea288fb444ec01891ca41` (MIT). `src/uiverse-sources.json` retains fifteen unmodified source files with hashes/author/source links; `assets/Uiverse-MIT.txt` is copied into the built package. The source is data; no upstream build or script runs. `docs/design/uiverse-component-themes.md` records every role and numbered adaptation. `src/theme-components.ts` / `src/theme-components-style.ts` own the compiled React18/native-semantic adapters, not foreign components.
+
+The v1/v2 discriminated reader leaves existing v1 packages unchanged. V2 requires a known `componentSet`; an older plugin must be updated before importing it and rejects it rather than pretending to render a new set. Preserve the previous settings backup before a downgrade. Download/import remains bounded, hash-checked JSON; no remote CSS/HTML enters the host. Source preview uses an opaque-origin scriptless sandbox with a network-denying CSP.
+
+Upgrade: inspect the new immutable source/license, refresh exact source hashes and the role matrix, review each adapter change, run component source/state/schema checks, then the stable complete gate. Inspect actual desktop/narrow/focus/checked/disabled/invalid/loading/reduced-motion and off/unload restoration. Original source previews and adapted controls are separate artifacts; faithful rendering of all Galaxy components is not claimed by these fifteen adapters.

@@ -1,3 +1,4 @@
+import { themeComponentsCss } from './theme-components-style.js'
 import { openuiCss } from './openui-css.js'
 import flowCss from '@xyflow/react/dist/style.css'
 import { flowViewCss } from './flow-view.css.js'
@@ -118,7 +119,7 @@ export function installExperienceStyles(): () => void {
 .dsh-experience .openui-markdown-renderer { overflow-wrap: anywhere; }
 .dsh-experience .openui-markdown-renderer-code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + layoutViewCss + surfaceCss + settingsCss + continuousCss
+` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
   document.head.append(element)
   return () => element.remove()
 }

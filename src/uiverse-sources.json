@@ -1,0 +1,148 @@
+{
+  "formatVersion": 1,
+  "repository": "https://github.com/uiverse-io/galaxy",
+  "commit": "adbd2adde0a299a3956ea288fb444ec01891ca41",
+  "sets": {
+    "soft-relief": [
+      {
+        "role": "button",
+        "file": "Buttons/Praashoo7_brown-quail-45.html",
+        "author": "Praashoo7",
+        "url": "https://uiverse.io/Praashoo7/brown-quail-45",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Buttons/Praashoo7_brown-quail-45.html",
+        "sha256": "3e92ec1add46e9b17a5fee684a60b7d4387ec5bfb0ba78c9020ca08fef9a6b98",
+        "html": "<button>\n  BUTTON\n</button>\n<style>\n/* From Uiverse.io by Praashoo7 - Tags: neumorphism, button, hover */\nbutton {\n  padding: 1em;\n  padding-left: 2em;\n  padding-right: 2em;\n  border-radius: 15px;\n  font-weight: bold;\n  transition: .4s ease-in-out;\n  box-shadow: inset 2px 5px 10px rgba(0,0,0,0.2);\n  letter-spacing: 0.2em;\n  border: none;\n}\n\nbutton:hover {\n  letter-spacing: 0.5em;\n  transform: translateY(-0.8em);\n  background: #171717;\n  color: white;\n}\n\nbutton:active {\n  letter-spacing: 0.4em;\n  transition: 0.1s all;\n  transform: translateY(-0.6em);\n  background: #171717;\n  color: white;\n}\n</style>\n"
+      },
+      {
+        "role": "input",
+        "file": "Inputs/lenfear23_helpless-swan-97.html",
+        "author": "lenfear23",
+        "url": "https://uiverse.io/lenfear23/helpless-swan-97",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Inputs/lenfear23_helpless-swan-97.html",
+        "sha256": "8781fde5f5e9ba2107ac582db6c47fa87e874878e277c9a22d535ba87c8bd80f",
+        "html": "<input placeholder=\"First name\" class=\"input\" name=\"firstName\" type=\"text\">\n<style>\n/* From Uiverse.io by lenfear23 - Tags: neumorphism, input */\n.input {\n  max-width: 200px;\n  min-height: 40px;\n  padding: 10px;\n  font-family: 'Courier New', Courier, monospace;\n  outline: none;\n  background: #e8e8e8;\n  box-shadow: 5px 5px 17px #c8c8c8,\n             -5px -5px 17px #ffffff;\n  border: none;\n  border-radius: 10px;\n  transition: all .5s;\n}\n\n.input:focus {\n  background: #e8e8e8;\n  box-shadow: inset 5px 5px 17px #c8c8c8,\n            inset -5px -5px 17px #ffffff;\n}\n</style>\n"
+      },
+      {
+        "role": "toggle",
+        "file": "Toggle-switches/mobinkakei_great-skunk-8.html",
+        "author": "mobinkakei",
+        "url": "https://uiverse.io/mobinkakei/great-skunk-8",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Toggle-switches/mobinkakei_great-skunk-8.html",
+        "sha256": "451467d595aa144d96596b4fec5dc8376a502b94d5fc3bcae3afb69393267683",
+        "html": "<label class=\"label\">\n    <div class=\"toggle\">\n        <input class=\"toggle-state\" type=\"checkbox\" name=\"check\" value=\"check\">\n        <div class=\"indicator\"></div>\n    </div>\n</label>\n<style>\n/* From Uiverse.io by mobinkakei - Tags: neumorphism, switch */\n.label {\n  display: inline-flex;\n  align-items: center;\n  cursor: pointer;\n  color: #394a56;\n}\n\n.label-text {\n  margin-left: 16px;\n}\n\n.toggle {\n  isolation: isolate;\n  position: relative;\n  height: 30px;\n  width: 60px;\n  border-radius: 15px;\n  overflow: hidden;\n  box-shadow: -8px -4px 8px 0px #ffffff,\n    8px 4px 12px 0px #d1d9e6,\n    4px 4px 4px 0px #d1d9e6 inset,\n    -4px -4px 4px 0px #ffffff inset;\n}\n\n.toggle-state {\n  display: none;\n}\n\n.indicator {\n  height: 100%;\n  width: 200%;\n  background: #ecf0f3;\n  border-radius: 15px;\n  transform: translate3d(-75%, 0, 0);\n  transition: transform 0.4s cubic-bezier(0.85, 0.05, 0.18, 1.35);\n  box-shadow: -8px -4px 8px 0px #ffffff,\n    8px 4px 12px 0px #d1d9e6;\n}\n\n.toggle-state:checked ~ .indicator {\n  transform: translate3d(25%, 0, 0);\n}\n</style>\n"
+      },
+      {
+        "role": "card",
+        "file": "Cards/Sashank02_new-warthog-10.html",
+        "author": "Sashank02",
+        "url": "https://uiverse.io/Sashank02/new-warthog-10",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Cards/Sashank02_new-warthog-10.html",
+        "sha256": "a724042c02d8bd688abc684c1c7cbc52c18b7a7616f8154eaa7d3c9d197e766d",
+        "html": "<div class=\"card\">\n  <div class=\"card-image\"></div>\n  <p class=\"card-title\">Card title</p>\n  <p class=\"card-body\">\n    Nullam ac tristique nulla, at convallis quam. Integer consectetur mi nec magna tristique, non lobortis.\n  </p>\n  <p class=\"footer\">Written by <span class=\"by-name\">John Doe</span> on <span class=\"date\">25/05/23</span></p>\n</div>\n<style>\n/* From Uiverse.io by Sashank02 - Tags: neumorphism, card, box-shadow */\n.card {\n  padding: 20px;\n  width: 330px;\n  min-height: 370px;\n  border-radius: 20px;\n  background: #e8e8e8;\n  box-shadow: 5px 5px 6px #dadada,\n               -5px -5px 6px #f6f6f6;\n  transition: 0.4s;\n}\n\n.card:hover {\n  translate: 0 -10px;\n}\n\n.card-title {\n  font-size: 18px;\n  font-weight: 600;\n  color: #2e54a7;\n  margin: 15px 0 0 10px;\n}\n\n.card-image {\n  min-height: 170px;\n  background-color: #c9c9c9;\n  border-radius: 15px;\n  box-shadow: inset 8px 8px 10px #c3c3c3,\n            inset -8px -8px 10px #cfcfcf;\n}\n\n.card-body {\n  margin: 13px 0 0 10px;\n  color: rgb(31, 31, 31);\n  font-size: 15px;\n}\n\n.footer {\n  float: right;\n  margin: 28px 0 0 18px;\n  font-size: 13px;\n  color: #636363;\n}\n\n.by-name {\n  font-weight: 700;\n}\n</style>\n"
+      },
+      {
+        "role": "loader",
+        "file": "loaders/angelo2004-mateus_neat-owl-38.html",
+        "author": "angelo2004-mateus",
+        "url": "https://uiverse.io/angelo2004-mateus/neat-owl-38",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/loaders/angelo2004-mateus_neat-owl-38.html",
+        "sha256": "df36b1649fa458407976105e2369cdcc2f783737ac74e30b2440a4ee27594650",
+        "html": "<div class=\"loader\">\n  <span></span>\n</div>\n<style>\n/* From Uiverse.io by angelo2004-mateus - Tags: material design, neumorphism, animation, loader, animated, gradients */\n.loader {\n  width: 10rem;\n  height: 10rem;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  position: relative;\n  border-radius: 50%;\n  box-shadow: -5px -5px 9px rgba(255,255,255,0.45), 5px 5px 9px rgba(94, 104, 121, 0.137);\n}\n\n.loader:before {\n  height: 4rem;\n  width: 4rem;\n  content: \"\";\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  transform: translate(-50%, -50%);\n  z-index: 10;\n  background: #ececec;\n  border-radius: 50%;\n  border: 2px solid #e2e1e1;\n  box-shadow: inset -5px -5px 9px rgba(255,255,255,0.45), 5px 5px 9px rgba(94,104,121,0.3);\n}\n\n.loader span {\n  width: 80%;\n  height: 80%;\n  border-radius: 50%;\n  background: linear-gradient(to bottom, rgb(89, 92, 252), rgb(226, 57, 241));\n  animation: rotate 1s infinite linear;\n}\n\n@keyframes rotate {\n\n  100% {\n    transform: rotate(360deg);\n  }\n}\n</style>\n"
+      }
+    ],
+    "clear-glass": [
+      {
+        "role": "button",
+        "file": "Buttons/akshat-patel28_grumpy-lizard-55.html",
+        "author": "akshat-patel28",
+        "url": "https://uiverse.io/akshat-patel28/grumpy-lizard-55",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Buttons/akshat-patel28_grumpy-lizard-55.html",
+        "sha256": "00eede23881893fb4dbc717bf3798cef5a3ba56f2ac75653feae8639c89ef76f",
+        "html": "<div>\n<button class=\"button\">\n  Hover Me!\n</button>\n<span class=\"backdrop\"></span>\n</div>\n<style>\n/* From Uiverse.io by akshat-patel28 - Tags: glassmorphism, button, square, css, hover effect, css effect, hover button */\n.button {\n  width: 90px;\n  height: 90px;\n  border-radius: 15px;\n  -webkit-backdrop-filter: blur(10px);\n  backdrop-filter: blur(10px);\n  background-color: rgba(255, 255, 255, 0.1);\n  border: 0px;\n  cursor: pointer;\n  outline: 0px;\n  padding: 0 2px;\n  font-weight: 600;\n  font-size: 18px;\n  color: white;\n  box-shadow: rgba(0, 0, 0, 0.3) 0px 19px 38px, rgba(0, 0, 0, 0.22) 0px 15px 12px;\n}\n\n.backdrop {\n  position: absolute;\n  width: 80px;\n  height: 80px;\n  background-color: rgb(36, 33, 228);\n  z-index: -1;\n  top: 50%;\n  left: 50%;\n  border-radius: 15px;\n  transform: translateX(-50%) translateY(-50%);\n  transition: all ease-in-out 0.5s;\n}\n\n.button:hover + .backdrop {\n  top: 48%;\n  box-shadow: rgba(0, 0, 0, 0.3) 0px 19px 38px, rgba(0, 0, 0, 0.22) 0px 15px 12px;\n  transform: rotate(15deg) translateX(-50%) translateY(-50%);\n}\n\n.button:active,.button:active +.backdrop {\n  box-shadow: none;\n}\n</style>\n"
+      },
+      {
+        "role": "input",
+        "file": "Inputs/Cksunandh_purple-moose-3.html",
+        "author": "Cksunandh",
+        "url": "https://uiverse.io/Cksunandh/purple-moose-3",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Inputs/Cksunandh_purple-moose-3.html",
+        "sha256": "060786c8d87016fcffdb2c6085cd9ef1e9494bf0a67a0621bc07f130724b9e93",
+        "html": "<input placeholder=\"Username\" class=\"input\" name=\"text\" type=\"text\" />\n\n<style>\n/* From Uiverse.io by Cksunandh  - Tags: input, rounded, dark, message, border, html, css */\n.input {\n  margin: 30px;\n  background: none;\n  border: 1px solid #353535;\n  outline: none;\n  max-width: 200px;\n  padding: 11px 23px;\n  font-size: 16px;\n  border-radius: 50px;\n  color: #979797;\n  box-shadow: rgb(136 136 136 / 17%) 0px -23px 25px 0px inset,\n    rgb(81 81 81 / 23%) 0px -36px 30px 0px inset,\n    rgba(0, 0, 0, 0.1) 0px -79px 40px 0px inset, rgba(0, 0, 0, 0.06) 0px 2px 1px,\n    rgba(0, 0, 0, 0.09) 0px 4px 2px, rgba(0, 0, 0, 0.09) 0px 8px 4px,\n    rgba(0, 0, 0, 0.09) 0px 16px 8px, rgba(0, 0, 0, 0.09) 0px 32px 16px;\n}\n\n</style>\n    "
+      },
+      {
+        "role": "toggle",
+        "file": "Toggle-switches/vikramsinghnegi_evil-lion-15.html",
+        "author": "vikramsinghnegi",
+        "url": "https://uiverse.io/vikramsinghnegi/evil-lion-15",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Toggle-switches/vikramsinghnegi_evil-lion-15.html",
+        "sha256": "949bc23b36b5792d9ec65e68b2da1e823ed455cc6ebdd32b33a12b3e547b1f52",
+        "html": "<div>\n  <div class=\"switch\">\n    <input type=\"checkbox\" id=\"switch1\" class=\"switch-check\" />\n    <label for=\"switch1\" class=\"switch-label\">\n      Check\n      <span></span>\n    </label>\n  </div>\n</div>\n\n<style>\n/* From Uiverse.io by vikramsinghnegi  - Tags: simple, neumorphism, glassmorphism */\n.switch {\n  background-color: rgba(0, 0, 0, 0.2);\n  border-radius: 50px;\n  border: 4px solid rgba(209, 92, 92, 0.1);\n  box-shadow: 8 0 6px rgba(44, 26, 26, 0.5) inset;\n  height: 42px;\n  margin: 8px;\n  position: relative;\n  width: 115px;\n  display: inline-block;\n}\n.switch-check {\n  position: absolute;\n  visibility: hidden;\n}\n.switch-label {\n  cursor: pointer;\n  display: block;\n  height: 42px;\n  text-indent: -9999px;\n  width: 115px;\n}\n.switch-label:before {\n  background: #fff;\n  background: -webkit-radial-gradient(\n    45%,\n    circle,\n    rgb(116, 78, 78) 0%,\n    rgb(255, 113, 113) 100%\n  );\n  border-radius: 10px;\n  border: 1px solid #742323;\n  box-shadow: 0 2px 5px rgba(255, 67, 48, 0.6),\n    0 0 5px rgba(255, 159, 109, 0.5) inset;\n  content: \"\";\n  display: block;\n  height: 10px;\n  left: -20%;\n  position: absolute;\n  top: 16px;\n  transition: all 0.2s;\n  width: 10px;\n  z-index: 12;\n}\n.switch-label:after {\n  background: #fff;\n  background: -moz-radial-gradient(\n    45%,\n    circle,\n    rgba(60, 60, 60, 0.6) 0%,\n    rgba(151, 151, 151, 0.6) 100%\n  );\n  border-radius: 10px;\n  border: 1px solid #111;\n  box-shadow: 0 2px 5px rgba(20, 20, 20, 0.5);\n  content: \"\";\n  display: block;\n  height: 10px;\n  right: -20%;\n  position: absolute;\n  top: 16px;\n  transition: all 0.2s;\n  width: 10px;\n  z-index: 12;\n}\n.switch-label span {\n  background: linear-gradient(#4f4f4f, #2b2b2b);\n  border-radius: 30px;\n  border: 1px solid #1a1a1a;\n  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5),\n    0 1px 1px rgba(255, 255, 255, 0.1) inset, 0 -2px 0 rgba(0, 0, 0, 0.2) inset;\n  display: block;\n  height: 38px;\n  left: 1px;\n  position: absolute;\n  top: 1px;\n  -webkit-transition: all 0.2s linear;\n  -moz-transition: all 0.2s linear;\n  -o-transition: all 0.2s linear;\n  transition: all 0.2s linear;\n  width: 53px;\n}\n.switch-label span:before {\n  background: #fff;\n  background: -webkit-linear-gradient(\n    left,\n    rgba(48, 48, 48, 0.4),\n    rgba(34, 34, 34, 0.4)\n  );\n  background: linear-gradient(\n    left,\n    rgba(48, 48, 48, 0.4),\n    rgba(34, 34, 34, 0.4)\n  );\n  border-radius: 30px 10px 10px 30px;\n  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2) inset;\n  content: \"\";\n  display: block;\n  height: 33px;\n  left: 2px;\n  position: absolute;\n  top: 2px;\n  width: 21px;\n}\n.switch-label span:after {\n  background: #fff;\n  background: -webkit-linear-gradient(\n    right,\n    rgba(48, 48, 48, 0.4),\n    rgba(34, 34, 34, 0.4)\n  );\n  border-radius: 10px 30px 30px 10px;\n  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2) inset;\n  content: \"\";\n  display: block;\n  height: 33px;\n  position: absolute;\n  right: 2px;\n  top: 2px;\n  width: 21px;\n}\n.switch-check:checked + .switch-label span {\n  left: 59px;\n}\n\n</style>\n    "
+      },
+      {
+        "role": "card",
+        "file": "Cards/SteveBloX_dangerous-warthog-85.html",
+        "author": "SteveBloX",
+        "url": "https://uiverse.io/SteveBloX/dangerous-warthog-85",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Cards/SteveBloX_dangerous-warthog-85.html",
+        "sha256": "48a1c2e2cd51a9ab38c09c0d06cc85d19e9156b64480ebb2d9f44dd3533fed3e",
+        "html": "<div class=\"card\">\n  Click me\n</div>\n<style>\n/* From Uiverse.io by SteveBloX - Tags: glassmorphism, card, hover, active */\n.card {\n  box-sizing: border-box;\n  width: 190px;\n  height: 254px;\n  background: rgba(217, 217, 217, 0.58);\n  border: 1px solid white;\n  box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);\n  backdrop-filter: blur(6px);\n  border-radius: 17px;\n  text-align: center;\n  cursor: pointer;\n  transition: all 0.5s;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  user-select: none;\n  font-weight: bolder;\n  color: black;\n}\n\n.card:hover {\n  border: 1px solid black;\n  transform: scale(1.05);\n}\n\n.card:active {\n  transform: scale(0.95) rotateZ(1.7deg);\n}\n</style>\n"
+      },
+      {
+        "role": "loader",
+        "file": "loaders/Mike11jr_ancient-mule-46.html",
+        "author": "Mike11jr",
+        "url": "https://uiverse.io/Mike11jr/ancient-mule-46",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/loaders/Mike11jr_ancient-mule-46.html",
+        "sha256": "376e75d41174fc662aa5704225b0ea9bae9350b1057b5d31a701368c04707b1b",
+        "html": "<div class=\"spinner\">\n<div class=\"dot1\"></div>\n<div class=\"dot2\"></div>\n<div class=\"dot3\"></div>\n</div>\n<style>\n/* From Uiverse.io by Mike11jr - Tags: loader */\n.spinner {\n flex-direction: row;\n display: flex;\n align-items: center;\n justify-content: center;\n}\n\n.dot1, .dot2, .dot3 {\n width: 15px;\n height: 15px;\n border: double;\n border-color: white;\n border-radius: 50%;\n margin: 10px;\n}\n\n.dot1 {\n animation: jump765 1.6s -0.32s linear infinite;\n background: #2495ff;\n}\n\n.dot2 {\n animation: jump765 1.6s -0.16s linear infinite;\n background: #2495ff;\n}\n\n.dot3 {\n animation: jump765 1.6s linear infinite;\n background: #2495ff;\n}\n\n@keyframes jump765 {\n 0%, 80%, 100% {\n  -webkit-transform: scale(0);\n  transform: scale(0);\n }\n\n 40% {\n  -webkit-transform: scale(2.0);\n  transform: scale(2.0);\n }\n}\n\n\n</style>\n"
+      }
+    ],
+    "mechanical-outline": [
+      {
+        "role": "button",
+        "file": "Buttons/rrr63_empty-cow-96.html",
+        "author": "rrr63",
+        "url": "https://uiverse.io/rrr63/empty-cow-96",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Buttons/rrr63_empty-cow-96.html",
+        "sha256": "a383f938bb31e5cf72e181fee8dda81c899a266472432b355f68645f7cf7e22b",
+        "html": "<button class=\"button\">\n  Hover me !\n</button>\n<style>\n/* From Uiverse.io by rrr63 - Tags: button, hover, outlined, bootsrap button */\n.button {\n  font-size: 17px;\n  padding: 15px 35px;\n  border-radius: 5px;\n  outline: 2px solid #2835ba;\n  outline-offset: 0px;\n  background: #2835ba;\n  border: 0;\n  font-weight: bolder;\n  color: white;\n  transition: all .1s ease-in-out;\n  cursor: pointer;\n}\n\n.button:hover {\n  outline-offset: 3px;\n  outline: 3px solid #2835ba;\n}\n</style>\n"
+      },
+      {
+        "role": "input",
+        "file": "Inputs/anniekoop_nasty-impala-89.html",
+        "author": "anniekoop",
+        "url": "https://uiverse.io/anniekoop/nasty-impala-89",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Inputs/anniekoop_nasty-impala-89.html",
+        "sha256": "04753f6d656a0155bf166c54f602e6c44e14113f04be8a6a644c07978d7bbd61",
+        "html": "<input placeholder=\"Email address\" class=\"input\" name=\"text\" type=\"email\" />\n\n<style>\n/* From Uiverse.io by anniekoop  - Tags: login, email, 3d, action, form, active, input, box-shadow */\n.input {\n  font-family: \"SF Pro\";\n  max-width: 190px;\n  padding: 0.875rem;\n  font-size: 1rem;\n  border: 1.5px solid #000;\n  border-radius: 0.5rem;\n  box-shadow: 2.5px 3px 0 #000;\n  outline: none;\n  transition: ease 0.25s;\n}\n\n.input:focus {\n  box-shadow: 5.5px 7px 0 black;\n}\n\n</style>\n    "
+      },
+      {
+        "role": "toggle",
+        "file": "Toggle-switches/ICe1BotMaker_quick-goat-3.html",
+        "author": "ICe1BotMaker",
+        "url": "https://uiverse.io/ICe1BotMaker/quick-goat-3",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Toggle-switches/ICe1BotMaker_quick-goat-3.html",
+        "sha256": "d9973f3a4d73b5dbc4158fd0215b646c4c4a9831a79c7b40678a8e87aa76067d",
+        "html": "<label for=\"check\">\n  <input checked=\"\" id=\"check\" type=\"checkbox\">\n  <div class=\"check-bg\">\n    <span class=\"check-span\"></span>\n  </div>\n</label>\n<style>\n/* From Uiverse.io by ICe1BotMaker - Tags: switch, modern, toggle switch */\nlabel[for=\"check\"] input {\n  display: none;\n}\n\nlabel[for=\"check\"] .check-bg {\n  width: 50px;\n  padding: 2.5px;\n  background: whitesmoke;\n  border-radius: 100px;\n  border: 1px solid rgb(228, 228, 228);\n  transition: background .1s, border .1s;\n}\n\nlabel[for=\"check\"] .check-span {\n  display: block;\n  background: rgb(219, 219, 219);\n  width: 25px;\n  height: 25px;\n  border-radius: 100%;\n  transition: background .1s, border .1s, margin-left .325s;\n}\n\nlabel[for=\"check\"] input:checked ~ .check-bg {\n  background: rgb(81, 107, 255);\n  border: 1px solid rgb(68, 90, 216);\n}\n\nlabel[for=\"check\"] input:checked ~ .check-bg .check-span {\n  background: white;\n  border: 0;\n  margin-left: 18px;\n}\n</style>\n"
+      },
+      {
+        "role": "card",
+        "file": "Cards/0xnihilism_average-mole-62.html",
+        "author": "0xnihilism",
+        "url": "https://uiverse.io/0xnihilism/average-mole-62",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/Cards/0xnihilism_average-mole-62.html",
+        "sha256": "5043e8e3b44bd1e0945285eee7d7216d86b04ff1c73b5268dd26d07c2d0ca929",
+        "html": "<div class=\"card\">\n  <div class=\"banner\">\n    <span class=\"banner-text\">SUBSCRIBE</span>\n    <span class=\"banner-text\">JOIN US</span>\n  </div>\n  <span class=\"card__title\">Nihilism</span>\n  <p class=\"card__subtitle\">Get fresh void to your inbox every week.</p>\n  <form class=\"card__form\">\n    <input placeholder=\"Your Email\" type=\"email\" required=\"\" />\n    <button class=\"sign-up\">Sign up</button>\n  </form>\n</div>\n\n<style>\n/* From Uiverse.io by 0xnihilism  - Tags: 3d, card, clean, Brutalism */\n.card {\n  width: 320px;\n  padding: 30px;\n  background: #fff;\n  border: 8px solid #000;\n  box-shadow: 15px 15px 0 #000;\n  transform: rotate(-2deg);\n  transition: all 0.3s ease;\n  position: relative;\n  overflow: hidden;\n}\n.card:active {\n  animation: shake 0.5s ease-in-out;\n}\n.card:hover {\n  transform: rotate(0deg) scale(1.02);\n  box-shadow: 20px 20px 0 #000;\n}\n.banner {\n  position: absolute;\n  top: 3px;\n  right: -95px;\n  background: #000;\n  color: #fff;\n  padding: 15px;\n  width: 350px;\n  text-align: center;\n  transform: rotate(45deg);\n  font-weight: bold;\n  font-size: 18px;\n  letter-spacing: 2px;\n  overflow: hidden;\n  transition: background 0.5s ease;\n}\n.banner-text {\n  display: inline-block;\n  transition: opacity 0.5s ease, transform 0.5s ease;\n  width: 100%;\n  position: absolute;\n  left: 13%;\n  top: 50%;\n  transform: translateY(-50%);\n}\n.banner:hover .banner-text:first-child {\n  opacity: 0;\n  transform: translateY(-100%);\n}\n.banner:hover .banner-text:last-child {\n  opacity: 1;\n  transform: translateY(-40%);\n}\n.banner-text:last-child {\n  opacity: 0;\n  transform: translateY(60%);\n}\n.banner:hover {\n  background: red;\n}\n.card__title {\n  font-size: 24px;\n  font-weight: 700;\n  color: #000;\n  text-transform: uppercase;\n  margin-bottom: 10px;\n  display: block;\n  border-bottom: 2px solid #000;\n  width: 50%; /* or any other percentage or pixel value */\n}\n.card__subtitle {\n  font-size: 16px;\n  line-height: 1.4;\n  color: #333;\n  margin-bottom: 20px;\n  padding-bottom: 10px;\n}\n.card__form {\n  display: flex;\n  flex-direction: column;\n  gap: 20px;\n}\n.card__form input {\n  padding: 12px;\n  border: 4px solid #000;\n  font-size: 16px;\n  font-family: \"Proxima Nova\", sans-serif;\n  transition: all 0.3s ease;\n  background-color: #fff;\n}\n.card__form input:focus {\n  outline: none;\n  transform: scale(1.05);\n}\n.sign-up {\n  border: 4px solid #000;\n  background: #000;\n  color: #fff;\n  padding: 12px;\n  font-size: 18px;\n  font-weight: bold;\n  text-transform: uppercase;\n  cursor: pointer;\n  transition: all 0.3s ease;\n}\n.sign-up:hover {\n  background: #fff;\n  color: #000;\n  transform: translateY(-5px);\n  box-shadow: 0 5px 0 #000;\n}\n.sign-up:active {\n  animation: shake 0.5s ease-in-out;\n  transform: translateY(0);\n  box-shadow: none;\n}\n@keyframes shake {\n  0% {\n    transform: translateX(0);\n  }\n  25% {\n    transform: translateX(-5px);\n  }\n  50% {\n    transform: translateX(5px);\n  }\n  75% {\n    transform: translateX(-5px);\n  }\n  100% {\n    transform: translateX(0);\n  }\n}\n\n</style>\n    "
+      },
+      {
+        "role": "loader",
+        "file": "loaders/G4b413l_cuddly-turkey-4.html",
+        "author": "G4b413l",
+        "url": "https://uiverse.io/G4b413l/cuddly-turkey-4",
+        "sourceUrl": "https://github.com/uiverse-io/galaxy/blob/adbd2adde0a299a3956ea288fb444ec01891ca41/loaders/G4b413l_cuddly-turkey-4.html",
+        "sha256": "9c498c031eb642e3b4130f96b3fea92929ab0ac4f38bf03c762eef170e0f596b",
+        "html": "<div class=\"loader\"></div>\n<style>\n/* From Uiverse.io by G4b413l - Tags: loader, after */\n.loader {\n  position: relative;\n  width: 300px;\n  height: 3px;\n  background: linear-gradient(to right, transparent, #28AE60, transparent);\n  overflow: hidden;\n}\n\n.loader::after {\n  content: '';\n  position: absolute;\n  translate: -200px 0;\n  width: 150px;\n  height: 100%;\n  background: linear-gradient(to right, transparent, #212121, transparent);\n  animation: slide 1s infinite;\n}\n\n@keyframes slide {\n  100% {\n    translate: 300px 0;\n  }\n}\n</style>\n"
+      }
+    ]
+  }
+}

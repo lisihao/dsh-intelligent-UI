@@ -3250,3 +3250,8 @@ in the Eclipse Public License, v. 2.0 are satisfied: GNU General Public License 
 ## DM Sans, Fontsource variable 5.3.0
 
 The unmodified Latin normal weight-variable WOFF2 is bundled for the optional Paper composition. Source: https://registry.npmjs.org/@fontsource-variable/dm-sans/-/dm-sans-5.3.0.tgz (OFL-1.1). The complete font license is included in `lib/DM-Sans-OFL.txt`. Matter, Paper branding and demonstration assets are not distributed.
+
+
+## Uiverse Galaxy component sources
+
+Copyright (c) 2023 Uiverse.io. MIT. Source: https://github.com/uiverse-io/galaxy/tree/adbd2adde0a299a3956ea288fb444ec01891ca41 . Fifteen unchanged HTML/CSS components with individual author/page attribution are retained in `src/uiverse-sources.json` and compiled in the UI bundle for source inspection. Full MIT text is in `assets/Uiverse-MIT.txt` and built `lib/Uiverse-MIT.txt`. The UI-owned adapters and deviations are listed in `docs/design/uiverse-component-themes.md`. This does not redistribute Uiverse branding or paid UI kits.

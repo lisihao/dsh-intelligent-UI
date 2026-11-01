@@ -42,6 +42,27 @@
       "version": "1.0.0",
       "file": "paper-flow.dsh-theme.json",
       "sha256": "efa26a0a0e86e0f51f290d6dd814bb669d6b14bd724a7ee41de9d70dd232118f"
+    },
+    {
+      "id": "uiverse-soft-relief",
+      "name": "柔和浮雕 · Soft relief",
+      "version": "1.0.0",
+      "file": "uiverse-soft-relief.dsh-theme.json",
+      "sha256": "94536a10e96859d1299c95a373bd6bcd873a22bb196426e9549ad4dc39fd5f84"
+    },
+    {
+      "id": "uiverse-clear-glass",
+      "name": "清透玻璃 · Clear glass",
+      "version": "1.0.0",
+      "file": "uiverse-clear-glass.dsh-theme.json",
+      "sha256": "94276d4df08fc907b48c42d97ef25e52cacbd977759dd937f8436d7c5ed871dc"
+    },
+    {
+      "id": "uiverse-mechanical-outline",
+      "name": "机械描边 · Mechanical outline",
+      "version": "1.0.0",
+      "file": "uiverse-mechanical-outline.dsh-theme.json",
+      "sha256": "e70cfd4f2ef06c25d0a1bcc81b7348486bcb84edc904e4230dbb6e48229becc8"
     }
   ]
 }

@@ -114,7 +114,7 @@ describe('downloadable themes through real settings persistence', () => {
       await upload(s.element, '{broken')
       expect(s.element.querySelector('[role=alert]')?.textContent).toContain('不是有效的 JSON')
       expect(await readFile(join(s.dir, 'settings.json'), 'utf8')).toBe(before)
-      await upload(s.element, JSON.stringify({ ...importedTheme(), formatVersion: 2 }))
+      await upload(s.element, JSON.stringify({ ...importedTheme(), formatVersion: 3 }))
       expect(s.element.querySelector('[role=alert]')?.textContent).toContain('不支持这个主题包版本')
       expect(await readFile(join(s.dir, 'settings.json'), 'utf8')).toBe(before)
     } finally { await s.cleanup(); canvas.mockRestore(); vi.unstubAllGlobals() }

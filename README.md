@@ -9,6 +9,7 @@ The historical package name **`@lisihao/dsh-solar-intelligent-experience-platfor
 - Optional takeover of standard assistant/tool output and generated content. One conversation-level **显示** control switches visual, original and comparison views.
 - Local content analysis chooses suitable icons, charts, table columns, relationship graphs, read-only task boards and list/detail layouts. It preserves original text, cells, units, qualifications and complete tables. Unsupported content remains readable; no model call is required to choose a layout.
 - Unmodified OpenUI components supply Markdown, charts, forms and streaming UI. React Flow and ELK supply source-relationship diagrams with animated edges, pause, pan/zoom and keyboard selection. Edges describe source relationships and do not assert that work executed.
+- Three source-backed Uiverse component themes add compiled buttons, inputs, toggles, cards and loaders to UI-owned surfaces, with interactive states and complete original-source comparison. Foreign pages retain token/CSS compatibility only. See [mapping and compatibility](docs/design/uiverse-component-themes.md).
 - Selectable data-only themes control color, typography, roundness, density, depth and transparency. Compatible independent conversation pages receive reversible appearance rules while retaining their original components and behavior.
 - An optional, explicitly configured MCP Apps adapter preserves UI metadata and uses an isolated bridge. Existing MCP connections are untouched. This connector remains off by default.
 
