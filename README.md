@@ -89,3 +89,5 @@ Ordinary AI reply cards lift slightly on mouse hover; reduced-motion preferences
 Settings writes cross the client wire as validated JSON snapshots. The native save follow-up (including a save after restart) is recorded in [acceptance](docs/acceptance/2026-10-31-opacity-save.md).
 
 Short conversations align above the composer while takeover is enabled. Native chronological order, history navigation and tail-follow ownership remain unchanged; disabling takeover removes this layout adapter. See the [acceptance record](docs/acceptance/2026-10-31-chat-bottom.md) for checks and limits.
+
+Compatible benchmark catalog/run cards and Mnemon status, storage and memory cards share the theme’s hover lift, accent border and elevated shadow. Nested cards lift at the hovered level only; reduced motion removes displacement. See the [card acceptance record](docs/acceptance/2026-10-31-page-card-hover.md).

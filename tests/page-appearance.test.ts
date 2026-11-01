@@ -6,6 +6,7 @@ import { initialSettings } from '../src/contracts.js'
 import { resolveTheme } from '../src/theme-contracts.js'
 import linen from '../src/themes/linen-example.dsh-theme.json' with { type: 'json' }
 import { themePackageSchema } from '../src/theme-contracts.js'
+import { pageAppearanceCss } from '../src/page-appearance.js'
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 
 describe('reversible appearance of original conversation pages', () => {
@@ -84,6 +85,23 @@ describe('reversible appearance of original conversation pages', () => {
         expect(element.textContent).not.toContain('--dsw-alias-state-warn-label:')
       }
     } finally { dispose() }
+  })
+
+  it('covers catalog and memory cards without treating labels, tables or graph positioning as cards', () => {
+    const sheet = document.createElement('style'); sheet.textContent = pageAppearanceCss(true); document.head.append(sheet)
+    const host = document.createElement('div'); host.dataset.slot = 'conversation.view'
+    host.innerHTML = `<main id="bench-top-panel"><article id="catalog" style="background:var(--dsw-alias-settings-card-fill)"><button>Configure</button></article><div id="table" style="background:var(--dsw-alias-settings-card-fill)"></div></main>
+      <div data-dsh-plugin="dsh-mnemon" data-dsh-part="mnemon-view"><section class="abc_storageDomains"><div class="abc_storageAreaGrid"><article id="storage" data-status="empty"></article></div></section><article id="entry" class="abc_runtimeEntry abc_active"></article><span id="label" class="abc_runtimeEntryMeta"></span><div id="graph" class="abc_graphNode" style="transform:translate(20px,30px)"></div></div>
+      <div id="foreign" class="abc_runtimeEntry"></div>`
+    document.body.append(host)
+    try {
+      const styles = [...sheet.sheet!.cssRules].filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
+      const selector = styles.find(rule => rule.style.getPropertyValue('box-shadow') === 'var(--iexp-shadow-node)')!.selectorText
+      for (const id of ['catalog','storage','entry']) expect(host.querySelector('#'+id)!.matches(selector), id).toBe(true)
+      for (const id of ['table','label','graph','foreign']) expect(host.querySelector('#'+id)!.matches(selector), id).toBe(false)
+      expect(host.querySelector<HTMLElement>('#graph')!.style.transform).toBe('translate(20px,30px)')
+      expect(pageAppearanceCss(false)).toBe('')
+    } finally { sheet.remove(); host.remove() }
   })
 
 })

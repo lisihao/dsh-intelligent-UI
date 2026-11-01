@@ -7,6 +7,17 @@
 export function pageAppearanceCss(enabled: boolean): string {
   if (!enabled) return ''
   const outlet = '[data-slot="conversation.view"]'
+  // The installed Mnemon 0.5.32 uses CSS modules. Match a complete semantic
+  // class token, never its generated hash or similarly named descendants.
+  const mnemonCardNames = ['healthStrip', 'providerHealth', 'storageDomains', 'runtimeSummaryCard', 'runtimeEntry', 'bodyCard', 'readSourceCard', 'insightCard']
+  const moduleClass = (name: string) => `:is([class$="_${name}"],[class*="_${name} "])`
+  const mnemonCardClasses = [
+    ...mnemonCardNames.map(moduleClass),
+    `${moduleClass('storageAreaGrid')} > article[data-status]`,
+    `${moduleClass('documentSummary')} > article`,
+  ]
+  const mnemon = '[data-dsh-plugin="dsh-mnemon"][data-dsh-part="mnemon-view"]'
+  const benchmarkCard = ':is(section,article)[style*="--dsw-alias-settings-card-fill"]'
   const cards = [
     `${outlet} .wsp-card`,
     `${outlet} .wsp-card-panel`,
@@ -21,10 +32,18 @@ export function pageAppearanceCss(enabled: boolean): string {
     `${outlet} .solar-workflow-studio__run-list`,
     `${outlet} .solar-workflow-studio__draft-summary`,
     `${outlet} .solar-workflow-studio__empty-state`,
-    // Bench's published cardStyle is an inline, labeled section. Match its
-    // neutral token rather than a translated title or its position in the DOM.
+    // Keep the original statistics sections and cover the newer catalog/run
+    // cards, which use the same public surface token without aria-label.
     `${outlet} section[aria-label][style*="--dsw-alias-settings-card-fill"]`,
+    `${outlet} #bench-top-panel ${benchmarkCard}`,
+    ...mnemonCardClasses.map(selector => `${outlet} ${mnemon} ${selector}`),
   ].join(',\n')
+  const cardDescendants = [
+    '.wsp-card', '.wsp-card-panel', '.wsp-empty-card', '.lc-card', '.lc-fa-card', '.lc-gate-card', '.lc-ov-heat-card',
+    '.solar-workflow-studio__panel', '.solar-workflow-studio__inspector', '.solar-workflow-studio__flow-picker', '.solar-workflow-studio__run-list', '.solar-workflow-studio__draft-summary', '.solar-workflow-studio__empty-state',
+    benchmarkCard, ...mnemonCardClasses,
+  ].join(',')
+  const hoveredCards = cards.split(',\n').map(selector => `${selector}:hover:not(:has(:is(${cardDescendants}):hover))`).join(',\n')
   return `
 /* The native shared scrollport already follows the tail. Give its active Chat
    outlet the unused vertical space so short exchanges sit by the composer.
@@ -137,14 +156,17 @@ ${outlet} section[aria-label][style*="--dsw-alias-settings-card-fill"] {
 ${cards} {
   border-radius: var(--iexp-page-card-radius) !important;
   box-shadow: var(--iexp-shadow-node);
-  transition: background-color 180ms ease-out,box-shadow 180ms ease-out,transform 180ms ease-out;
+  transition: background-color 180ms ease-out,border-color 180ms ease-out,box-shadow 180ms ease-out,transform 180ms ease-out;
 }
 @media (hover:hover) and (pointer:fine) {
-${cards.split(',\n').map(selector => `${selector}:hover`).join(',\n')} {
+${hoveredCards} {
   background-color: var(--iexp-card-hover) !important;
+  border-color: var(--iexp-accent) !important;
   box-shadow: var(--iexp-shadow-focus);
-  transform: translateY(var(--iexp-hover-lift));
 }
+}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+${hoveredCards} { transform: translateY(var(--iexp-hover-lift)); }
 }
 @media (prefers-reduced-motion:reduce) {
 ${cards} { transition: none; transform: none; }
