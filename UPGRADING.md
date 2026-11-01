@@ -71,3 +71,12 @@ Source pin: `uiverse-io/galaxy@adbd2adde0a299a3956ea288fb444ec01891ca41` (MIT). 
 The v1/v2 discriminated reader leaves existing v1 packages unchanged. V2 requires a known `componentSet`; an older plugin must be updated before importing it and rejects it rather than pretending to render a new set. Preserve the previous settings backup before a downgrade. Download/import remains bounded, hash-checked JSON; no remote CSS/HTML enters the host. Source preview uses an opaque-origin scriptless sandbox with a network-denying CSP.
 
 Upgrade: inspect the new immutable source/license, refresh exact source hashes and the role matrix, review each adapter change, run component source/state/schema checks, then the stable complete gate. Inspect actual desktop/narrow/focus/checked/disabled/invalid/loading/reduced-motion and off/unload restoration. Original source previews and adapted controls are separate artifacts; faithful rendering of all Galaxy components is not claimed by these fifteen adapters.
+
+
+## Integrated Uiverse component intelligence (2026-11-01)
+
+The main plugin now owns the silent component skill, solar_ui_search/source/preview tools, immutable resources and compiled live adapters. Source provenance is pinned by resources/uiverse/upstream.json; host and CLI boundaries live in src/uiverse/, and runtime semantic roles in src/uiverse-render.ts. The published skill service is a shared peer. No browser library entry or other-plugin source edit is added.
+
+An earlier standalone @lisihao/dsh-solar-uiverse-components must be disabled/removed through the normal plugin manager before updating to this integrated build. Occupied tool/skill/service names fail with UIVERSE_REGISTRATION_CONFLICT rather than replacing another owner. No existing theme, session or user library data is migrated or deleted.
+
+Live rendering uses only the fifteen source-backed compiled adaptations and current theme tokens. The 3,802 archive files remain searchable development resources and isolated previews, not executable host templates. Revalidate raw-byte hashes, adapter provenance, source-preserving role selection, published skill discovery, activation collision and disposal on upgrades. tools/plugin-test.mjs is the single built-package integration gate.

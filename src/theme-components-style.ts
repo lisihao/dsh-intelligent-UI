@@ -27,6 +27,21 @@ export const themeComponentsCss = `
 .dsh-experience [data-iexp-component-set=mechanical-outline].iexp-uiv-input { background:var(--iexp-bg); border:2px solid var(--iexp-text); border-radius:var(--iexp-control-radius); box-shadow:3px 3px 0 var(--iexp-text); }
 .dsh-experience [data-iexp-component-set=mechanical-outline].iexp-uiv-input:focus { box-shadow:5px 6px 0 var(--iexp-text); }
 .dsh-experience [data-iexp-component-set=mechanical-outline].iexp-uiv-card { background:var(--iexp-bg); border:3px solid var(--iexp-text); border-radius:var(--iexp-card-radius); box-shadow:6px 6px 0 var(--iexp-text); }
+/* Automatic v1 content keeps Empryo/Paper tokens instead of imposing a Uiverse palette. */
+.dsh-experience [data-iexp-component-mode=contextual].iexp-uiv-card { color:var(--iexp-text); background:var(--iexp-card); border:1px solid var(--iexp-line); border-radius:var(--iexp-card-radius); }
+.dsh-experience [data-iexp-component-mode=contextual][data-iexp-component-set=soft-relief].iexp-uiv-card { box-shadow:3px 3px 10px color-mix(in srgb,var(--iexp-shadow) 60%,transparent),-3px -3px 10px color-mix(in srgb,var(--iexp-text) 5%,transparent); }
+.dsh-experience [data-iexp-component-mode=contextual][data-iexp-component-set=clear-glass].iexp-uiv-card { backdrop-filter:var(--iexp-backdrop); -webkit-backdrop-filter:var(--iexp-backdrop); box-shadow:var(--iexp-shadow-card); }
+.dsh-experience [data-iexp-component-mode=contextual].iexp-uiv-button { border:1px solid var(--iexp-line); border-radius:var(--iexp-small-control-radius); background:var(--iexp-card); color:var(--iexp-text); font-weight:inherit; box-shadow:inset 2px 3px 8px color-mix(in srgb,var(--iexp-shadow) 40%,transparent); }
+.dsh-experience [data-iexp-component-mode=contextual].iexp-uiv-button:hover:not(:disabled) { background:var(--iexp-card-hover); color:var(--iexp-text); border-color:var(--iexp-accent); }
+.dsh-experience [data-iexp-component-mode=contextual].iexp-uiv-input { border:1px solid var(--iexp-line); border-radius:var(--iexp-field-radius); background:var(--iexp-soft); color:var(--iexp-text); box-shadow:2px 3px 8px color-mix(in srgb,var(--iexp-shadow) 35%,transparent),-2px -2px 8px color-mix(in srgb,var(--iexp-text) 4%,transparent); }
+.dsh-experience [data-iexp-component-mode=contextual].iexp-uiv-input:focus { box-shadow:inset 2px 3px 8px color-mix(in srgb,var(--iexp-shadow) 35%,transparent); }
+.dsh-experience [data-iexp-component-mode=contextual].iexp-flow-node { border-radius:var(--iexp-node-radius); }
+.dsh-experience .iexp-object-list .iexp-uiv-button { display:block; text-align:start; }
+.dsh-experience .iexp-object-list .iexp-uiv-button-label { display:block; }
+.dsh-experience .iexp-object-list .iexp-uiv-button[aria-pressed=true] { border-color:var(--iexp-accent); }
+.dsh-experience .iexp-flow-node.iexp-uiv-card { border-width:1px; border-radius:var(--iexp-node-radius); }
+/* Paper owns its scene frame; avoid introducing a second chart box inside that frame. */
+.dsh-experience .iexp-story-stage .iexp-chart-card.iexp-uiv-card[data-iexp-component-mode=contextual] { border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
 /* Validation must win over every compiled field border, including the outline variant. */
 .dsh-experience .iexp-uiv-input[data-iexp-component-set][aria-invalid=true] { border:2px solid var(--iexp-error); }
 /* mobinkakei / vikramsinghnegi / ICe1BotMaker: native focusable inputs with owned track/thumb. */

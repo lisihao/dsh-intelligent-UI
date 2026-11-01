@@ -1,40 +1,46 @@
 import { createElement as h, forwardRef, useId, useState, useSyncExternalStore, type ButtonHTMLAttributes, type InputHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
 import { themePreferences } from './theme-runtime.js'
 import type { ComponentSet, ThemePackage } from './theme-contracts.js'
+import { resolveUiverseAdapter, uiverseAdapterAttributes, UiverseRenderScope, useUiverseRenderRole, type UiverseElementRole, type UiverseRenderRole } from './uiverse-render.js'
 import sources from './uiverse-sources.json' with { type: 'json' }
 
 export function themeComponentSet(theme: ThemePackage): ComponentSet | 'native' { return theme.formatVersion === 2 ? theme.componentSet : 'native' }
 export function useComponentSet(): ComponentSet | 'native' { return themeComponentSet(useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)) }
-type Choice = { componentSet?: ComponentSet | 'native' }
+type Choice = { componentSet?: ComponentSet | 'native'; renderRole?: UiverseRenderRole }
+function useAdapter(element: UiverseElementRole, explicit?: ComponentSet | 'native', renderRole?: UiverseRenderRole) {
+  const scope = useUiverseRenderRole(), theme = useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)
+  return resolveUiverseAdapter(theme, element, renderRole ?? scope, explicit)
+}
 function classes(base: string, existing?: string) { return [existing, base].filter(Boolean).join(' ') }
 
 /** Compiled adapters only. Theme JSON cannot supply markup or CSS. Native props/events stay owned by the caller. */
-export const ThemeButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & Choice>(function ThemeButton({ componentSet, className, children, ...props }, ref) {
-  const selected = useComponentSet(), set = componentSet ?? selected
-  if (set === 'native') return h('button', { ...props, className, ref }, children)
-  return h('button', { ...props, ref, className: classes('iexp-uiv-button', className), 'data-iexp-component-set': set },
+export const ThemeButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & Choice>(function ThemeButton({ componentSet, renderRole, className, children, ...props }, ref) {
+  const choice = useAdapter('button', componentSet, renderRole), set = choice?.componentSet
+  if (!choice) return h('button', { ...props, className, ref }, children)
+  return h('button', { ...props, ref, className: classes('iexp-uiv-button', className), ...uiverseAdapterAttributes(choice) },
     set === 'clear-glass' && h('span', { className: 'iexp-uiv-backplate', 'aria-hidden': true }), h('span', { className: 'iexp-uiv-button-label' }, children))
 })
-export const ThemeInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & Choice>(function ThemeInput({ componentSet, className, ...props }, ref) {
-  const selected = useComponentSet(), set = componentSet ?? selected
-  return h('input', { ...props, ref, className: set === 'native' ? className : classes('iexp-uiv-input', className), ...(set === 'native' ? {} : { 'data-iexp-component-set': set }) })
+export const ThemeInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & Choice>(function ThemeInput({ componentSet, renderRole, className, ...props }, ref) {
+  const choice = useAdapter('input', componentSet, renderRole)
+  return h('input', { ...props, ref, className: choice ? classes('iexp-uiv-input', className) : className, ...uiverseAdapterAttributes(choice) })
 })
 /** Kept inside the caller's label. Transparent full-area input remains focusable, clickable and a native checkbox. */
-export function ThemeToggle({ componentSet, className, ...props }: InputHTMLAttributes<HTMLInputElement> & Choice) {
-  const selected = useComponentSet(), set = componentSet ?? selected
-  if (set === 'native') return h('input', { ...props, type: 'checkbox', className })
-  return h('span', { className: 'iexp-uiv-toggle', 'data-iexp-component-set': set },
+export function ThemeToggle({ componentSet, renderRole, className, ...props }: InputHTMLAttributes<HTMLInputElement> & Choice) {
+  const choice = useAdapter('toggle', componentSet, renderRole)
+  if (!choice) return h('input', { ...props, type: 'checkbox', className })
+  return h('span', { className: 'iexp-uiv-toggle', ...uiverseAdapterAttributes(choice) },
     h('input', { ...props, className, type: 'checkbox' }),
     h('span', { className: 'iexp-uiv-track', 'aria-hidden': true }, h('span', { className: 'iexp-uiv-thumb' })))
 }
-export function ThemeCard({ componentSet, as = 'div', className, children, ...props }: HTMLAttributes<HTMLElement> & Choice & { as?: 'div' | 'article' | 'figure' } & { [key: `data-${string}`]: string | number | boolean | undefined }) {
-  const selected = useComponentSet(), set = componentSet ?? selected
-  return h(as, { ...props, className: set === 'native' ? className : classes('iexp-uiv-card', className), ...(set === 'native' ? {} : { 'data-iexp-component-set': set }) }, children)
+export function ThemeCard({ componentSet, renderRole, as = 'div', className, children, ...props }: HTMLAttributes<HTMLElement> & Choice & { as?: 'div' | 'article' | 'figure' } & { [key: `data-${string}`]: string | number | boolean | undefined }) {
+  const choice = useAdapter('card', componentSet, renderRole)
+  const card = h(as, { ...props, className: choice ? classes('iexp-uiv-card', className) : className, ...uiverseAdapterAttributes(choice) }, children)
+  return renderRole ? h(UiverseRenderScope, { role: renderRole }, card) : card
 }
-export function ThemeLoader({ componentSet, label = '正在加载…' }: Choice & { label?: string }) {
-  const selected = useComponentSet(), set = componentSet ?? selected
+export function ThemeLoader({ componentSet, renderRole, label = '正在加载…' }: Choice & { label?: string }) {
+  const choice = useAdapter('loader', componentSet, renderRole)
   return h('span', { className: 'iexp-uiv-loading', role: 'status' },
-    h('span', { className: 'iexp-uiv-loader', 'data-iexp-component-set': set, 'aria-hidden': true },
+    h('span', { className: 'iexp-uiv-loader', ...uiverseAdapterAttributes(choice), 'aria-hidden': true },
       ...[0, 1, 2].map(index => h('span', { key: index }))), h('span', null, label))
 }
 

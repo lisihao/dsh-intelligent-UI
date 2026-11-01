@@ -1,8 +1,9 @@
 import { build } from 'esbuild'
 import { execFileSync } from 'node:child_process'
-import { mkdir, rm, writeFile, copyFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile, copyFile, readFile, cp } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 import { openuiCssPlugin } from './build-css.mjs'
 const root = fileURLToPath(new URL('.', import.meta.url))
 await rm(join(root, 'lib'), { recursive: true, force: true })
@@ -19,4 +20,10 @@ await copyFile(join(root, 'assets/DM-Sans-OFL.txt'), join(root, 'lib/DM-Sans-OFL
 await copyFile(join(root, 'assets/Uiverse-MIT.txt'), join(root, 'lib/Uiverse-MIT.txt'))
 await mkdir(join(root, 'lib/themes'), { recursive: true })
 await copyFile(join(root, 'src/themes/linen-example.dsh-theme.json'), join(root, 'lib/themes/linen.dsh-theme.json'))
-console.log('Built Intelligent Experience Platform with shared host React and fixed OpenUI dependencies.')
+await mkdir(join(root, 'lib/uiverse/assets'), { recursive: true })
+for (const name of ['catalog.json', 'LICENSE']) await copyFile(join(root, 'resources/uiverse', name), join(root, 'lib/uiverse/assets', name))
+for (const name of ['sources.json', 'tailwind.css']) await writeFile(join(root, 'lib/uiverse/assets', name), gunzipSync(await readFile(join(root, 'resources/uiverse', name + '.gz'))))
+await cp(join(root, 'skills/uiverse-components'), join(root, 'lib/uiverse/assets/uiverse-components'), { recursive: true })
+await build({ absWorkingDir: root, entryPoints: ['src/uiverse/cli.ts'], outfile: 'lib/uiverse/cli.mjs', bundle: true, platform: 'node', target: 'node22', format: 'esm' })
+await build({ absWorkingDir: root, entryPoints: ['src/uiverse/catalog.ts'], outfile: 'lib/uiverse/catalog.js', bundle: true, platform: 'node', target: 'node22', format: 'esm' })
+console.log('Built intelligent UI with integrated silent Uiverse tools and source-backed rendering.')

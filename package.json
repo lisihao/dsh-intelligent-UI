@@ -1,7 +1,7 @@
 {
   "name": "@lisihao/dsh-solar-intelligent-experience-platform",
   "version": "0.1.0-dev.0",
-  "description": "Optional unified DSH output presentation using OpenUI and MCP Apps.",
+  "description": "Source-preserving intelligent UI with built-in offline Uiverse components and automatic semantic rendering.",
   "license": "MIT",
   "author": {
     "email": "haogege1977@gmail.com"
@@ -31,7 +31,9 @@
     "README.md",
     "UPGRADING.md",
     "LICENSE",
-    "THIRD_PARTY_NOTICES.md"
+    "THIRD_PARTY_NOTICES.md",
+    "skills",
+    "tools/uiverse/install-skills.mjs"
   ],
   "engines": {
     "node": "^22.19 || >=24",
@@ -81,7 +83,8 @@
     "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "3.18.5",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "@deepseek-ai/dsh-skill": "0.2.1-rc.2"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.0.0",
@@ -98,7 +101,8 @@
     "remark-parse": "11.0.0",
     "unified": "11.0.5",
     "zod": "4.6.7",
-    "zustand": "4.5.7"
+    "zustand": "4.5.7",
+    "parse5": "7.3.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
@@ -130,7 +134,9 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "@deepseek-ai/dsh-skill": "0.2.1-rc.2",
+    "tailwindcss": "3.4.17"
   },
   "packageManager": "pnpm@10.31.0",
   "repository": {

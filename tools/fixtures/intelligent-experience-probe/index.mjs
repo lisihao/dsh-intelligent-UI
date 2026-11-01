@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import { MessageId } from '@deepseek-ai/dsh-llm/brand'
 
@@ -23,6 +23,7 @@ class ProbeAdapter extends LlmAdapter {
       return
     }
     const available = options.tools?.map((tool) => tool.name) ?? []
+    for (const name of ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview']) assert(available.includes(name), `actual Agent request lacks ${name}`)
     assert(available.includes('solar_present'), 'the actual Agent request did not receive solar_present')
     const call = { type: 'tool-call', id: randomUUID(), name: 'solar_present', arguments: JSON.stringify({
       protocol: 'content', payload: { fixture: true, source: 'AgentLoop' }, label: 'Keyless DSH fixture output',
@@ -83,6 +84,32 @@ async function probe(ctx) {
     assert(typeof tools.get('solar_present')?.execute === 'function', 'solar_present has no registered execution handler')
     checks.toolRegistered = true
 
+    const componentNames = ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview']
+    const skills = ctx.get('skills')
+    const componentService = ctx.get('solarUiComponents')
+    assert(componentService, 'integrated component service absent')
+    const summary = (await skills.list()).find(item => item.name === 'uiverse-components')
+    assert(summary?.invocation.modelInvocable === true && summary.invocation.userInvocable === false, 'integrated silent skill policy is wrong')
+    const executeComponent = async (name, arguments_) => {
+      const result = await tools.execute({ callId: randomUUID(), name, arguments: arguments_, signal: new AbortController().signal })
+      assert(!result.isError, `${name} failed: ${JSON.stringify(result)}`)
+      return JSON.parse(result.content.find(block => block.type === 'text').text)
+    }
+    const loadedSkill = await tools.execute({ callId: randomUUID(), name: 'skill', arguments: { name: 'uiverse-components' }, signal: new AbortController().signal })
+    assert(!loadedSkill.isError && JSON.stringify(loadedSkill.content).includes('solar_ui_search'), 'official loader cannot read integrated component skill')
+    const page = await executeComponent('solar_ui_search', { category: 'Buttons', limit: 1 })
+    assert(page.archiveTotal === 3802 && page.categories.length === 11, 'integrated archive inventory differs')
+    const source = await executeComponent('solar_ui_source', { id: page.items[0].id })
+    assert(createHash('sha256').update(source.source).digest('hex') === page.items[0].sha256, 'integrated source fingerprint differs')
+    const preview = await executeComponent('solar_ui_preview', { id: page.items[0].id, reducedMotion: true })
+    assert(preview.document.includes('sandbox=""') && preview.html.includes("default-src 'none'"), 'integrated isolated preview unavailable')
+    const componentStatus = await componentService.toolStatus()
+    assert(componentStatus.tools.every(row => row.registered), 'integrated registry observation differs')
+    checks.integratedUiverse = true
+    checks.componentSkillLoaded = true
+    checks.componentSourcePreserved = true
+    checks.componentPreview = true
+
     const llm = ctx.get('llm')
     const agents = ctx.get('agents')
     assert(typeof llm?.registerAdapter === 'function' && typeof agents?.create === 'function', 'keyless AgentLoop fixture services are unavailable')
@@ -137,6 +164,9 @@ async function probe(ctx) {
     await [...runtimes[0].fibers][0].dispose()
     assert(ctx.get(serviceName) === undefined, 'solarExperience service remained after dispose')
     assert(tools.get('solar_present') === undefined, 'solar_present remained registered after dispose')
+    for (const name of componentNames) assert(tools.get(name) === undefined, `${name} survived main-plugin disposal`)
+    assert(!await skills.get('uiverse-components') && !ctx.get('solarUiComponents'), 'component skill/service survived main-plugin disposal')
+    assert(tools.get('skill'), 'main-plugin disposal removed official skill loader')
     checks.disposed = true
   } catch (error) { caught = errorValue(error) }
 

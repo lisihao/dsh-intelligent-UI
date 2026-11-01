@@ -4,6 +4,10 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-tools'
+import type {} from '@deepseek-ai/dsh-skill'
+import { fileURLToPath } from 'node:url'
+import { installUiverse } from './uiverse/host.js'
+import { UI_TOOL_NAMES } from './uiverse/remote.js'
 import { join } from 'node:path'
 import { z as schema } from 'zod'
 import { ExperienceStore } from './store.js'
@@ -11,11 +15,12 @@ import { ExperienceControl } from './control.js'
 import { artifactSchema } from './contracts.js'
 import { McpHost } from './mcp-host.js'
 
+export { UiComponentsControl } from './uiverse/host.js'
 export { ExperienceControl } from './control.js'
 export { ExperienceRegistry } from './registry.js'
 export * from './contracts.js'
 export const name = 'intelligent-experience-platform'
-export const inject = ['tools', 'sessions']
+export const inject = ['tools', 'sessions', 'skills']
 export interface Config { maxArtifactBytes: number; maxArtifactsPerSession: number; mcpEndpoint: string }
 export const Config: z<Config> = z.object({
   maxArtifactBytes: z.number().min(1024).max(16 * 1024 * 1024).default(1024 * 1024),
@@ -56,6 +61,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     const endpoint = new URL(config.mcpEndpoint)
     if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('EXPERIENCE_MCP_ENDPOINT_INVALID: MCP 应用地址必须为不含凭据的 HTTP(S) 地址。')
   }
+  await installUiverse(ctx, fileURLToPath(new URL('./uiverse/assets/', import.meta.url)))
   const root = join(resolveDshHome(), 'solar', 'intelligent-experience-platform')
   const store = new ExperienceStore(root, config)
   let current = await store.settings()
@@ -75,7 +81,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     pending.add(task)
   }
   ctx.on('tools/result', (exec, result) => {
-    if (!exec.agent || exec.name === 'solar_present') return
+    if (!exec.agent || exec.name === 'solar_present' || (UI_TOOL_NAMES as readonly string[]).includes(exec.name)) return
     const meta = result.meta && typeof result.meta === 'object' && !Array.isArray(result.meta) ? result.meta : undefined
     const app = meta?.type === 'solar-experience' && meta.protocol === 'mcp-app'
     capture(() => store.publish({

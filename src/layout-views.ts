@@ -1,3 +1,4 @@
+import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeInput, ThemeCard } from './theme-components.js'
 import { createElement as h, useState, type ReactElement } from 'react'
 import { IconWrapper } from '@openuidev/react-ui'
@@ -17,12 +18,12 @@ export function BoardView({ plan }: { plan: BoardPlan }): ReactElement {
   const columns = groups.map((group, index) => h('section', { key: index, className: 'iexp-board-column', 'aria-label': `状态：${group.status}` },
     h('h4', null, group.status, h('span', null, String(group.items.length))),
     ...group.items.map((item, row) => h(ThemeCard, { as: 'article', key: row, className: 'iexp-task' }, item.title.length > 160 ? h('details', { className: 'iexp-task-long-title' }, h('summary', { 'aria-label': '展开或收起完整任务标题' }, h('h5', null, item.title))) : h('h5', null, item.title), item.description && h('p', null, item.description)))))
-  return h('section', { className: 'iexp-board', 'data-content-layout': 'board', 'aria-label': '按原始状态分组的任务看板' },
+  return h(UiverseRenderScope, { role: 'task' }, h('section', { className: 'iexp-board', 'data-content-layout': 'board', 'aria-label': '按原始状态分组的任务看板' },
     h('div', { className: 'iexp-layout-head' }, h('h3', null, h(IconWrapper, { name: 'columns-3', size: 18 }), '任务看板'), h('span', null, `${needle ? `${matched} / ` : ''}${count} 项任务 · 按原始状态分组`)),
     h(ThemeInput, { type: 'search', className: 'iexp-board-search', 'aria-label': '搜索任务', placeholder: '搜索任务、说明或状态', value: query, onChange: (event: { currentTarget: HTMLInputElement }) => setQuery(event.currentTarget.value) }),
     !matched && h('p', { role: 'status', className: 'iexp-board-empty' }, '没有匹配的任务，清空搜索可查看全部记录。'),
     h('div', { className: 'iexp-board-columns', tabIndex: 0, role: 'region', 'aria-label': '任务分组，窄屏可横向滚动' }, ...columns),
-    h(SourceRecords, { records: plan.records }))
+    h(SourceRecords, { records: plan.records })))
 }
 
 const internalKey = /^(?:id|uuid|sessionId|providerId|internalId)$/i
@@ -35,9 +36,9 @@ function DetailFields({ item }: { item: BoardItem }): ReactElement {
 export function MasterDetailView({ plan }: { plan: MasterDetailPlan }): ReactElement {
   const [selected, setSelected] = useState(0)
   const index = Math.min(selected, plan.items.length - 1), item = plan.items[index]!
-  return h('section', { className: 'iexp-master-detail', 'data-content-layout': 'master-detail', 'aria-label': '对象列表与详情' },
+  return h(UiverseRenderScope, { role: 'record' }, h('section', { className: 'iexp-master-detail', 'data-content-layout': 'master-detail', 'aria-label': '对象列表与详情' },
     h('div', { className: 'iexp-object-list', 'aria-label': '选择对象' }, ...plan.items.map((entry, i) => h(ThemeButton, { key: i, type: 'button', onClick: () => setSelected(i), 'aria-pressed': i === index }, h('strong', null, entry.title), h('span', null, entry.description)))),
-    h('div', { className: 'iexp-object-detail', 'aria-live': 'polite' }, h('h3', null, item.title), h('p', { className: 'iexp-object-description' }, item.description), h(DetailFields, { item }), h(SourceRecords, { records: item.record })))
+    h(ThemeCard, { className: 'iexp-object-detail', 'aria-live': 'polite' }, h('h3', null, item.title), h('p', { className: 'iexp-object-description' }, item.description), h(DetailFields, { item }), h(SourceRecords, { records: item.record }))))
 }
 
 export function headingAnchor(prefix: string, start: number): string { return `${prefix}-heading-${start}` }
@@ -94,7 +95,7 @@ export const layoutViewCss = `
 .dsh-experience .iexp-object-list button[aria-pressed=true] { background: var(--iexp-card); box-shadow: inset 1px 0 var(--iexp-accent); }
 .dsh-experience .iexp-object-list button:hover { background: var(--iexp-soft); }
 .dsh-experience .iexp-object-list strong { display: block; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
-.dsh-experience .iexp-object-list span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; color: var(--iexp-muted); font-size: 12px; line-height: 1.7; }
+.dsh-experience .iexp-object-list button > span:not(.iexp-uiv-button-label):not([aria-hidden=true]), .dsh-experience .iexp-object-list .iexp-uiv-button-label > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; color: var(--iexp-muted); font-size: 12px; line-height: 1.7; }
 .dsh-experience .iexp-object-detail { min-width: 0; }
 .dsh-experience .iexp-object-detail h3 { font-size: 20px; font-weight: 400; margin: 0; overflow-wrap: anywhere; }
 .dsh-experience .iexp-object-description { margin-top: 10px; max-width: 74ch; white-space: pre-wrap; overflow-wrap: anywhere; }

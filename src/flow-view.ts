@@ -1,3 +1,5 @@
+import { ThemeButton, ThemeCard, ThemeLoader } from './theme-components.js'
+import { UiverseRenderScope } from './uiverse-render.js'
 import { createElement as h, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { BaseEdge, Controls, Handle, MarkerType, Position, ReactFlow, getViewportForBounds, type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
 import { FLOW_NODE_WIDTH as NODE_WIDTH, layoutFlow, roundedRoute, sourceFanGeometry, type FlowGeometry, type FlowViewPlan } from './flow-layout.js'
@@ -53,7 +55,7 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
 }
 
 function ReadingFlowNode({ data }: NodeProps<ReadingNode>): ReactElement {
-  return h('div', { className: 'iexp-flow-node', 'data-related': data.related || undefined },
+  return h(ThemeCard, { renderRole: 'flow', className: 'iexp-flow-node', 'data-related': data.related || undefined },
     h(Handle, { type: 'target', position: Position.Left, isConnectable: false }),
     h('strong', null, data.label), data.description !== undefined && h('p', null, data.description),
     h(Handle, { type: 'source', position: Position.Right, isConnectable: false }))
@@ -134,17 +136,17 @@ export function FlowView({ plan, motion: allowMotion = true, onNodeActivate }: {
   }
   if (!geometry) return h('figure', { className: 'iexp-flow', 'data-motion': 'still' },
     h('figcaption', { className: 'iexp-flow-caption' }, h('strong', null, plan.title ?? '原文关系')),
-    h('p', { role: layout.key === layoutKey && layout.error ? 'alert' : 'status' }, layout.key === layoutKey && layout.error ? `关系图布局失败（${layout.error}）。以下保留原始节点与连线。` : '正在排列原文节点与连线…'),
+    layout.key === layoutKey && layout.error ? h('p', { role: 'alert' }, `关系图布局失败（${layout.error}）。以下保留原始节点与连线。`) : h(ThemeLoader, { renderRole: 'flow', label: '正在排列原文节点与连线…' }),
     h('ul', null, ...plan.nodes.map(node => h('li', { key: node.id }, h('strong', null, node.label), node.description !== undefined && h('span', null, `：${node.description}`)))),
     h('ul', null, ...plan.edges.map((edge, i) => h('li', { key: i }, `${labels.get(edge.source)} → ${labels.get(edge.target)}${edge.label === undefined ? '' : `：${edge.label}`}`))),
     (plan.sourceText !== undefined || plan.reason !== undefined) && h('details', { className: 'iexp-flow-source' }, h('summary', null, '查看原文与关系说明'), plan.reason !== undefined && h('p', null, plan.reason), plan.sourceText !== undefined && h('pre', null, plan.sourceText)))
-  return h('figure', { className: 'iexp-flow', 'data-motion': allowMotion && motion && !reduced ? 'flowing' : 'still' },
+  return h(UiverseRenderScope, { role: 'flow' }, h('figure', { className: 'iexp-flow', 'data-motion': allowMotion && motion && !reduced ? 'flowing' : 'still' },
     h('figcaption', { className: 'iexp-flow-caption' }, h('strong', null, plan.title ?? '原文关系'),
       h('span', null, '连线表示原文顺序或关系，不表示执行状态。')),
     h('div', { className: 'iexp-flow-toolbar' },
-      allowMotion && h('button', { type: 'button', onClick: () => setMotion(value => !value), disabled: reduced, 'aria-pressed': !motion || reduced }, reduced ? '系统已关闭动效' : motion ? '暂停连线动效' : '恢复连线动效'),
-      h('button', { type: 'button', onClick: returnToStart }, '回到起点'),
-      selected && h('button', { type: 'button', onClick: () => setSelectedId(undefined) }, '取消节点选择')),
+      allowMotion && h(ThemeButton, { type: 'button', onClick: () => setMotion(value => !value), disabled: reduced, 'aria-pressed': !motion || reduced }, reduced ? '系统已关闭动效' : motion ? '暂停连线动效' : '恢复连线动效'),
+      h(ThemeButton, { type: 'button', onClick: returnToStart }, '回到起点'),
+      selected && h(ThemeButton, { type: 'button', onClick: () => setSelectedId(undefined) }, '取消节点选择')),
     h('div', { className: 'iexp-flow-viewport', ref: viewport,
       onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => { keyboardActivation.current = event.key === 'Enter' || event.key === ' ' },
       onPointerDownCapture: () => { keyboardActivation.current = false },
@@ -180,5 +182,5 @@ export function FlowView({ plan, motion: allowMotion = true, onNodeActivate }: {
       h('ul', null, ...plan.edges.filter(edge => edge.source === selectedId || edge.target === selectedId).map((edge, i) => h('li', { key: i }, `${labels.get(edge.source)} → ${labels.get(edge.target)}${edge.label === undefined ? '' : `：${edge.label}`}`))),
       !plan.edges.some(edge => edge.source === selectedId || edge.target === selectedId) && h('p', null, '原文未提供该节点的连线。')),
     (plan.sourceText !== undefined || plan.reason !== undefined) && h('details', { className: 'iexp-flow-source' }, h('summary', null, '查看原文与关系说明'),
-      plan.reason !== undefined && h('p', null, plan.reason), plan.sourceText !== undefined && h('pre', null, plan.sourceText)))
+      plan.reason !== undefined && h('p', null, plan.reason), plan.sourceText !== undefined && h('pre', null, plan.sourceText))))
 }

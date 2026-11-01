@@ -1,0 +1,4 @@
+interface:
+  display_name: "Uiverse components"
+  short_description: "Find, inspect and preview real Uiverse UI components"
+  default_prompt: "Use $uiverse-components to find and preview a real component that fits my current project."

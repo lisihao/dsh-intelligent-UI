@@ -1,15 +1,42 @@
 # dsh-intelligent-UI
 
-An independent open-source presentation plugin for the official DeepSeek Harness Desktop. This repository builds and tests on its own; it does not require the DeepSeek Solar Harness repository or modify the official application.
+An independent open-source presentation plugin for the official DeepSeek Harness Desktop, with an offline UI component library built in. This repository contains the intelligent renderer, silent frontend-development tools and themes in one project and one installable plugin. It builds and tests on its own and uses the official application unchanged.
 
 The historical package name **`@lisihao/dsh-solar-intelligent-experience-platform`**, RPC/tool names and data directory are retained for installed-user compatibility. They do not introduce a dependency on another project. The current development version is not a claim of npm or plugin-market publication.
+
+**内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
+
+## Built-in component intelligence
+
+Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.
+
+| Path | Automatic behavior | Source evidence |
+| --- | --- | --- |
+| Intelligent content rendering | Local analyzers recognize charts, tasks, records and flows; semantic roles select approved card/control adapters while keeping the chosen theme. Empryo and other v1 themes participate automatically; explicit component themes keep their selection. | Fifteen compiled source-backed adaptations carry original component IDs and SHA-256 on rendered elements. |
+| Frontend development | The model discovers the bundled skill for frontend/UI tasks, searches suitable components and reads their complete source before adapting new controls. Existing suitable project controls take precedence. | All **3,802 components in 11 categories** from the official Galaxy snapshot, with authors, license, original source and hashes. |
+| Source-preserving review | Original/comparison views retain text, tables, units and qualifications; isolated previews can be inspected within the authorized task. | The same pinned archive backs lookup and live adapter provenance. |
+
+The archive pin is [`adbd2adde0a299a3956ea288fb444ec01891ca41`](https://github.com/uiverse-io/galaxy/tree/adbd2adde0a299a3956ea288fb444ec01891ca41), dated 2024-09-02. It is a complete snapshot of that archive, rather than a current full-site mirror. Live presentation uses the curated compiled adaptations; the full archive supplies development lookup and sandbox previews. OpenUI still owns its chart marks and native form internals.
+
+The component capability is silent: it adds no library sidebar, page or popup. Its model-invocable skill loads on demand through DSH's official skill mechanism. `solar_ui_search`, `solar_ui_source` and `solar_ui_preview` are included in this plugin; a separately installed component plugin is unnecessary. Normal tool history and the owner's permissions remain in effect. Actual model selection varies with the model and task; runtime semantic layout selection itself requires no extra model call.
+
+```mermaid
+flowchart LR
+  A[Original content] --> B[Local semantic analysis]
+  B --> C[Component role selection]
+  C --> D[Theme-consistent live adapters]
+  U[Pinned Uiverse archive] --> C
+  U --> S[Silent frontend skill and tools]
+```
+
+See [component architecture and boundaries](docs/design/integrated-uiverse.md), [runtime selector](src/uiverse-render.ts), [silent Host capability](src/uiverse/host.ts) and [source manifest](resources/uiverse/upstream.json).
 
 ## What it does
 
 - Optional takeover of standard assistant/tool output and generated content. One conversation-level **显示** control switches visual, original and comparison views.
 - Local content analysis chooses suitable icons, charts, table columns, relationship graphs, read-only task boards and list/detail layouts. It preserves original text, cells, units, qualifications and complete tables. Unsupported content remains readable; no model call is required to choose a layout.
 - Unmodified OpenUI components supply Markdown, charts, forms and streaming UI. React Flow and ELK supply source-relationship diagrams with animated edges, pause, pan/zoom and keyboard selection. Edges describe source relationships and do not assert that work executed.
-- Three source-backed Uiverse component themes add compiled buttons, inputs, toggles, cards and loaders to UI-owned surfaces, with interactive states and complete original-source comparison. Foreign pages retain token/CSS compatibility only. See [mapping and compatibility](docs/design/uiverse-component-themes.md).
+- Content-aware Uiverse adapters are selected automatically for supported UI-owned semantic surfaces. Three explicit component themes also supply coordinated buttons, inputs, toggles, cards and loaders, with original-source comparison. Foreign pages retain token/CSS appearance compatibility and their original behavior. See [mapping and compatibility](docs/design/uiverse-component-themes.md).
 - Selectable data-only themes control color, typography, roundness, density, depth and transparency. Compatible independent conversation pages receive reversible appearance rules while retaining their original components and behavior.
 - An optional, explicitly configured MCP Apps adapter preserves UI metadata and uses an isolated bridge. Existing MCP connections are untouched. This connector remains off by default.
 
@@ -26,6 +53,10 @@ dsh plugin --profile desktop add --ignore-scripts /absolute/path/to/plugin.tgz
 Use the official application's bundled `dsh` CLI for an installed Desktop profile. Lifecycle scripts are disabled; the published renderer does not need its optional install telemetry.
 
 In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
+
+### Updating an older two-package installation
+
+Earlier previews installed `@lisihao/dsh-solar-uiverse-components` separately. This feature now belongs to the intelligent UI package. Disable/remove that former companion through the normal plugin manager before installing the integrated build, then restart normally. Its occupied tool/skill/service names produce a clear `UIVERSE_REGISTRATION_CONFLICT` rather than replacing another owner. Preserve existing settings, sessions and other plugins. The current development package is supplied as a built archive; npm and marketplace publication are separate release steps.
 
 ### Themes and content appearance
 
@@ -73,7 +104,9 @@ Open `http://127.0.0.1:4173/tools/browser-experience/`. This preview uses a loca
 
 ## Verification status
 
-Before extraction into this repository, the plugin had build/type/unit, scratch-profile and official Desktop appearance/control-restoration evidence. Theme RPC import/select/restart/remove also passed a keyless scratch run. These are provenance for the copied implementation. The independent repository has now passed its own build/typecheck, 249 tests and built-package scratch-profile/owner-RPC/restart gate. The configurable source was also exercised in the installed official application, including default/custom URL downloads, normal restart persistence and default restoration; see [acceptance](docs/acceptance/2026-10-31-theme-source.md). No paid model, exhaustive foreign-plugin business-flow test, npm publication or market release is implied. Optional MCP Apps iframe/CSP behavior in the installed Desktop remains outside the accepted subset.
+The integrated source is checked through build, types, unit/integration tests and a disposable published-DSH Host with a deterministic keyless Agent. The integration checks the official skill loader, model visibility, original component source, previews, tool availability, runtime role selection, theme/state preservation and disposal. See [current integration evidence](docs/acceptance/2026-11-01-integrated-uiverse.md) for exact results and native acceptance limits.
+
+Earlier installed-app receipts cover their exact historical archives. The integrated single-package update still needs a new normal Desktop installation receipt. No paid model selection test, exhaustive foreign-plugin business-flow test, npm publication or market release is implied.
 
 The [Empryo reference analysis](docs/design/empryo-foundation.md), [token catalog](docs/design/empryo-tokens.json) and [local reference atlas](docs/design/empryo-atlas.html) document the visual foundation. They are analysis records, not copied Empryo application source or branding assets.
 
