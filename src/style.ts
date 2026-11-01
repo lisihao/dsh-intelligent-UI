@@ -9,6 +9,7 @@ import { themeStyleTokens } from './theme-runtime.js'
 import { appearanceTokens } from './appearance.js'
 import { resolveTheme } from './theme-contracts.js'
 import recursiveFont from '../assets/recursive-latin-full-normal.woff2'
+import paperFont from '../assets/dm-sans-latin-wght-normal.woff2'
 import type { CSSProperties } from 'react'
 export const styles: Record<string, CSSProperties> = {
   panel: { display: 'grid', gap: 12, padding: 12, color: 'var(--dsw-alias-label-primary, #202124)', fontFamily: 'system-ui, sans-serif', minWidth: 0 },
@@ -37,6 +38,7 @@ export function installExperienceStyles(): () => void {
   element.dataset.solarExperience = 'true'
   const defaults = Object.entries(themeStyleTokens(resolveTheme(), appearanceTokens())).map(([key, value]) => `${key}:${value}`).join(';')
   element.textContent = openuiCss + flowCss + `
+@font-face { font-family: 'DSH Paper Sans'; src: url('${paperFont}') format('woff2'); font-weight: 100 1000; font-style: normal; font-display: swap; }
 @font-face { font-family: 'DSH Recursive'; src: url('${recursiveFont}') format('woff2'); font-weight: 300 1000; font-style: normal; font-display: swap; }
 .dsh-experience.iexp-content {
   color: var(--iexp-text); background: var(--iexp-bg); padding: clamp(16px, 2.5vw, calc(24px * var(--iexp-density))); border-radius: 0; max-width: 1240px; box-sizing: border-box; margin-inline: auto;

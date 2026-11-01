@@ -3245,3 +3245,8 @@ in the Eclipse Public License, v. 2.0 are satisfied: GNU General Public License 
 > look for such a notice.
 >
 > You may add additional accurate notices of copyright ownership.
+
+
+## DM Sans, Fontsource variable 5.3.0
+
+The unmodified Latin normal weight-variable WOFF2 is bundled for the optional Paper composition. Source: https://registry.npmjs.org/@fontsource-variable/dm-sans/-/dm-sans-5.3.0.tgz (OFL-1.1). The complete font license is included in `lib/DM-Sans-OFL.txt`. Matter, Paper branding and demonstration assets are not distributed.

@@ -10,7 +10,8 @@ import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
 import remarkGfm from 'remark-gfm'
 import { planContentSections } from './content-sections.js'
-import { continuousSectionsPlugin } from './continuous-view.js'
+import { continuousSectionsPlugin, planReadingTable } from './continuous-view.js'
+import { PaperChartDeck } from './paper-chart-deck.js'
 import { ComparisonPlot, isCompactComparison } from './comparison-view.js'
 import { FlowView, type FlowViewPlan } from './flow-view.js'
 import { analyzeGraph, analyzeTaskRecords, analyzeTaskTable, analyzeMasterDetail, parseMarkdownLayouts, type FlowPlan } from './content-layout.js'
@@ -108,7 +109,7 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
     h('figcaption', { className: 'iexp-card-head' }, h('span', { className: 'iexp-card-title' }, h('span', { 'aria-hidden': true, className: 'iexp-card-icon' }, h(IconWrapper, { name: plan.icon, size: 17 })), h('strong', null, title)), h('span', { className: 'iexp-card-basis' }, plan.basis || plan.series[0]?.unit || '原表数值')),
     h('div', { className: 'iexp-chart-plot' }, compact ? h(ComparisonPlot, { plan }) : plan.kind === 'line' ? h(LineChart, { ...chartProps, variant: 'linear', showDots: true, crosshair: true, highlight: true }) : h(BarChart, { ...chartProps, orientation: 'horizontal', internalLine: false, barRadius: 3, density: 'compact' })),
     h('div', { className: 'iexp-card-foot' }, caveat && h('p', { className: 'iexp-chart-caveat' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'info', size: 14 })), caveat),
-      h('details', { className: 'iexp-disclosure' }, h('summary', null, h(IconWrapper, { name: 'list-filter', size: 15 }), `口径与选取说明${notes.length ? `（${notes.length}）` : ''}`), h('p', null, plan.reason), !!notes.length && h('ul', null, ...notes.map((note, i) => h('li', { key: i }, note)))), h(ChartSource, { plan })))
+      selectedTheme.tokens.composition === 'continuous' ? h('div', { className: 'iexp-chart-notes' }, h('p', null, plan.reason), !!notes.length && h('ul', null, ...notes.map((note, i) => h('li', { key: i }, note)))) : h('details', { className: 'iexp-disclosure' }, h('summary', null, h(IconWrapper, { name: 'list-filter', size: 15 }), `口径与选取说明${notes.length ? `（${notes.length}）` : ''}`), h('p', null, plan.reason), !!notes.length && h('ul', null, ...notes.map((note, i) => h('li', { key: i }, note)))), selectedTheme.tokens.composition !== 'continuous' && h(ChartSource, { plan })))
 }
 
 function SourceTable({ plans, children, supplemented = false }: { plans: AutoChartPlan[], children?: ReactNode, supplemented?: boolean }): ReactElement {
@@ -153,7 +154,8 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
       table: ({ children, node }) => {
         const table = tables.find(table => table.start === node?.position?.start.offset), plans = table?.plans ?? []
         const board = table ? analyzeTaskTable(table.headers, table.rows) : undefined
-        return h('div', { className: 'iexp-table-group' }, board ? h(BoardView, { plan: board }) : plans.length > 0 && h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan }))), h(SourceTable, { plans, supplemented: !!board }, children))
+        const detail = sections && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
+        return h('div', { className: 'iexp-table-group' }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
   }, [layout, prefix, tables, sections])

@@ -27,6 +27,20 @@ colors:
   host-label: "var(--dsw-alias-label-primary, #202124)"
   host-border: "var(--dsw-alias-border-l2, #b9bdc4)"
 typography:
+  paper-display:
+    fontFamily: "'DSH Paper Sans', 'PingFang SC', system-ui, sans-serif"
+    fontSize: "56px"
+    fontWeight: 360
+    lineHeight: 1.22
+    letterSpacing: "-0.035em"
+  paper-chapter:
+    fontSize: "48px"
+  paper-scene:
+    fontSize: "40px"
+  paper-scene-narrow:
+    fontSize: "26px"
+  paper-record-title:
+    fontSize: "24px"
   headline:
     fontFamily: "'DSH Recursive', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif"
     fontSize: "30px"
@@ -294,8 +308,12 @@ Hovering or focusing the header's existing transparency checkbox opens a native 
 
 Optional `appearance.backgroundOpacity` records an explicit value from .3 to 1. Omitted values preserve the previous theme-default contrast protection. Explicit slider choices honor the requested alpha; high transparency over an arbitrary wallpaper can reduce contrast, unlike the automatic default. Off/on preserves the chosen alpha. Preview ownership and disposal prevent a removed control from leaving transient appearance behind. Failures roll back to the acknowledged settings and remain visible.
 
-## Optional Paper continuous composition (2026-10-31)
+## Optional Paper continuous composition (revised 2026-11-01)
 
-[Paper flow](docs/design/paper-flow.md) is a selectable theme composition, not a replacement for Empryo or the other downloaded themes. Format-v1 tokens may specify `composition: continuous`; omitted/document keeps the existing topology. The intro has a centered 28–40 px heading with left-aligned 70ch prose. Source chapters and their subtopics share 1 px continuous frames and 28 px section insets, reducing to 20/12 px in a container below 560 px. One first visual is wide; subsequent short-copy/single-visual topics may use a 260 px minimum copy column and 520 px minimum figure column only above a 920 px **content-container** width. Multi-view tables and long copy remain stacked. Sources remain in DOM order.
+[Paper flow](docs/design/paper-flow.md) is an optional composition; Empryo and the other themes retain their topology. The user rejected the first ordinary split-column implementation and approved folding long argument on 2026-11-01. The new structure is an arched title scene, full-width source figure, adjacent limitations, two complete source-paragraph captions where available, an expandable remainder, and the next chapter. A shared faint canvas grid, frame intersections and diagonal transitions connect the sequence. The grid is the explicitly requested Paper canvas reference, not a default backdrop for other screens.
 
-The field is near-black `#08090b`, with existing contrast-protected cool white text, blue focus and pastel chart series. Existing figure radii/hover depth and transparency controls remain. A 1 px scroll-linked line follows the frame where supported, without hiding or fading text. Reduced motion removes this decorative line. Existing themes and unrelated pages do not acquire this composition.
+Paper uses locally bundled **DSH Paper Sans** (unmodified DM Sans Latin 5.3.0, OFL-1.1) with PingFang SC/platform CJK fallbacks. The display scale is 30–56 px for the hero, 30–48 px for chapter titles, 26–40 px for scene headings and 24 px for record-detail titles; weight 360, negative tracking no lower than -.035em. Body remains 15 px and source notes 12–13 px. No commercial Matter font or reference-site assets ship.
+
+Multiple source-derived chart plans share one primary stage with plain period tabs and optional explicit 5-second demonstration playback. Hidden chart panels stay mounted. Manual input stops playback; background tabs suspend it; reduced motion disables it and the clipped stage transition. A foreground exact-data pane occupies a reserved part of the chart's note area and stacks below on narrow containers. It does not cover plotted values or qualifications. Explicit narrative tables reuse the existing read-only list/detail component; small containers stack selection and fields vertically.
+
+A single full-document Markdown AST preserves definitions, footnotes, original nodes and source offsets. Entire paragraphs move only inside their own source heading boundary; no summary is generated. Qualification/assumption language and its associated list remain visible. Other long reasoning stays behind “展开本节正文”, while the shared original mode retains the exact entire input. This is browser-preview acceptance; the revised composition has not been installed in formal DSH.

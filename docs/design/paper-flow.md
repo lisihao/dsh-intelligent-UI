@@ -6,21 +6,23 @@ The user requested the visual composition from [paper.design](https://paper.desi
 
 The requested behavior belongs to the independent UI plugin. A new optional `tokens.composition` field (`document` or `continuous`) selects the arrangement. Omission preserves the existing document layout. The Paper theme selects `continuous`; older plugin builds reject this optional token visibly rather than silently losing the requested layout. No host or foreign-plugin files change.
 
-## Spatial direction
+## Spatial direction, revised 2026-11-01
 
-Mode: Read / Operate. The original document title and introduction lead, followed by source-ordered chapters. Thin continuous frame lines connect chapters; content is not wrapped in another stack of cards. The first visual chapter is a wide feature. Later chapters may pair a short explanation with a single visual area when the actual container is at least 920 px; long descriptions, multiple visual blocks and narrow containers remain stacked. Figures fill their assigned region. No CSS order reversal, generated summary, invented KPI or extra data is introduced.
+The initial split-copy implementation was rejected by the user as insufficiently close to Paper. The revised preview uses one shared canvas frame with fine grid extensions, corner intersections, an arched title plane and geometric chapter transitions. It follows **chapter headline → dominant source scene → visible basis/limitations → two complete source-paragraph captions → optional remaining argument → next scene**. No equal-weight chart-card row substitutes for the primary visual.
 
-The retained renderer still chooses charts, tables, explicit graphs and workflows from the original content. A single Markdown AST is transformed structurally so cross-section links, footnotes, source offsets, table analysis, qualifications and anchor navigation stay intact. Streaming remains the original stable document renderer until a complete output can be arranged. A short reply remains a short reply.
+The user explicitly permitted folding long argument while prioritizing figures. Full original AST nodes and citation/reference nodes remain intact. A paragraph/list introduction stays with its list; assumptions and detected caveats stay visible even when long. No copy is lifted across a subheading. The remaining source is available locally through “展开本节正文” and verbatim through the shared conversation original mode. Unknown or short prose stays a readable document. This deterministic conservative grouping is not a semantic proof that every possible prose qualification is recognized; the full source remains the authoritative reading path.
 
-Paper's editor-demo topology becomes real report charts and source data in this product. This is an adaptation of its visual system, not a pixel-identical copy of an editor demo. Source disclosures stay next to their visuals; the existing header controls raw/visual/compare for the whole conversation. A progressive scroll line marks the reading region where scroll timelines are supported. Text is always visible, motion is decorative, reduced motion removes the animation, and unsupported browsers retain the static frame.
+Multiple compatible chart plans from one table use a single large stage with actual source title/basis tabs. An explicit “演示切换” cycles real plans every five seconds; it starts paused, stops on manual input, suspends in a hidden document, and is disabled for reduced motion. The visible-default transition uses clip-path and vertical displacement, with a static fallback. Exact raw strings occupy a foreground data pane in reserved note space, never over the plot or notes. Small datasets display all selected cells; larger ones retain a disclosure. The complete original table remains separately available.
+
+Narrative tables with explicit scenario/research/subject labels may use the already implemented read-only list/detail view. It exposes source records and original table without inventing probabilities or causal relationships. Narrow containers stack selectors, details and labels over values; period tabs remain a horizontal accessible tablist. Streaming and other themes retain the ordinary renderer.
 
 ## Material
 
-Deep near-black `#08090b`, cool white readable text, blue focus, pastel data series, a light system sans and 1 px rules. Existing user-requested rounded figure cards and 3 px hover depth remain. The default is opaque; the shared transparency control still works. Active theme choice and prior appearance are not changed by downloading the package.
+Near-black `#08090b`, restrained frame rules, contrast-protected text, blue focus and pastel data series remain. Unmodified DM Sans Latin from Fontsource variable 5.3.0 (OFL-1.1) provides the display voice, with platform CJK sans for Chinese. The font/license are embedded locally; commercial Matter and Paper assets are not distributed. Typography roles and responsive sizes are in `DESIGN.md`. User transparency controls continue to operate independently.
 
 ## Observable acceptance
 
 - Real unchanged research output has chapter/figure compositions, seven charts and thirteen complete source tables, preserving its source hash and data definitions.
-- Reference-inspired frames, wide visuals, conditional split layout and narrow stacking are visible in actual rendered captures; uniform left-text/right-chart repetition is avoided.
+- Arched intro, shared canvas, wide primary figures, dual captions, exact-data depth and narrow stacking are visible in actual rendered captures; uniform left-text/right-chart repetition is removed.
 - Cross-section links/footnotes, streaming, source disclosures across polling and shared raw mode are exercised. Existing themes retain document mode.
 - Type/build, focused behavior tests, project plugin gate and independent rendered finish review pass before delivery. Installed Desktop validation is recorded separately from browser proof.
