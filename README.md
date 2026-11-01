@@ -31,6 +31,18 @@ flowchart LR
 
 See [component architecture and boundaries](docs/design/integrated-uiverse.md), [runtime selector](src/uiverse-render.ts), [silent Host capability](src/uiverse/host.ts) and [source manifest](resources/uiverse/upstream.json).
 
+## Research workspace (development candidate)
+
+The conversation-level **研究工作区** control adds report, judgments, sources and technical-comparison views inside the current UI-owned output. Reading remains source-preserving. Citation links and table cells open the report-local evidence inspector; returning to a source block retains the report. The inspector distinguishes a reference recorded in the report from an independently checked external source.
+
+The first six components cover judgments, conditions, evidence inspection, technical comparisons, alternative/challenging material and open questions. Explicitly different conditions are grouped separately for charts while every original table row stays available. No causal edge, statistical significance or numeric confidence is invented.
+
+**AI 整理** is opt-in: review its inline fee notice and start a visible request in the current conversation using its selected model. The plugin does not change model/provider/tool settings. The requested task is organization of supplied report text; execution still follows the existing session's permissions, not a new isolated research engine. Returned quote anchors and report identity are checked, but AI interpretations remain **待复核**. Human notes/review and editable question drafts are stored separately. Follow-up drafts are copy-only and never sent automatically.
+
+Research metadata lives only in this plugin's `research/` namespace. Reopening the same source restores its notes; changed source text cannot silently reuse a pending analysis. Uncertain submissions are not replayed. No other plugin's code, original report or session data is rewritten. Cross-session topics, autonomous research, cross-report change analysis and scenario simulation are future work.
+
+This is source/build candidate behavior; the new archive requires centralized Desktop installation acceptance. See [design and interfaces](docs/design/research-workspace.md) and the [candidate acceptance record](docs/acceptance/2026-11-01-research-workspace.md). Screenshots and private runtime receipts are never committed or uploaded.
+
 ## What it does
 
 - Optional takeover of standard assistant/tool output and generated content. One conversation-level **显示** control switches visual, original and comparison views.

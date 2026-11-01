@@ -1,3 +1,4 @@
+import { researchCss } from './research-style.js'
 import { themeComponentsCss } from './theme-components-style.js'
 import { openuiCss } from './openui-css.js'
 import flowCss from '@xyflow/react/dist/style.css'
@@ -38,7 +39,7 @@ export function installExperienceStyles(): () => void {
   const element = document.createElement('style')
   element.dataset.solarExperience = 'true'
   const defaults = Object.entries(themeStyleTokens(resolveTheme(), appearanceTokens())).map(([key, value]) => `${key}:${value}`).join(';')
-  element.textContent = openuiCss + flowCss + `
+  element.textContent = researchCss + openuiCss + flowCss + `
 @font-face { font-family: 'DSH Paper Sans'; src: url('${paperFont}') format('woff2'); font-weight: 100 1000; font-style: normal; font-display: swap; }
 @font-face { font-family: 'DSH Recursive'; src: url('${recursiveFont}') format('woff2'); font-weight: 300 1000; font-style: normal; font-display: swap; }
 .dsh-experience.iexp-content {

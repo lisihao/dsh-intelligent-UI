@@ -1,3 +1,4 @@
+import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
 import { Component, Fragment, createElement as h, useCallback, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type ReactElement, type ReactNode, type ComponentProps } from 'react'
@@ -131,7 +132,7 @@ function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
 function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
-  const tables = useMemo(() => isStreaming ? [] : parseMarkdownTables(text), [text, isStreaming])
+  const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
   const sections = useMemo(() => !isStreaming && selectedTheme.tokens.composition === 'continuous' ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition])
@@ -140,15 +141,18 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
   const markdownOptions = useMemo<ComponentProps<typeof MarkDownRenderer>['options']>(() => {
     const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number } } } }) => {
       const start = node?.position?.start.offset, icon = selectIcon(headingText(children))
-      const heading = h(`h${level}`, { id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
+      const heading = h(`h${level}`, { 'data-iexp-source-start': start, 'data-iexp-source-end': (node as { position?: { end?: { offset?: number } } } | undefined)?.position?.end?.offset, id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
       return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
     }]))
     return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
       p: ({ children, node }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
-        return flow ? h(SafeFlow, { plan: flow }) : h('p', null, children)
+        return flow ? h(SafeFlow, { plan: flow }) : h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
       },
+      a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
+      td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
+      th: ({ children, node, align }) => h(TableHead, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       ol: ({ children, node, start }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'ordered-list' && plan.start === node?.position?.start.offset)
         return flow ? h(SafeFlow, { plan: flow }) : h('ol', { start }, children)
@@ -157,7 +161,7 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         const table = tables.find(table => table.start === node?.position?.start.offset), plans = table?.plans ?? []
         const board = table ? analyzeTaskTable(table.headers, table.rows) : undefined
         const detail = sections && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
-        return h('div', { className: 'iexp-table-group' }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
+        return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
   }, [layout, prefix, tables, sections])

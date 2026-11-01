@@ -34,6 +34,30 @@ class ProbeAdapter extends LlmAdapter {
   }
 }
 
+/** Deterministic in-process adapter: exercises the normal AgentLoop, with zero external calls. */
+class ResearchProbeAdapter extends LlmAdapter {
+  calls = 0
+  submission
+  async *stream(options) {
+    options.signal?.throwIfAborted()
+    this.calls += 1
+    if (this.calls === 1) {
+      assert(this.submission, 'research fixture was not prepared before AgentLoop execution')
+      assert(options.tools?.some(tool => tool.name === 'solar_research_submit'), 'actual research Agent request lacks solar_research_submit')
+      const call = { type: 'tool-call', id: randomUUID(), name: 'solar_research_submit', arguments: JSON.stringify(this.submission) }
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield { type: 'block-end', index: 0, block: call }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      return
+    }
+    const text = 'Fictional research fixture organized; claims await human review.'
+    yield { type: 'block-start', index: 0, blockType: 'text' }
+    yield { type: 'text-delta', index: 0, text }
+    yield { type: 'block-end', index: 0, block: { type: 'text', text } }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  }
+}
+
 function assert(ok, message) { if (!ok) throw new Error(message) }
 function env(name) {
   const value = process.env[name]
@@ -61,7 +85,7 @@ async function waitForArtifacts(service, sessionId, timeoutMs = 10_000) {
 }
 
 async function probe(ctx) {
-  const checks = { service: false, settingsOff: false, cas: false, settingsOn: false, toolRegistered: false, agentToolExecution: false, artifactRead: false, rawAndProvenance: false, settingsRestored: false, registry: false, durableMarker: false, disposed: false }
+  const checks = { service: false, settingsOff: false, cas: false, settingsOn: false, toolRegistered: false, agentToolExecution: false, artifactRead: false, rawAndProvenance: false, settingsRestored: false, registry: false, durableMarker: false, disposed: false, researchService: false, researchAgentExecution: false, researchSourceBinding: false, researchHumanReview: false, researchDisposal: false }
   let caught
   let evidenceArtifacts = []
   try {
@@ -142,6 +166,69 @@ async function probe(ctx) {
       await handle.dispose()
       disposeAdapter()
     }
+    const research = ctx.get('solarResearch')
+    assert(research && ['get', 'prepare', 'markSubmission', 'saveNotes'].every(method => typeof research[method] === 'function'), 'solarResearch service is unavailable or incomplete')
+    assert(typeof tools.get('solar_research_submit')?.execute === 'function', 'solar_research_submit is absent from the host tool registry')
+    checks.researchService = true
+    const researchProvider = `${fixtureProvider}-research`
+    const researchAdapter = new ResearchProbeAdapter()
+    const disposeResearchAdapter = llm.registerAdapter([researchProvider], researchAdapter)
+    const researchHandle = await agents.create({ sessionId: `fixture-research-${randomUUID()}`, agentOptions: { provider: researchProvider, model: fixtureModel } })
+    const otherResearchHandle = await agents.create({ sessionId: `fixture-research-other-${randomUUID()}`, agentOptions: { provider: researchProvider, model: fixtureModel } })
+    try {
+      const text = '虚构验收样例：😀\n观测值为20%。\n[虚构来源](https://example.test/fixture-research)\n'
+      const document = { sessionId: researchHandle.agent.id, documentId: 'fictional-research-report', text }
+      const initial = await research.get(document)
+      const prepared = await research.prepare({ ...document, expectedRevision: initial.revision })
+      const reportHash = createHash('sha256').update(text).digest('hex')
+      const analysis = { formatVersion: 1, reportHash, question: '虚构样例报告了什么？', claims: [{
+        id: 'fixture-observation', text: '虚构样例中的观测值为20%。', kind: 'observation', anchor: { quote: '观测值为20%。' }, conditions: ['仅用于确定性验收，不代表真实数据'],
+        evidence: [{ id: 'fixture-citation', relation: 'citation', anchor: { quote: '虚构来源' }, sourceUrl: 'https://example.test/fixture-research', note: '报告内虚构引用，未抓取或验证来源内容' }], openQuestions: ['真实来源是否支持该数值？'],
+      }] }
+      const submission = { requestId: prepared.requestId, analysis }
+      const rejected = async (arguments_, agent, expected) => {
+        const before = await research.get(document)
+        const result = await tools.execute({ callId: randomUUID(), name: 'solar_research_submit', arguments: arguments_, ...(agent ? { agent } : {}), signal: new AbortController().signal })
+        assert(result.isError && JSON.stringify(result).includes(expected), `research boundary expected ${expected}: ${JSON.stringify(result)}`)
+        const after = await research.get(document)
+        assert(after.revision === before.revision && after.request?.status === before.request?.status && !after.analysis, 'rejected research attempt changed the prepared request')
+      }
+      await rejected({ ...submission, requestId: randomUUID() }, researchHandle.agent, 'RESEARCH_SESSION_MISMATCH')
+      await rejected(submission, undefined, 'RESEARCH_SESSION_MISMATCH')
+      await rejected(submission, otherResearchHandle.agent, 'RESEARCH_SESSION_MISMATCH')
+      await rejected({ ...submission, analysis: { ...analysis, reportHash: '0'.repeat(64) } }, researchHandle.agent, 'RESEARCH_REPORT_HASH_MISMATCH')
+      researchAdapter.submission = submission
+      await research.markSubmission({ ...document, requestId: prepared.requestId, status: 'queued' })
+      researchHandle.agent.followup({ id: MessageId(randomUUID()), role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: prepared.prompt }] })
+      await researchHandle.agent.whenIdle()
+      // Native title generation may also use this local adapter. Count durable business events,
+      // not unrelated provider calls, to prove exactly one research result submission.
+      const researchEvents = researchHandle.agent.session.ownEvents()
+      const researchCalls = researchEvents.filter(event => event.type === 'tool/call' && event.data.name === 'solar_research_submit')
+      const researchCompletion = researchEvents.some(event => event.type === 'assistant/message' && JSON.stringify(event.data.message).includes('Fictional research fixture organized'))
+      assert(researchAdapter.calls >= 2 && researchCalls.length === 1 && researchCompletion, 'research AgentLoop did not record exactly one tool submission and a normal assistant completion')
+      const complete = await research.get(document)
+      assert(complete.request?.status === 'complete' && complete.analysis, 'actual research Agent tool did not persist a completed analysis')
+      checks.researchAgentExecution = true
+      const claimAnchor = complete.analysis.claims[0]?.anchor
+      const evidenceAnchor = complete.analysis.claims[0]?.evidence[0]?.anchor
+      assert(complete.reportHash === reportHash && complete.analysis.reportHash === reportHash, 'research analysis lost its exact report fingerprint')
+      for (const anchor of [claimAnchor, evidenceAnchor]) assert(anchor && Number.isInteger(anchor.start) && Number.isInteger(anchor.end) && text.slice(anchor.start, anchor.end) === anchor.quote, 'quote-only research submission did not normalize to exact UTF16 source anchors')
+      assert(claimAnchor.start === text.indexOf('观测值为20%。') && evidenceAnchor.start === text.indexOf('虚构来源'), 'normalized research anchors point to the wrong source passage')
+      assert(complete.analysis.claims[0].evidence[0].sourceUrl === 'https://example.test/fixture-research', 'research citation lost its report-local source URL')
+      checks.researchSourceBinding = true
+      assert(Object.keys(complete.reviews).length === 0 && Object.keys(complete.notes).length === 0, 'the model fabricated human review or notes')
+      const reviewed = await research.saveNotes({ ...document, expectedRevision: complete.revision, notes: { 'fixture-observation': '人工验收笔记：来源仍待核查。' }, reviews: { 'fixture-observation': 'questioned' }, questions: ['需要什么原始证据？'] })
+      assert(reviewed.revision === complete.revision + 1 && reviewed.reviews['fixture-observation'] === 'questioned', 'owner human review did not persist with CAS')
+      let staleRejected = false
+      try { await research.saveNotes({ ...document, expectedRevision: complete.revision, notes: {}, reviews: {}, questions: [] }) } catch (error) { staleRejected = String(error).includes('RESEARCH_REVISION_CONFLICT') }
+      assert(staleRejected && (await research.get(document)).reviews['fixture-observation'] === 'questioned', 'stale owner review overwrote the saved human review')
+      checks.researchHumanReview = true
+    } finally {
+      await researchHandle.dispose()
+      await otherResearchHandle.dispose()
+      disposeResearchAdapter()
+    }
     const restored = await service.saveSettings({ expectedRevision: state.revision, takeover: false, openui: true, mcpApps: false })
     state = await service.settings()
     assert(state.takeover === false && state.revision === restored.revision, 'settings did not restore to off')
@@ -167,6 +254,11 @@ async function probe(ctx) {
     for (const name of componentNames) assert(tools.get(name) === undefined, `${name} survived main-plugin disposal`)
     assert(!await skills.get('uiverse-components') && !ctx.get('solarUiComponents'), 'component skill/service survived main-plugin disposal')
     assert(tools.get('skill'), 'main-plugin disposal removed official skill loader')
+    assert(ctx.get('solarResearch') === undefined, 'solarResearch service remained after main-plugin disposal')
+    assert(tools.get('solar_research_submit') === undefined, 'solar_research_submit remained after main-plugin disposal')
+    assert(typeof ctx.get('agents')?.create === 'function' && typeof ctx.get('llm')?.registerAdapter === 'function', 'main-plugin disposal removed unrelated host Agent/LLM services')
+    checks.researchDisposal = true
+
     checks.disposed = true
   } catch (error) { caught = errorValue(error) }
 

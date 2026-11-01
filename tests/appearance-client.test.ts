@@ -67,8 +67,8 @@ describe('header transparency shortcut', () => {
       await act(async () => toggles()[0]!.click())
       expect([...toggles()].map(input => input.checked)).toEqual([false, false])
       expect(settings.appearance).toEqual({ backgroundColor: '#36404f', translucent: false })
-      expect(host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')[5]!.checked).toBe(false)
-      const settingsToggle = host.querySelectorAll<HTMLInputElement>('input[type=checkbox]')[5]!
+      expect(host.querySelector<HTMLInputElement>('.iexp-appearance-controls input[type=checkbox]')!.checked).toBe(false)
+      const settingsToggle = host.querySelector<HTMLInputElement>('.iexp-appearance-controls input[type=checkbox]')!
       await act(async () => settingsToggle.click())
       expect([...toggles()].map(input => input.checked)).toEqual([true, true])
       expect(settings.takeover).toBe(true); expect(settings.openui).toBe(true); expect(settings.mcpApps).toBe(false)

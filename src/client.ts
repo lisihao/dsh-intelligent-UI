@@ -1,3 +1,6 @@
+import { ResearchWorkspace, ResearchModeControl, researchModes } from './research-view.js'
+import { RPC_REMOTE as RESEARCH_REMOTE } from './research-remote.js'
+import { documentInput, prepareInput, markSubmissionInput, saveNotesInput, stateSchema, type ResearchApi } from './research-contracts.js'
 import { ThemeButton, ThemeInput, ThemeToggle, ThemeLoader } from './theme-components.js'
 import { createElement as h, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -30,11 +33,22 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' { interface Sess
 export const name = 'intelligent-experience-platform'
 export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
-type ClientApi = ExperienceApi & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
+type ClientApi = ExperienceApi & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
 type Wire = { [K in keyof ExperienceApi]: (...args: Parameters<ExperienceApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ExperienceApi[K]>>>> } & { [K in keyof ThemeApi]?: (...args: Parameters<ThemeApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ThemeApi[K]>>>> } & { [K in keyof WidgetStateApi]?: (...args: Parameters<WidgetStateApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<WidgetStateApi[K]>>>> } & { mcpStatus?: () => Promise<RemoteResult<unknown>> } & { [K in keyof McpUiApi]?: (...args: Parameters<McpUiApi[K]>) => Promise<RemoteResult<unknown>> }
+type ResearchWire = { [K in keyof ResearchApi]: (...args: Parameters<ResearchApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ResearchApi[K]>>>> }
+/** Research stays optional when connected to an older Host. Validate both sides of the wire. */
+export function researchApiFromWire(w?: ResearchWire): ResearchApi | undefined {
+  if (!w || !['get', 'prepare', 'markSubmission', 'saveNotes'].every(key => typeof w[key as keyof ResearchWire] === 'function')) return undefined
+  return {
+    get: async input => stateSchema.parse(unwrap(await w.get(documentInput.parse(input)))),
+    prepare: async input => { const result = unwrap(await w.prepare(prepareInput.parse(input))); return { ...result, state: stateSchema.parse(result.state) } },
+    markSubmission: async input => stateSchema.parse(unwrap(await w.markSubmission(markSubmissionInput.parse(JSON.parse(JSON.stringify(input)))))),
+    saveNotes: async input => stateSchema.parse(unwrap(await w.saveNotes(saveNotesInput.parse(input)))),
+  }
+}
 const message = (e: unknown): string => e instanceof Error ? e.message : String(e)
 function unwrap<T>(result: RemoteResult<T>): T { if (result.ok) return result.value; throw result.error }
-export function apiFromWire(w: Wire): ClientApi { return { settings: async () => unwrap(await w.settings()), saveSettings: async input => unwrap(await w.saveSettings(saveSettingsSchema.parse(JSON.parse(JSON.stringify(input))))), artifacts: async input => unwrap(await w.artifacts(input)), publish: async input => unwrap(await w.publish(input)), ...(w.themeCatalog ? { themeCatalog: async () => unwrap(await w.themeCatalog!()) } : {}), ...(w.downloadTheme ? { downloadTheme: async input => unwrap(await w.downloadTheme!(input)) } : {}), ...(w.installTheme ? { installTheme: async input => unwrap(await w.installTheme!(input)) } : {}), ...(w.removeTheme ? { removeTheme: async input => unwrap(await w.removeTheme!(input)) } : {}), ...(w.mcpStatus ? { mcpStatus: async () => mcpStatusSchema.parse(unwrap(await w.mcpStatus!())) } : {}), ...(w.widgetState && w.saveWidgetState ? { widgetState: async input => unwrap(await w.widgetState!(input)), saveWidgetState: async input => unwrap(await w.saveWidgetState!(input)) } : {}), ...(w.mcpOpen && w.mcpAction && w.mcpClose ? { mcpOpen: async input => openSchema.parse(unwrap(await w.mcpOpen!(input))), mcpAction: async input => resultSchema.parse(unwrap(await w.mcpAction!(input))), mcpClose: async input => z.null().parse(unwrap(await w.mcpClose!(input))) } : {}) } }
+export function apiFromWire(w: Wire, research?: ResearchWire): ClientApi { const researchApi = researchApiFromWire(research); return { ...(researchApi ? { research: researchApi } : {}), settings: async () => unwrap(await w.settings()), saveSettings: async input => unwrap(await w.saveSettings(saveSettingsSchema.parse(JSON.parse(JSON.stringify(input))))), artifacts: async input => unwrap(await w.artifacts(input)), publish: async input => unwrap(await w.publish(input)), ...(w.themeCatalog ? { themeCatalog: async () => unwrap(await w.themeCatalog!()) } : {}), ...(w.downloadTheme ? { downloadTheme: async input => unwrap(await w.downloadTheme!(input)) } : {}), ...(w.installTheme ? { installTheme: async input => unwrap(await w.installTheme!(input)) } : {}), ...(w.removeTheme ? { removeTheme: async input => unwrap(await w.removeTheme!(input)) } : {}), ...(w.mcpStatus ? { mcpStatus: async () => mcpStatusSchema.parse(unwrap(await w.mcpStatus!())) } : {}), ...(w.widgetState && w.saveWidgetState ? { widgetState: async input => unwrap(await w.widgetState!(input)), saveWidgetState: async input => unwrap(await w.saveWidgetState!(input)) } : {}), ...(w.mcpOpen && w.mcpAction && w.mcpClose ? { mcpOpen: async input => openSchema.parse(unwrap(await w.mcpOpen!(input))), mcpAction: async input => resultSchema.parse(unwrap(await w.mcpAction!(input))), mcpClose: async input => z.null().parse(unwrap(await w.mcpClose!(input))) } : {}) } }
 const resultSchema = z.object({ content: z.array(z.record(z.string(), z.unknown())), isError: z.boolean().optional() }).passthrough().transform(value => value as CallToolResult)
 const mcpStatusSchema = z.object({ configured: z.boolean(), enabled: z.boolean(), connected: z.boolean(), instances: z.number().int().nonnegative(), error: z.string().optional() })
 const openSchema = z.object({ instanceId: z.uuid(), proxyUrl: z.url(), html: z.string(), input: z.record(z.string(), z.unknown()), result: resultSchema })
@@ -65,7 +79,7 @@ export class ExperienceStore {
 function useStore(store: ExperienceStore) { return useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot) }
 /** One global appearance shortcut beside the existing conversation display control. */
 export function HeaderControls({ store, sessionId }: { store: ExperienceStore, sessionId: string }): ReactElement {
-  return h('div', { className: 'dsh-experience iexp-header-controls' }, h(DisplayModeControl, { sessionId }), h(TransparencyControl, { store }))
+  return h('div', { className: 'dsh-experience iexp-header-controls' }, h(DisplayModeControl, { sessionId }), store.snapshot().settings?.takeover && h(ResearchModeControl, { sessionId }), h(TransparencyControl, { store }))
 }
 export function Settings({ store }: { store: ExperienceStore }): ReactElement {
   const { api, settings, error, takeoverError } = useStore(store)
@@ -96,9 +110,8 @@ export function Settings({ store }: { store: ExperienceStore }): ReactElement {
       h(ThemeInput, { className: 'iexp-control', type: 'text', 'aria-label': '背景颜色值', value: color, spellCheck: false, maxLength: 7, onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }), h(ThemeButton, { type: 'submit', className: 'iexp-control' }, '应用颜色')),
     h(ThemeButton, { type: 'button', className: 'iexp-control', onClick: () => { const appearance = resolveTheme(settings?.theme).appearance; setColor(appearance.backgroundColor); void change('appearance', appearance) } }, '恢复默认外观')), settings?.mcpApps && api?.mcpStatus && h('p', { role: mcpStatusError || mcpStatus?.error ? 'alert' : 'status' }, mcpStatusError ? `MCP Apps 状态不可用：${mcpStatusError}` : !mcpStatus ? '正在读取 MCP Apps 状态…' : mcpStatus.error ? `MCP Apps 连接失败：${mcpStatus.error}` : !mcpStatus.configured ? '尚未配置 MCP Apps 服务地址。' : !mcpStatus.connected ? '正在连接 MCP Apps 服务…' : 'MCP Apps 已连接。'), !settings && !error && h(ThemeLoader, { label: '正在读取设置…' }))
 }
-export async function continueInSession(ctx: {sessions: ISessions}, sessionId: SessionId, event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal): Promise<void> {
-  if (event.type !== 'continue_conversation') throw new Error('不支持此交互类型')
-  const text = `用户在生成界面中选择了操作。\n${JSON.stringify({ action: event, state })}`
+/** Uses the normal visible session queue and selected model; never edits model or tool configuration. */
+export async function submitResearchPrompt(ctx: {sessions: ISessions}, sessionId: SessionId, text: string, signal: AbortSignal): Promise<void> {
   await ctx.sessions.using(sessionId, { source: 'solarExperienceUi', signal }, async reference => {
     const binding = await reference.ready
     if (signal.aborted) throw new Error('操作已取消')
@@ -107,6 +120,10 @@ export async function continueInSession(ctx: {sessions: ISessions}, sessionId: S
     try { const result = await session.prompt([{ type: 'text', text }], 'queue', signal, submission.requestId); if (!result.ok) throw result.error }
     catch (error) { submission.abandon(); throw error }
   })
+}
+export async function continueInSession(ctx: {sessions: ISessions}, sessionId: SessionId, event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal): Promise<void> {
+  if (event.type !== 'continue_conversation') throw new Error('不支持此交互类型')
+  await submitResearchPrompt(ctx, sessionId, `用户在生成界面中选择了操作。\n${JSON.stringify({ action: event, state })}`, signal)
 }
 type Continue = (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void>
 /** Recognize only a whole explicit OpenUI fence, including an unfinished streaming fence. */
@@ -120,10 +137,10 @@ function ImageBlock({ attachment, loadImage }: { attachment: unknown, loadImage:
   useEffect(() => { let live = true; void loadImage(attachment as never).then(x => { if (live) setUrl(x) }, e => { if (live) setError(message(e)) }); return () => { live = false } }, [attachment, loadImage])
   return error ? h('p', { role: 'alert' }, `图片加载失败：${error}`) : url ? h('img', { src: url, alt: '助手输出的图片', style: { maxWidth: '100%' } }) : h('span', null, '正在加载图片…')
 }
-function AssistantNode({ nodeProps: props, store, onContinue }: { nodeProps: PropsRuntime<'conversation.chat.node', 'assistant-step'>, store: ExperienceStore, onContinue: Continue }): ReactElement {
+function AssistantNode({ nodeProps: props, store, onContinue, onOrganize }: { nodeProps: PropsRuntime<'conversation.chat.node', 'assistant-step'>, store: ExperienceStore, onContinue: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { node, loadImage } = props
-  const { settings } = useStore(store)
-  return h('section', { className: 'dsh-experience', style: styles.section }, h(OutputView, { sessionId: String(props.sessionId), raw: node.data }, node.data.status === 'interrupted' && h('p', null, '已停止'), ...node.data.blocks.map((block, i) => block.kind === 'image' ? h(ImageBlock, { key: i, attachment: block.attachment, loadImage }) : block.kind === 'reasoning' ? h('details', { key: i }, h('summary', null, '思考过程'), h(ContentView, { value: block.text })) : block.kind === 'text' ? (() => { const code = openUiFence(block.text, node.data.status === 'running'); return code !== undefined && settings?.openui ? h(ArtifactView, { key: i, artifact: { formatVersion: 1, id: `stream-${i}`, createdAt: '', source: { sessionId: String(props.sessionId), kind: 'assistant', label: '助手生成的界面' }, protocol: 'openui', raw: block.text, payload: code, providerId: 'openui' }, isStreaming: node.data.status === 'running', displayMode: 'visual', onContinue }) : h(ContentView, { key: i, value: block.text, isStreaming: node.data.status === 'running' }) })() : h('details', { key: i }, h('summary', null, block.kind === 'tool-call' ? `工具调用：${block.name}` : '其他内容'), h('pre', { style: styles.raw }, rawText(block))))))
+  const { settings, api } = useStore(store)
+  return h('section', { className: 'dsh-experience', style: styles.section }, h(OutputView, { sessionId: String(props.sessionId), raw: node.data }, node.data.status === 'interrupted' && h('p', null, '已停止'), ...node.data.blocks.map((block, i) => block.kind === 'image' ? h(ImageBlock, { key: i, attachment: block.attachment, loadImage }) : block.kind === 'reasoning' ? h('details', { key: i }, h('summary', null, '思考过程'), h(ContentView, { value: block.text })) : block.kind === 'text' ? (() => { const code = openUiFence(block.text, node.data.status === 'running'); return code !== undefined && settings?.openui ? h(ArtifactView, { key: i, artifact: { formatVersion: 1, id: `stream-${i}`, createdAt: '', source: { sessionId: String(props.sessionId), kind: 'assistant', label: '助手生成的界面' }, protocol: 'openui', raw: block.text, payload: code, providerId: 'openui' }, isStreaming: node.data.status === 'running', displayMode: 'visual', onContinue }) : h(ResearchWorkspace, { key: i, sessionId: String(props.sessionId), documentId: `assistant:${node.anchorSeq}:${i}`, text: block.text, api: api?.research, onOrganize, isStreaming: node.data.status === 'running' }, h(ContentView, { value: block.text, isStreaming: node.data.status === 'running' })) })() : h('details', { key: i }, h('summary', null, block.kind === 'tool-call' ? `工具调用：${block.name}` : '其他内容'), h('pre', { style: styles.raw }, rawText(block))))))
 }
 type Tool = { meta?: unknown; name: string; callId: string; kind?: string; phase?: string; content?: unknown; isError?: boolean; error?: unknown; call?: unknown; argsRaw?: string; subCalls: readonly Tool[] }
 function McpInline({ api, sessionId, callId, enabled, onContinue }: { api?: ClientApi, sessionId: string, callId: string, enabled: boolean, onContinue?: Continue }): ReactElement | null {
@@ -149,10 +166,14 @@ function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetS
   return h('details', { open: true, className: 'dsh-experience', style: styles.section }, h('summary', null, `${tool.name || '工具调用'} · ${tool.isError ? '失败' : tool.kind === 'tool-result' ? '已完成' : '执行中'}`), tool.isError && h('pre', { role: 'alert', style: styles.raw }, rawText(tool.error)), artifact ? h(ArtifactView, { artifact: artifact as Parameters<typeof ArtifactView>[0]['artifact'], displayMode: 'visual', openuiEnabled, onContinue, stateApi: widgetStateApi }) : tool.content !== undefined && h(ContentView, { value: tool.content }), tool.kind === 'tool-result' && h(McpInline, { api, sessionId, callId: tool.callId, enabled: !!mcpEnabled, onContinue }), inspect && h(ThemeButton, { type: 'button', style: styles.button, onClick: () => inspect(tool.callId as never) }, '查看调用详情'), h('details', null, h('summary', null, '原始调用与结果'), h('pre', { style: styles.raw }, rawText(tool))), ...tool.subCalls.map((child, i) => h(ToolTree, { key: i, tool: child, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled })))
 }
 function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps })) }
-export function Workspace({ store, sessionId, onContinue }: { store: ExperienceStore, sessionId: string, onContinue?: Continue }): ReactElement {
+export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState('')
   useEffect(() => { let live = true; setItems([]); setError(''); const refresh = () => { if (api) void api.artifacts({ sessionId }).then(x => { if (live) { setItems(x); setError('') } }, e => { if (live) setError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, sessionId])
-  return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => h(ArtifactView, { key: item.id, artifact: item, openuiEnabled: settings?.openui, onContinue, stateApi: stateApi(api), mcpApi: settings?.mcpApps ? mcpApi(api) : undefined })))
+  return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => {
+    const text = item.protocol === 'content' && typeof item.payload === 'string' ? item.payload : undefined
+    const original = h(ArtifactView, { key: item.id, artifact: item, openuiEnabled: settings?.openui, onContinue, stateApi: stateApi(api), mcpApi: settings?.mcpApps ? mcpApi(api) : undefined, ...(text ? { displayMode: 'visual' as const } : {}) })
+    return text ? h(OutputView, { key: item.id, sessionId, raw: item.raw }, h(ResearchWorkspace, { sessionId, documentId: `artifact:${item.id}`, text, api: api?.research, onOrganize }, original)) : original
+  }))
 }
 export function apply(ctx: Context): void {
   // Host and browser both contribute Context.sessions in the shared type graph.
@@ -165,7 +186,7 @@ export function apply(ctx: Context): void {
     const onChange = ctx.on.bind(ctx) as unknown as (event: string, listener: (snapshot: ThemeSnapshot) => void) => () => void
     return onChange('theme/change', snapshot => experienceTheme.set(snapshot.active.colorScheme))
   }, 'intelligent-experience: theme')
-  ctx.effect(() => () => displayModes.clear(), 'intelligent-experience: display modes')
+  ctx.effect(() => () => { displayModes.clear(); researchModes.clear() }, 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
   ctx.effect(() => ctx.provide('solarExperienceUi', openUiWidgets), 'intelligent-experience: widgets')
   const store = new ExperienceStore()
@@ -174,7 +195,7 @@ export function apply(ctx: Context): void {
   let injectionDispose: (() => void) | undefined
   let registrationDisposers: Array<() => void> = []
   let failed = false; let syncing = false
-  const assistantView = (props: PropsRuntime<'conversation.chat.node', 'assistant-step'>) => h(AssistantNode, { store, nodeProps: props, onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })
+  const assistantView = (props: PropsRuntime<'conversation.chat.node', 'assistant-step'>) => h(AssistantNode, { store, nodeProps: props, onOrganize: (text, signal) => submitResearchPrompt(sessionContext, props.sessionId, text, signal), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })
   const toolView = (props: PropsRuntime<'conversation.chat.node', 'tool-call'>) => h(ToolNode, { store, nodeProps: props, onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })
   const retract = () => { const owned = registrationDisposers; registrationDisposers = []; for (const dispose of owned.reverse()) dispose() }
   const fail = (error: unknown) => { failed = true; retract(); console.warn('智能体验聊天接管失败：', error); store.setTakeoverError('聊天显示位置发生冲突或尚未就绪。') }
@@ -188,6 +209,7 @@ export function apply(ctx: Context): void {
     syncing = true
     try {
       if (!store.snapshot().settings?.takeover) {
+        researchModes.clear()
         injectionDispose?.(); injectionDispose = undefined; retract(); failed = false; store.setTakeoverError(undefined); return
       }
       if (injectionDispose || failed) return
@@ -213,11 +235,11 @@ export function apply(ctx: Context): void {
   const unsubscribeSlots = ctx.slots.subscribe('conversation.chat.node', checkWinners)
   const unsubscribe = store.subscribe(syncTakeover)
   ctx.effect(() => {
-    void ctx.remote.$mount(RPC_REMOTE).then(async dispose => { if (disposed) { await dispose(); return }; remoteDispose = dispose; const wire = ctx.get('remote.solarExperience') as unknown as Wire | undefined; if (!wire) { store.update({ error: '本机没有提供智能体验服务。' }); return }; store.update({ api: apiFromWire(wire) }); await store.refresh() }).catch(e => { if (!disposed) store.update({ error: message(e) }) })
+    void ctx.remote.$mount({ ...RPC_REMOTE, descriptors: [...RPC_REMOTE.descriptors, ...RESEARCH_REMOTE.descriptors] }).then(async dispose => { if (disposed) { await dispose(); return }; remoteDispose = dispose; const wire = ctx.get('remote.solarExperience') as unknown as Wire | undefined; if (!wire) { store.update({ error: '本机没有提供智能体验服务。' }); return }; store.update({ api: apiFromWire(wire, ctx.get('remote.solarResearch') as unknown as ResearchWire | undefined) }); await store.refresh() }).catch(e => { if (!disposed) store.update({ error: message(e) }) })
     const timer = setInterval(() => { void store.refresh() }, 5000)
     return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); injectionDispose?.(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
   }, 'intelligent-experience: remote')
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'solar-intelligent-experience-mode', order: 47 }, (props: PropsRuntime<'conversation.session.header.utilities'>) => h(HeaderControls, { store, sessionId: String(props.sessionId) })))
   ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'solar-intelligent-experience', order: 47, label: () => '智能体验' }, () => h(Settings, { store })))
-  ctx.slots.inject('conversation.view', () => ctx.slots.register({ name: 'conversation.view', id: 'solar-intelligent-experience', order: 47, label: () => '生成内容' }, (props: PropsRuntime<'conversation.view'>) => h(Workspace, { store, sessionId: String(props.sessionId), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })))
+  ctx.slots.inject('conversation.view', () => ctx.slots.register({ name: 'conversation.view', id: 'solar-intelligent-experience', order: 47, label: () => '生成内容' }, (props: PropsRuntime<'conversation.view'>) => h(Workspace, { store, sessionId: String(props.sessionId), onOrganize: (text, signal) => submitResearchPrompt(sessionContext, props.sessionId, text, signal), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })))
 }
