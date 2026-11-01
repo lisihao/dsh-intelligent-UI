@@ -35,6 +35,13 @@
       "version": "1.0.0",
       "file": "unslop-porcelain.dsh-theme.json",
       "sha256": "028cbbc0a0afafbb87d5a904704ff4c116eb47f113821055ef259a4dad73736e"
+    },
+    {
+      "id": "paper-flow",
+      "name": "Paper · 连续信息流",
+      "version": "1.0.0",
+      "file": "paper-flow.dsh-theme.json",
+      "sha256": "efa26a0a0e86e0f51f290d6dd814bb669d6b14bd724a7ee41de9d70dd232118f"
     }
   ]
 }

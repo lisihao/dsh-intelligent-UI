@@ -6,6 +6,7 @@ import { installExperienceStyles } from '../../src/style.js'
 import { installAppearanceStyles } from '../../src/appearance-style.js'
 import type { ExperienceArtifact, ExperienceSettings, WidgetState } from '../../src/contracts.js'
 import { builtInThemes, resolveTheme, themePackageSchema } from '../../src/theme-contracts.js'
+import paper from '../../theme/paper-flow.dsh-theme.json' with { type: 'json' }
 import linen from '../../src/themes/linen-example.dsh-theme.json' with { type: 'json' }
 import carbon from '../../theme/unslop-carbon.dsh-theme.json' with { type: 'json' }
 import cobalt from '../../theme/unslop-cobalt.dsh-theme.json' with { type: 'json' }
@@ -18,7 +19,7 @@ declare const REAL_REPORT_MARKDOWN: string | null
 declare const ACTUAL_LAYOUT_OUTPUTS: Record<string, unknown> | null
 const realMarkdown = typeof REAL_REPORT_MARKDOWN === 'string' ? REAL_REPORT_MARKDOWN : null
 let settings: ExperienceSettings = { formatVersion: 1, revision: 0, takeover: true, openui: true, mcpApps: false }
-const downloadableThemes = [linen, carbon, cobalt, amber, porcelain].map(theme => themePackageSchema.parse(theme))
+const downloadableThemes = [linen, carbon, cobalt, amber, porcelain, paper].map(theme => themePackageSchema.parse(theme))
 const previewThemes = [...builtInThemes, ...downloadableThemes]
 const themeId = new URLSearchParams(location.search).get('theme')
 if (themeId && previewThemes.some(theme => theme.id === themeId)) {

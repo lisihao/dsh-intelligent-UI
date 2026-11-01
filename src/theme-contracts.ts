@@ -24,6 +24,7 @@ export const themePackageSchema = z.strictObject({
     density: z.enum(['compact', 'comfortable']), font: z.enum(['recursive', 'system', 'serif']),
     translucentAlpha: z.number().min(0.3).max(0.98), blur: z.number().min(0).max(24),
     hoverLift: z.number().min(0).max(6), shadow: z.enum(['soft', 'none']), comparison: z.enum(['organic', 'standard']),
+    composition: z.enum(['document', 'continuous']).optional(),
   }),
 }).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= MAX_THEME_BYTES, { message: 'THEME_PACKAGE_TOO_LARGE: Theme package exceeds 32 KiB.' })
 export type ThemePackage = z.infer<typeof themePackageSchema>

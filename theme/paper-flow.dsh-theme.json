@@ -1,0 +1,47 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar",
+  "license": "MIT",
+  "id": "paper-flow",
+  "name": "Paper · 连续信息流",
+  "description": "参考 paper.design 的连续图文节奏：深黑底、细线框架、宽幅图表与条件分栏。需要支持 continuous composition 的新版 UI 插件。保留原文、完整数据和透明度控制。",
+  "appearance": {
+    "backgroundColor": "#08090b",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#99bfff",
+    "accentLight": "#3e6397",
+    "success": "#4b926b",
+    "warning": "#b78031",
+    "error": "#be596b",
+    "paletteDark": [
+      "#99bfff",
+      "#a7d6be",
+      "#dfc38e",
+      "#c5b8dc",
+      "#d8a8b6"
+    ],
+    "paletteLight": [
+      "#3e6397",
+      "#3e715b",
+      "#906619",
+      "#715593",
+      "#914e65"
+    ],
+    "panelRadius": 24,
+    "cardRadius": 18,
+    "nodeRadius": 16,
+    "controlRadius": 10,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.94,
+    "blur": 12,
+    "hoverLift": 3,
+    "shadow": "soft",
+    "comparison": "standard",
+    "composition": "continuous"
+  }
+}

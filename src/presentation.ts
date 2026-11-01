@@ -9,6 +9,8 @@ import { themePreferences } from './theme-runtime.js'
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
 import remarkGfm from 'remark-gfm'
+import { planContentSections } from './content-sections.js'
+import { continuousSectionsPlugin } from './continuous-view.js'
 import { ComparisonPlot, isCompactComparison } from './comparison-view.js'
 import { FlowView, type FlowViewPlan } from './flow-view.js'
 import { analyzeGraph, analyzeTaskRecords, analyzeTaskTable, analyzeMasterDetail, parseMarkdownLayouts, type FlowPlan } from './content-layout.js'
@@ -128,15 +130,17 @@ function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
 function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
   const tables = useMemo(() => isStreaming ? [] : parseMarkdownTables(text), [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
+  const selectedTheme = useSelectedTheme()
+  const sections = useMemo(() => !isStreaming && selectedTheme.tokens.composition === 'continuous' ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition])
   const prefix = useId().replaceAll(':', '')
   // Stable renderer types retain native disclosures and nested layout state during polling.
   const markdownOptions = useMemo<ComponentProps<typeof MarkDownRenderer>['options']>(() => {
     const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number } } } }) => {
       const start = node?.position?.start.offset, icon = selectIcon(headingText(children))
       const heading = h(`h${level}`, { id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
-      return start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
+      return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
     }]))
-    return { remarkPlugins: [remarkGfm], components: {
+    return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
       p: ({ children, node }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
@@ -152,8 +156,8 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         return h('div', { className: 'iexp-table-group' }, board ? h(BoardView, { plan: board }) : plans.length > 0 && h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan }))), h(SourceTable, { plans, supplemented: !!board }, children))
       },
     } }
-  }, [layout, prefix, tables])
-  return h('div', { className: 'iexp-document' }, h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
+  }, [layout, prefix, tables, sections])
+  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
 function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming: boolean }): ReactElement {
   const graph = isStreaming ? { status: 'unrecognized' as const } : analyzeGraph(value)

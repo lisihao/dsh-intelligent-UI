@@ -140,7 +140,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
   await writeFile(join(probeDir, 'cordis.patch.yml'), await readFile(join(PROBE, 'cordis.patch.yml')))
   const code = `import { readFile, writeFile } from 'node:fs/promises'\nimport { join } from 'node:path'\nimport { createHash } from 'node:crypto'\nimport { isDeepStrictEqual } from 'node:util'\nimport { Peer } from '@deepseek-ai/dsh-client-connection'\n${themeProbe.toString()}\nexport const name='intelligent-experience-probe';export const inject=['appReady'];export function apply(ctx){let started=false;return ctx.get('appReady').onReady(()=>{if(started)return;started=true;void themeProbe(ctx).catch(error=>{process.stderr.write(String(error.stack??error));ctx.get('appExit')(1)})})}\n`
   await writeFile(join(probeDir, 'index.mjs'), code)
-  const theme = { ...JSON.parse(await readFile(join(PACKAGE, 'src', 'themes', 'plain.dsh-theme.json'), 'utf8')), id: 'scratch-theme', name: 'Scratch theme acceptance', appearance: { backgroundColor: '#24262b', translucent: true, backgroundOpacity: 0.43 } }
+  const theme = { ...JSON.parse(await readFile(join(PACKAGE, 'theme', 'paper-flow.dsh-theme.json'), 'utf8')), id: 'scratch-theme', name: 'Scratch theme acceptance', appearance: { backgroundColor: '#24262b', translucent: true, backgroundOpacity: 0.43 } }
   const empryo = JSON.parse(await readFile(join(PACKAGE, 'src', 'themes', 'empryo.dsh-theme.json'), 'utf8'))
   const inputPath = join(scratch, 'theme-input.json')
   const flags = { takeover: originalSettings.takeover, openui: originalSettings.openui, mcpApps: originalSettings.mcpApps }
