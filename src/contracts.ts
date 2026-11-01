@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { visualEffectSchema } from './effects.js'
+import { visualEffectSchema } from './effect-contracts.js'
+export { visualEffectSchema } from './effect-contracts.js'
 import { themeSourceSchema, type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
 import { appearanceSchema, themeIdSchema, themePreferenceSchema, type InstallThemeInput, type RemoveThemeInput } from './theme-contracts.js'
 export { appearanceSchema } from './theme-contracts.js'

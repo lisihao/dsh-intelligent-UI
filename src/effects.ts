@@ -1,12 +1,11 @@
 import { Component, createElement as h, useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode, type ReactElement } from 'react'
-import { z } from 'zod'
+import { visualEffectSchema, type VisualEffectId } from './effect-contracts.js'
+export { visualEffectSchema, type VisualEffectId } from './effect-contracts.js'
 
 /**
  * An effect is presentation-only. Requests are data, and third-party executable
  * code can be registered only by an installed frontend integration.
  */
-export const visualEffectSchema = z.enum(['iexp.headline-reveal', 'canvasui.decrypt-reveal'])
-export type VisualEffectId = z.infer<typeof visualEffectSchema>
 export interface VisualEffectManifest {
   id: VisualEffectId
   version: string

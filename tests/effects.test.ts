@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement as h, act } from 'react'
+import { createElement as h, act, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { artifactSchema } from '../src/contracts.js'
@@ -15,7 +15,7 @@ afterEach(() => { for (const stop of cleanups.splice(0).reverse()) stop(); displ
 describe('visual effect boundaries', () => {
   it('uses explicit provider identities, rejects conflicts and disposes only the owned registration', () => {
     const registry = new VisualEffectRegistry()
-    const component = ({ children }: { children?: React.ReactNode }) => h('div', null, children)
+    const component = ({ children }: { children?: ReactNode }) => h('div', null, children)
     const stop = registry.register({ id: 'canvasui.decrypt-reveal', version: 'test', component, gpu: true })
     expect([...registry.getSnapshot().keys()]).toEqual(['canvasui.decrypt-reveal'])
     expect(() => registry.register({ id: 'canvasui.decrypt-reveal', version: 'other', component, gpu: true })).toThrow('EXPERIENCE_EFFECT_REGISTRATION_CONFLICT')
@@ -36,9 +36,9 @@ describe('visual effect boundaries', () => {
     await act(async () => root.render(h(VisualEffectSlot, { id: 'canvasui.decrypt-reveal' }, h('h1', null, 'Original text'))))
     expect(node.textContent).toBe('Original text')
     expect(node.querySelector('[data-iexp-effect-status]')?.getAttribute('data-iexp-effect-status')).toBe('unavailable')
-    const stop = visualEffects.register({ id: 'canvasui.decrypt-reveal', version: 'test', gpu: true, component: ({ children }) => h('section', { 'data-provider': 'authorized' }, children) })
+    let stop!: () => void
+    await act(async () => { stop = visualEffects.register({ id: 'canvasui.decrypt-reveal', version: 'test', gpu: true, component: ({ children }) => h('section', { 'data-provider': 'authorized' }, children) }) })
     cleanups.push(stop)
-    await act(async () => {})
     expect(node.querySelector('[data-provider]')?.textContent).toBe('Original text')
     await act(async () => stop())
     expect(node.querySelector('[data-provider]')).toBeNull()

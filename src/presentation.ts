@@ -293,6 +293,6 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     : artifact.protocol === 'mcp-app'
       ? h(McpContent, { artifact, api: mcpApi })
       : h(ContentView, { value: artifact.source.kind === 'assistant' ? assistantContent(artifact.payload) : artifact.payload, isStreaming,
-          effectId: activeMode === 'visual' && artifact.source.kind === 'generated' && artifact.protocol === 'content' ? artifact.effectId : undefined })
+          effectId: activeMode === 'visual' && artifact.protocol === 'content' && (artifact.source.kind === 'generated' || artifact.source.kind === 'tool' && artifact.providerId === 'solar-present') ? artifact.effectId : undefined })
   return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual))))
 }

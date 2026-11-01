@@ -13,7 +13,6 @@ import { z as schema } from 'zod'
 import { ExperienceStore } from './store.js'
 import { ExperienceControl } from './control.js'
 import { artifactSchema } from './contracts.js'
-import { visualEffectSchema } from './effects.js'
 import { McpHost } from './mcp-host.js'
 
 export { UiComponentsControl } from './uiverse/host.js'
@@ -28,7 +27,7 @@ export const Config: z<Config> = z.object({
   maxArtifactsPerSession: z.number().min(1).max(10000).default(500),
   mcpEndpoint: z.string().default(''),
 })
-const presentationInput = schema.strictObject({ protocol: schema.enum(['content', 'openui']), label: schema.string().min(1).max(300), payload: schema.json(), effectId: schema.enum(visualEffectSchema.options).optional() })
+const presentationInput = schema.strictObject({ protocol: schema.enum(['content', 'openui']), label: schema.string().min(1).max(300), payload: schema.json(), effectId: schema.enum(['iexp.headline-reveal', 'canvasui.decrypt-reveal']).optional() })
 
 function renderedToolText(content: readonly unknown[]): string {
   return content.flatMap(block => {
@@ -111,6 +110,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       exec.signal.throwIfAborted()
       const value = presentationInput.parse(args)
       if (value.protocol === 'openui' && typeof value.payload !== 'string') throw new Error('EXPERIENCE_OPENUI_TEXT_REQUIRED: OpenUI 内容必须是语言文本。')
+      if (value.protocol !== 'content' && value.effectId) throw new Error('EXPERIENCE_EFFECT_UNSUPPORTED_PROTOCOL: 动效仅支持 content 生成内容。')
       return store.publish({ source: { sessionId: String(exec.agent.id), callId: String(exec.callId), kind: 'generated', label: value.label }, protocol: value.protocol, raw: value.payload, payload: value.payload, providerId: value.protocol === 'openui' ? 'openui' : 'content', ...(value.effectId && value.protocol === 'content' ? { effectId: value.effectId } : {}) })
     },
   })
