@@ -18,6 +18,10 @@ An optional unified presentation layer inside the existing official DSH applicat
 
 The user approved standard output and generated-content takeover, with official settings/navigation retained. Reuse OpenUI and MCP Apps, keep adaptations thin, and prefer the least costly route to working behavior. Do not alter the official app, existing credentials, unrelated plugins, or model/reasoning settings. Rendering alone causes no model call. Preserve raw content and source references.
 
+## UI-only ownership boundary
+
+Presentation behavior, surface roles, component selection, theme tokens, reading interactions and optional visual effects are owned by this plugin's **frontend**. Visual choices do not change Agent/tool input, research Artifact schema, session execution or source content. Optional GPU components must remain reversible, capability-gated and limited to plugin-owned decorative surfaces; foreign plugins retain their own DOM, lifecycle and business logic. See [UI-only enhancement architecture](docs/design/ui-only-enhancement-architecture.md).
+
 ## Operating Context
 
 Official DSH 0.2.1-rc.2 on macOS arm64; its React18 web client and native light/dark theme. Normal and narrow desktop layouts, keyboard access, streaming output, errors, and reversible on/off transitions are acceptance requirements. The browser preview supports both synthetic OpenUI examples and actual locally executed Vitest reports. Actual-report mode formats plain Markdown without chart or icon instructions; the platform selects its presentation. Actual installed-app evidence is recorded separately.

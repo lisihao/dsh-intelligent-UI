@@ -31,6 +31,8 @@ flowchart LR
 
 See [component architecture and boundaries](docs/design/integrated-uiverse.md), [runtime selector](src/uiverse-render.ts), [silent Host capability](src/uiverse/host.ts) and [source manifest](resources/uiverse/upstream.json).
 
+The [UI-only enhancement architecture](docs/design/ui-only-enhancement-architecture.md) defines the frontend ownership boundary and the next interaction improvements. Visual effects remain optional and separate from the Agent, `solar_present`, and persisted research content.
+
 ## What it does
 
 - Optional takeover of standard assistant/tool output and generated content. One conversation-level **显示** control switches visual, original and comparison views.
