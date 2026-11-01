@@ -7,7 +7,7 @@
 - The README's integrated-Uiverse acceptance entry reports an earlier disposable-profile gate; this session has not independently rerun that gate.
 
 ## Current change scope
-- Adds an optional, explicitly requested visual-effect field on generated Artifacts and an isolated frontend registry.
+- Adds an optional, explicitly requested visual-effect field on generated Artifacts and an isolated frontend registry with lazy component loading and lifecycle disposal.
 - Provides an in-house CSS headline reveal for end-to-end contract testing; reserves an unshipped Canvas UI provider slot.
 - Visual effect requests do not change artifact content, citations, execution state, other plugin resources or theme selection.
 - The existing session display control still governs visual/original/compare modes.

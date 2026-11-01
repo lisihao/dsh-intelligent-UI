@@ -8,7 +8,7 @@
 ## Contract and actual capability
 - `visualEffectSchema` is a closed, namespaced data contract: `iexp.headline-reveal` or `canvasui.decrypt-reveal`. The source artifact stores the optional `effectId`.
 - `solar_present` accepts an optional effect request for protocol `content`. Its presentation metadata retains the requested ID.
-- The client registry supports explicit registration and rejects duplicate IDs. Its disposer removes the exact registered entry.
+- The client registry supports explicit registration and rejects duplicate IDs. Its disposer removes the exact registered entry. Providers may register a direct component or a lazy loader. Lazy GPU loaders start only when the title is visible and the visual effect is eligible; failed loaders retain source content.
 - `VisualEffectSlot` is constrained to the first Markdown H1, with at most 120 characters, only for explicitly requested generated artifacts, only outside streaming and only in visual mode.
 - Missing providers, reduced-motion settings, hidden tabs and off-screen headings retain native source rendering. React errors fall back to the same source element.
 - Built-in `iexp.headline-reveal` supplies a simple, one-shot CSS animation; it uses no upstream component assets.
@@ -23,7 +23,7 @@ Once distribution permission and packaging are confirmed, an authorized build ma
 visualEffects.register({
   id: 'canvasui.decrypt-reveal',
   version: '<pinned-upstream-version>',
-  component: AuthorizedDecryptReveal,
+  load: async () => AuthorizedDecryptReveal, // Load only after the requested heading becomes visible.
   gpu: true,
 })
 ```

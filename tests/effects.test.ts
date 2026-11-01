@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement as h, act, type ReactNode } from 'react'
+import { createElement as h, act, useEffect, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { artifactSchema } from '../src/contracts.js'
@@ -64,6 +64,32 @@ describe('visual effect boundaries', () => {
     await act(async () => root.render(h(ArtifactView, { artifact, isStreaming: true })))
     expect(node.querySelector('.iexp-headline-reveal')).toBeNull()
     await act(async () => root.unmount()); node.remove()
+  })
+
+  it('loads a GPU provider only when its heading enters the viewport, then disposes it', async () => {
+    let intersect!: (entries: Array<{ isIntersecting: boolean }>) => void
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: typeof intersect) { intersect = callback }
+      observe() {}
+      disconnect() {}
+    })
+    const disposed = vi.fn()
+    const Component = ({ children }: { children?: ReactNode }) => {
+      useEffect(() => () => disposed(), [])
+      return h('div', { 'data-provider': 'lazy-gpu' }, children)
+    }
+    const load = vi.fn(async () => Component)
+    const stop = visualEffects.register({ id: 'canvasui.decrypt-reveal', version: 'test', gpu: true, load }); cleanups.push(stop)
+    const node = document.createElement('div'); document.body.append(node); const root = createRoot(node)
+    await act(async () => root.render(h(VisualEffectSlot, { id: 'canvasui.decrypt-reveal' }, h('h1', null, 'Original text'))))
+    expect(load).not.toHaveBeenCalled()
+    expect(node.textContent).toBe('Original text')
+    await act(async () => intersect([{ isIntersecting: true }]))
+    expect(load).toHaveBeenCalledOnce()
+    expect(node.querySelector('[data-provider]')?.textContent).toBe('Original text')
+    await act(async () => root.unmount())
+    expect(disposed).toHaveBeenCalledOnce()
+    node.remove()
   })
 
   it('honors reduced motion and retains the native heading', async () => {

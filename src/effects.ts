@@ -9,7 +9,8 @@ export { visualEffectSchema, type VisualEffectId } from './effect-contracts.js'
 export interface VisualEffectManifest {
   id: VisualEffectId
   version: string
-  component: ComponentType<{ children?: ReactNode }>
+  component?: ComponentType<{ children?: ReactNode }>
+  load?: () => Promise<ComponentType<{ children?: ReactNode }>>
   gpu: boolean
 }
 
@@ -21,8 +22,9 @@ export class VisualEffectRegistry {
 
   register(manifest: VisualEffectManifest): () => void {
     visualEffectSchema.parse(manifest.id)
-    if (!manifest.version.trim() || typeof manifest.component !== 'function')
-      throw new Error('EXPERIENCE_EFFECT_INVALID_PROVIDER: Effect requires a version and a React component')
+    const direct = typeof manifest.component === 'function', lazy = typeof manifest.load === 'function'
+    if (!manifest.version.trim() || direct === lazy)
+      throw new Error('EXPERIENCE_EFFECT_INVALID_PROVIDER: Effect requires a version and exactly one component or loader')
     if (this.entries.has(manifest.id))
       throw new Error('EXPERIENCE_EFFECT_REGISTRATION_CONFLICT: ' + manifest.id)
     const entry = Object.freeze({ ...manifest })
@@ -72,6 +74,8 @@ export function VisualEffectSlot({ id, children }: { id: VisualEffectId, childre
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined')
   const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || !document.hidden)
   const [reducedMotion, setReducedMotion] = useState(() => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [loaded, setLoaded] = useState<{ manifest: VisualEffectManifest, component: ComponentType<{ children?: ReactNode }> }>()
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined' || !container.current) { setVisible(true); return }
@@ -94,11 +98,21 @@ export function VisualEffectSlot({ id, children }: { id: VisualEffectId, childre
     return () => document.removeEventListener('visibilitychange', update)
   }, [])
 
-  const enabled = !!manifest && visible && pageVisible && !reducedMotion
-  const status = !manifest ? 'unavailable' : reducedMotion ? 'reduced-motion' : enabled ? 'active' : 'inactive'
+  const eligible = !!manifest && visible && pageVisible && !reducedMotion
+  useEffect(() => {
+    setLoaded(undefined)
+    setLoadFailed(false)
+    if (!eligible || !manifest?.load) return
+    let live = true
+    void manifest.load().then(component => { if (live) setLoaded({ manifest, component }) }).catch(() => { if (live) setLoadFailed(true) })
+    return () => { live = false }
+  }, [manifest, eligible])
+  const renderer = manifest?.component ?? (loaded?.manifest === manifest ? loaded.component : undefined)
+  const active = eligible && !!renderer
+  const status = !manifest ? 'unavailable' : reducedMotion ? 'reduced-motion' : !eligible ? 'inactive' : loadFailed ? 'load-failed' : active ? 'active' : 'loading'
   return h('div', { ref: container, className: 'iexp-effect-slot', 'data-iexp-effect-id': id, 'data-iexp-effect-status': status },
-    enabled && manifest
-      ? h(EffectBoundary, { key: id, fallback: children }, h(manifest.component, null, children))
+    active && renderer
+      ? h(EffectBoundary, { key: id + manifest!.version, fallback: children }, h(renderer, null, children))
       : children)
 }
 
