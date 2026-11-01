@@ -4,8 +4,10 @@ import { themeIdSchema } from './theme-contracts.js'
 export const DEFAULT_THEME_SOURCE = 'https://raw.githubusercontent.com/lisihao/dsh-intelligent-UI/main/theme/'
 export const DEFAULT_THEME_REPOSITORY = 'https://github.com/lisihao/dsh-intelligent-UI/tree/main/theme'
 export const themeSourceSchema = z.string().trim().min(1).max(2048).url().refine(value => {
-  const url = new URL(value)
-  return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash
+  try {
+    const url = new URL(value)
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash
+  } catch { return false }
 }, '主题来源需要 HTTP(S) 目录地址，不包含登录信息、查询参数或锚点。')
 export function themeSourceDirectory(value: string): string {
   const url = new URL(themeSourceSchema.parse(value))

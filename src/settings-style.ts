@@ -42,6 +42,8 @@ export const settingsCss = `
 .iexp-settings .iexp-theme-palette span { display:block; width:20px; height:20px; border-radius:6px; border:1px solid var(--iexp-settings-line); }
 .iexp-settings .iexp-source-form { display:grid; gap:8px; min-width:0; }
 .iexp-settings .iexp-source-input { width:100%; min-width:0; }
+.dsh-experience.iexp-settings .iexp-source-input[aria-invalid=true] { border-color:var(--iexp-error); }
+.iexp-settings .iexp-source-error { color:var(--iexp-error); }
 .iexp-settings .iexp-theme-catalog { list-style:none; margin:0; padding:0; }
 .iexp-settings .iexp-theme-catalog li { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; padding:8px 0; border-bottom:1px solid var(--iexp-settings-line); }
 .iexp-settings .iexp-file-control { position:relative; overflow:hidden; }

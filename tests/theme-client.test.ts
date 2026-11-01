@@ -136,6 +136,41 @@ describe('downloadable themes through real settings persistence', () => {
 
 
 describe('configured repository themes in Settings', () => {
+  it('shows actionable inline validation, blocks invalid saves, and recovers without changing settings', async () => {
+    const s = await setup()
+    try {
+      await act(async () => s.root.render(h(Settings, { store: s.store })))
+      const input = s.element.querySelector<HTMLInputElement>('[aria-label="主题来源地址"]')!
+      const save = [...s.element.querySelectorAll('button')].find(button => button.textContent === '保存来源')!
+      const before = await readFile(join(s.dir, 'settings.json'), 'utf8')
+      for (const value of ['not a url', '', 'ftp://example.org/theme/', 'https://github.com/lisihao/dsh-intelligent-UI']) {
+        await act(async () => { input.value = value; Simulate.change(input) })
+        expect(input.getAttribute('aria-invalid')).toBe('true')
+        expect(save.disabled).toBe(true)
+        const error = s.element.querySelector('[data-theme-source-error]')!
+        expect(error.textContent).toMatch(/请|HTTP/)
+        expect(input.getAttribute('aria-describedby')?.split(' ')).toContain(error.id)
+        await act(async () => { input.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle() })
+        expect(await readFile(join(s.dir, 'settings.json'), 'utf8')).toBe(before)
+      }
+      const restore = [...s.element.querySelectorAll('button')].find(button => button.textContent === '恢复默认来源')!
+      expect(restore.disabled).toBe(false)
+      await act(async () => { restore.click(); await settle() })
+      expect(input.value).toBe(DEFAULT_THEME_SOURCE)
+      expect(s.element.querySelector('[data-theme-source-error]')).toBeNull()
+      expect(save.disabled).toBe(true)
+      expect(restore.disabled).toBe(true)
+      expect(await readFile(join(s.dir, 'settings.json'), 'utf8')).toBe(before)
+      await act(async () => { input.value = 'https://example.org/my-themes/'; Simulate.change(input) })
+      expect(input.getAttribute('aria-invalid')).toBeNull()
+      expect(s.element.querySelector('[data-theme-source-error]')).toBeNull()
+      expect(save.disabled).toBe(false)
+      await act(async () => { input.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await settle() })
+      expect((await s.host.settings()).themeSource).toBe('https://example.org/my-themes/')
+      expect(save.disabled).toBe(true)
+    } finally { await s.cleanup() }
+  })
+
   it('uses the default directory, persists a custom source, downloads from it and restores the default', async () => {
     const theme = importedTheme(), bytes = JSON.stringify(theme)
     const catalog = { formatVersion: 1, themes: [{ id: theme.id, name: theme.name, version: theme.version, file: 'linen.dsh-theme.json', sha256: createHash('sha256').update(bytes).digest('hex') }] }

@@ -23,6 +23,14 @@ export function parseThemeFile(text: string): ThemePackage {
   return parsed.data
 }
 
+function sourceValidationError(value: string): string | undefined {
+  if (!value.trim()) return '请输入主题来源目录地址。'
+  const parsed = themeSourceSchema.safeParse(value)
+  if (!parsed.success) return '请填写完整的 HTTP(S) 目录地址，不包含登录信息、查询参数或锚点。'
+  try { themeSourceDirectory(parsed.data) }
+  catch (error) { return error instanceof Error ? error.message : String(error) }
+}
+
 export function ThemeSettings({ settings, busy, onSelect, onInstall, onRemove, onSaveSource, onCatalog, onDownload }: {
   settings?: ExperienceSettings
   busy: boolean
@@ -36,6 +44,7 @@ export function ThemeSettings({ settings, busy, onSelect, onInstall, onRemove, o
   const id = useId()
   const source = settings?.themeSource ?? DEFAULT_THEME_SOURCE
   const [sourceDraft, setSourceDraft] = useState(source)
+  const sourceError = sourceValidationError(sourceDraft)
   const [catalog, setCatalog] = useState<ThemeCatalog>()
   const [loading, setLoading] = useState(false)
   const requestGeneration = useRef(0)
@@ -76,6 +85,7 @@ export function ThemeSettings({ settings, busy, onSelect, onInstall, onRemove, o
     finally { if (generation === requestGeneration.current) setLoading(false) }
   }
   async function saveSource(value: string) {
+    if (sourceValidationError(value)) return
     await run(async () => { const parsed = themeSourceSchema.parse(value); themeSourceDirectory(parsed); await onSaveSource(parsed) }, '主题来源已保存。')
   }
   return h('fieldset', { className: 'iexp-theme-controls', disabled: !settings || busy || reading },
@@ -93,10 +103,11 @@ export function ThemeSettings({ settings, busy, onSelect, onInstall, onRemove, o
     h(ThemeComponentPreview, { theme: selected }),
     h('div', { className: 'iexp-settings-group' },
       h('label', { htmlFor: `${id}-source` }, '主题来源'),
-      h('form', { className: 'iexp-source-form', onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); void saveSource(sourceDraft) } },
-        h(ThemeInput, { id: `${id}-source`, type: 'url', 'aria-label': '主题来源地址', 'aria-describedby': `${id}-source-help`, value: sourceDraft, maxLength: 2048, spellCheck: false, className: 'iexp-control iexp-source-input', onChange: (event: { currentTarget: HTMLInputElement }) => setSourceDraft(event.currentTarget.value) }),
-        h('div', { className: 'iexp-control-row' }, h(ThemeButton, { type: 'submit', className: 'iexp-control', disabled: sourceDraft.trim() === source }, '保存来源'),
-          h(ThemeButton, { type: 'button', className: 'iexp-control', disabled: source === DEFAULT_THEME_SOURCE, onClick: () => { void saveSource(DEFAULT_THEME_SOURCE) } }, '恢复默认来源'))),
+      h('form', { className: 'iexp-source-form', noValidate: true, onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); void saveSource(sourceDraft) } },
+        h(ThemeInput, { id: `${id}-source`, type: 'url', 'aria-label': '主题来源地址', 'aria-invalid': sourceError ? true : undefined, 'aria-describedby': `${id}-source-help${sourceError ? ` ${id}-source-error` : ''}`, value: sourceDraft, maxLength: 2048, spellCheck: false, className: 'iexp-control iexp-source-input', onChange: (event: { currentTarget: HTMLInputElement }) => setSourceDraft(event.currentTarget.value) }),
+        sourceError && h('p', { id: `${id}-source-error`, role: 'alert', 'data-theme-source-error': true, className: 'iexp-setting-help iexp-source-error' }, sourceError),
+        h('div', { className: 'iexp-control-row' }, h(ThemeButton, { type: 'submit', className: 'iexp-control', disabled: !!sourceError || sourceDraft.trim() === source }, '保存来源'),
+          h(ThemeButton, { type: 'button', className: 'iexp-control', disabled: source === DEFAULT_THEME_SOURCE && sourceDraft === source, onClick: () => { if (source === DEFAULT_THEME_SOURCE) { setSourceDraft(source); setFailure(''); setNotice('已恢复默认来源。') } else void saveSource(DEFAULT_THEME_SOURCE) } }, '恢复默认来源'))),
       h('p', { className: 'iexp-setting-help', id: `${id}-source-help` }, '默认连接独立 UI 项目的 theme/ 目录。也支持其他 GitHub 目录或含 index.json 的主题目录；保存后生效。'),
       h('div', { className: 'iexp-control-row' },
         h(ThemeButton, { type: 'button', className: 'iexp-control iexp-control-primary', disabled: loading, onClick: () => { void browse() } }, loading ? '正在读取主题…' : '浏览来源主题'),
