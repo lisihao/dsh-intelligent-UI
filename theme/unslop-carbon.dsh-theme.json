@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar; design reference: Damir Sokolovsky (heydamir)",
+  "license": "CC-BY-4.0",
+  "id": "unslop-carbon",
+  "name": "炭墨 · Carbon",
+  "description": "最接近参考最终稿：炭黑面板、暖白文字、细边框与柔和彩色图表。 Adapted palette/material tokens from https://github.com/heydamir/unslop; CC BY 4.0: https://creativecommons.org/licenses/by/4.0/",
+  "appearance": {
+    "backgroundColor": "#141414",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#eeeae2",
+    "accentLight": "#383936",
+    "success": "#4b926b",
+    "warning": "#b78031",
+    "error": "#be596b",
+    "paletteDark": [
+      "#e8c36a",
+      "#97c6b1",
+      "#8ebce6",
+      "#ce9baf",
+      "#b4a7d5"
+    ],
+    "paletteLight": [
+      "#805c14",
+      "#326c57",
+      "#316899",
+      "#984b68",
+      "#685092"
+    ],
+    "panelRadius": 24,
+    "cardRadius": 18,
+    "nodeRadius": 16,
+    "controlRadius": 10,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.94,
+    "blur": 8,
+    "hoverLift": 3,
+    "shadow": "soft",
+    "comparison": "standard"
+  }
+}

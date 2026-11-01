@@ -7,16 +7,23 @@ import { installAppearanceStyles } from '../../src/appearance-style.js'
 import type { ExperienceArtifact, ExperienceSettings, WidgetState } from '../../src/contracts.js'
 import { builtInThemes, resolveTheme, themePackageSchema } from '../../src/theme-contracts.js'
 import linen from '../../src/themes/linen-example.dsh-theme.json' with { type: 'json' }
+import carbon from '../../theme/unslop-carbon.dsh-theme.json' with { type: 'json' }
+import cobalt from '../../theme/unslop-cobalt.dsh-theme.json' with { type: 'json' }
+import amber from '../../theme/unslop-amber.dsh-theme.json' with { type: 'json' }
+import porcelain from '../../theme/unslop-porcelain.dsh-theme.json' with { type: 'json' }
+import { appearanceTokens } from '../../src/appearance.js'
 import { OPENUI_VISUAL_SAMPLE } from '../fixtures/intelligent-experience-canary/visual-sample.mjs'
 declare const REPORT_KIND: 'research' | 'test' | 'synthetic'
 declare const REAL_REPORT_MARKDOWN: string | null
 declare const ACTUAL_LAYOUT_OUTPUTS: Record<string, unknown> | null
 const realMarkdown = typeof REAL_REPORT_MARKDOWN === 'string' ? REAL_REPORT_MARKDOWN : null
 let settings: ExperienceSettings = { formatVersion: 1, revision: 0, takeover: true, openui: true, mcpApps: false }
+const downloadableThemes = [linen, carbon, cobalt, amber, porcelain].map(theme => themePackageSchema.parse(theme))
+const previewThemes = [...builtInThemes, ...downloadableThemes]
 const themeId = new URLSearchParams(location.search).get('theme')
-if (themeId && [...builtInThemes, linen].some(theme => theme.id === themeId)) {
-  const theme = themePackageSchema.parse([...builtInThemes, linen].find(theme => theme.id === themeId))
-  settings = { ...settings, theme: { activeId: theme.id, installed: theme.id === linen.id ? [theme] : [] }, appearance: theme.appearance }
+if (themeId && previewThemes.some(theme => theme.id === themeId)) {
+  const theme = themePackageSchema.parse(previewThemes.find(theme => theme.id === themeId))
+  settings = { ...settings, theme: { activeId: theme.id, installed: downloadableThemes }, appearance: theme.appearance }
 }
 const artifact: ExperienceArtifact = { formatVersion: 1, id: 'f7f48ec8-fcf5-477c-977b-e0e7c372893a', createdAt: '2026-10-30T00:00:00Z', source: { sessionId: 'fixture', kind: 'generated', label: '合成样例：本地服务趋势' }, protocol: 'openui', raw: OPENUI_VISUAL_SAMPLE, payload: OPENUI_VISUAL_SAMPLE, providerId: 'fixture' }
 if (realMarkdown) Object.assign(artifact, { source: { ...artifact.source, label: REPORT_KIND === 'research' ? '美国 AI 泡沫研究报告（原文直接渲染）' : '真实测试输出（本地读取，无模型调用）' }, protocol: 'content', raw: realMarkdown, payload: realMarkdown })
@@ -46,6 +53,6 @@ store.update({ settings, api: { settings: async () => settings, saveSettings: as
 installExperienceStyles()
 installAppearanceStyles(store)
 function syntheticTheme(mode: 'light' | 'dark') { experienceTheme.set(mode); document.body.style.background = mode === 'dark' ? 'linear-gradient(135deg,#191b20,#34414e 48%,#23282b)' : 'linear-gradient(135deg,#ffffff,#dde8ee 48%,#f4e4d6)'; document.body.style.color = mode === 'dark' ? '#eceef2' : '#202124'; document.body.style.setProperty('--dsw-alias-label-primary', mode === 'dark' ? '#eceef2' : '#202124'); document.body.style.colorScheme = mode }
-syntheticTheme('light')
+syntheticTheme(appearanceTokens(settings.appearance, resolveTheme(settings.theme)).colorScheme)
 const Fixture = () => h('main', null, h('header', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 12 } }, h('p', null, actual !== undefined ? `${outputLabels[selected]} · 本地只读输出 · 无模型调用` : realMarkdown ? (REPORT_KIND === 'research' ? '真实研究报告 · 保留原文与口径 · 无额外模型调用' : '真实命令输出 · 自动展示验证 · 无额外模型调用') : '合成浏览器夹具 · 固定示例数据 · 不连接真实会话或模型'), h('div', null, h('button', { onClick: () => syntheticTheme('light') }, '浅色'), h('button', { onClick: () => syntheticTheme('dark') }, '深色'), h(HeaderControls, { store, sessionId: 'fixture' }))), ACTUAL_LAYOUT_OUTPUTS && h('nav', { 'aria-label': '本地真实输出验证', style: { display: 'flex', flexWrap: 'wrap', gap: 16, padding: '0 12px 12px' } }, ...Object.entries({ report: '原研究报告', graph: '源码依赖', tasks: '测试结果', records: '分析记录', commands: '命令目录' }).map(([value, title]) => h('a', { key: value, href: `?view=${value}`, 'aria-current': selected === value ? 'page' : undefined, style: { color: 'inherit', fontSize: 13 } }, title))), h('details', { style: { margin: 12 } }, h('summary', null, '插件外观设置'), h(Settings, { store })), h(Workspace, { store, sessionId: 'fixture' }))
 createRoot(document.getElementById('root')!).render(h(Fixture))

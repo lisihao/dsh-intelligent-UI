@@ -53,7 +53,7 @@ afterEach(async () => {
 })
 
 describe('independent theme source', () => {
-  it('ships an independently hosted catalog whose exact bytes hash and package match the built-in', async () => {
+  it('ships an independently hosted catalog with verified bytes and matching package identities', async () => {
     expect(DEFAULT_THEME_SOURCE).toBe('https://raw.githubusercontent.com/lisihao/dsh-intelligent-UI/main/theme/')
     expect(themeSourceDirectory(DEFAULT_THEME_REPOSITORY)).toBe(DEFAULT_THEME_SOURCE)
     const catalog = themeCatalogSchema.parse(JSON.parse(await readFile(new URL('../theme/index.json', import.meta.url), 'utf8')))
@@ -62,10 +62,38 @@ describe('independent theme source', () => {
       const bytes = await readFile(new URL(`../theme/${entry.file}`, import.meta.url))
       expect(hash(bytes)).toBe(entry.sha256)
       const theme = themePackageSchema.parse(JSON.parse(bytes.toString('utf8')))
-      expect(theme).toEqual(builtInThemes.find(value => value.id === entry.id))
+      const builtIn = builtInThemes.find(value => value.id === entry.id)
+      if (builtIn) expect(theme).toEqual(builtIn)
       expect(theme).toMatchObject({ id: entry.id, name: entry.name, version: entry.version })
     }
     for (const source of ['file:///tmp/theme/', 'https://user:secret@example.test/themes/', 'https://example.test/themes/?token=x', 'https://example.test/themes/#section']) expect(themeSourceSchema.safeParse(source).success).toBe(false)
+  })
+
+  it('downloads every published imported theme over HTTP without activating it, then selects and restores it across restart', async () => {
+    const catalog = themeCatalogSchema.parse(JSON.parse(await readFile(new URL('../theme/index.json', import.meta.url), 'utf8')))
+    const library = await httpLibrary(), f = await fixture(library.source)
+    library.replies.set('/themes/index.json', { body: JSON.stringify(catalog) })
+    for (const entry of catalog.themes) library.replies.set(`/themes/${entry.file}`, { body: await readFile(new URL(`../theme/${entry.file}`, import.meta.url)) })
+    let current = f.state
+    const imported = catalog.themes.filter(entry => !builtInThemes.some(theme => theme.id === entry.id))
+    expect(imported.length).toBeGreaterThanOrEqual(4)
+    for (const entry of imported) {
+      current = await downloadSourceTheme(f.store, { expectedRevision: current.revision, source: library.source, id: entry.id })
+      expect(current.theme?.activeId).toBe(f.state.theme?.activeId)
+      expect(current.appearance).toEqual(f.state.appearance)
+      expect(current).toMatchObject(flags)
+      expect(current.themeSource).toBe(library.source)
+    }
+    for (const entry of imported) {
+      current = await f.store.saveSettings({ expectedRevision: current.revision, ...flags, themeId: entry.id })
+      const selected = current.theme!.installed.find(theme => theme.id === entry.id)!
+      expect(current.appearance).toEqual(selected.appearance)
+      expect(await new ExperienceStore(f.path).settings()).toEqual(current)
+    }
+    current = await f.store.saveSettings({ expectedRevision: current.revision, ...flags, themeId: f.state.theme!.activeId, appearance: f.state.appearance })
+    expect(current.theme?.activeId).toBe(f.state.theme?.activeId)
+    expect(current.appearance).toEqual(f.state.appearance)
+    expect(current.theme?.installed).toHaveLength(imported.length)
   })
 
   it('persists a configured source across restart and older callers, then imports from real HTTP without activating or changing other settings', async () => {

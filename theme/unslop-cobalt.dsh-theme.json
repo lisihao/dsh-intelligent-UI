@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar; design reference: Damir Sokolovsky (heydamir)",
+  "license": "CC-BY-4.0",
+  "id": "unslop-cobalt",
+  "name": "钴夜 · Cobalt",
+  "description": "取自黑蓝主视觉：深钴蓝半透明底、薄荷绿焦点与清晰的多色数据线。 Adapted palette/material tokens from https://github.com/heydamir/unslop; CC BY 4.0: https://creativecommons.org/licenses/by/4.0/",
+  "appearance": {
+    "backgroundColor": "#090f1f",
+    "translucent": true
+  },
+  "tokens": {
+    "accentDark": "#a9edb7",
+    "accentLight": "#266e45",
+    "success": "#4b926b",
+    "warning": "#b78031",
+    "error": "#be596b",
+    "paletteDark": [
+      "#a9edb7",
+      "#7ca8ed",
+      "#e8b47a",
+      "#cf9ba6",
+      "#b9afd8"
+    ],
+    "paletteLight": [
+      "#28734b",
+      "#3669a5",
+      "#956015",
+      "#985261",
+      "#685898"
+    ],
+    "panelRadius": 28,
+    "cardRadius": 22,
+    "nodeRadius": 18,
+    "controlRadius": 12,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.9,
+    "blur": 14,
+    "hoverLift": 3,
+    "shadow": "soft",
+    "comparison": "standard"
+  }
+}

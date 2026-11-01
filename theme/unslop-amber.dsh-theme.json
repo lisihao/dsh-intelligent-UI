@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar; design reference: Damir Sokolovsky (heydamir)",
+  "license": "CC-BY-4.0",
+  "id": "unslop-amber",
+  "name": "暖金 · Amber",
+  "description": "暖炭灰与琥珀色重点，稍舒展的间距，适合长报告和费用构成。 Adapted palette/material tokens from https://github.com/heydamir/unslop; CC BY 4.0: https://creativecommons.org/licenses/by/4.0/",
+  "appearance": {
+    "backgroundColor": "#1c1916",
+    "translucent": true
+  },
+  "tokens": {
+    "accentDark": "#ebbb75",
+    "accentLight": "#865619",
+    "success": "#4b926b",
+    "warning": "#b78031",
+    "error": "#be596b",
+    "paletteDark": [
+      "#ebbb75",
+      "#dda28a",
+      "#b9c69a",
+      "#94b7bc",
+      "#c4a2bd"
+    ],
+    "paletteLight": [
+      "#8b5c18",
+      "#9c5540",
+      "#586d31",
+      "#396b76",
+      "#84527b"
+    ],
+    "panelRadius": 22,
+    "cardRadius": 16,
+    "nodeRadius": 16,
+    "controlRadius": 10,
+    "density": "comfortable",
+    "font": "system",
+    "translucentAlpha": 0.94,
+    "blur": 10,
+    "hoverLift": 2,
+    "shadow": "soft",
+    "comparison": "standard"
+  }
+}

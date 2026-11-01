@@ -7,6 +7,34 @@
       "version": "1.0.0",
       "file": "empryo.dsh-theme.json",
       "sha256": "1665075d26b5ea40ecb7532de7fba24316c83014c9eb91f0725ed461d411fb27"
+    },
+    {
+      "id": "unslop-carbon",
+      "name": "炭墨 · Carbon",
+      "version": "1.0.0",
+      "file": "unslop-carbon.dsh-theme.json",
+      "sha256": "d9dcbe35b540b2c8213cee48ed71f4b30c7493eaf6346c5ad712009bfc71014d"
+    },
+    {
+      "id": "unslop-cobalt",
+      "name": "钴夜 · Cobalt",
+      "version": "1.0.0",
+      "file": "unslop-cobalt.dsh-theme.json",
+      "sha256": "63ab5bd2197c5857532be44e442dbd805bcef24587af608ddf2ebb597ad12c67"
+    },
+    {
+      "id": "unslop-amber",
+      "name": "暖金 · Amber",
+      "version": "1.0.0",
+      "file": "unslop-amber.dsh-theme.json",
+      "sha256": "be941e0f07e3e9d437fd7c2c130cbf74d7727bcc080c2a525a8dc87722fc0a87"
+    },
+    {
+      "id": "unslop-porcelain",
+      "name": "雾白 · Porcelain",
+      "version": "1.0.0",
+      "file": "unslop-porcelain.dsh-theme.json",
+      "sha256": "028cbbc0a0afafbb87d5a904704ff4c116eb47f113821055ef259a4dad73736e"
     }
   ]
 }

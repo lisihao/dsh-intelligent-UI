@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar; design reference: Damir Sokolovsky (heydamir)",
+  "license": "CC-BY-4.0",
+  "id": "unslop-porcelain",
+  "name": "雾白 · Porcelain",
+  "description": "参考仪表盘层级的浅色改编：纸白底、墨色文字与森林绿重点，保留圆角和悬浮。 Adapted palette/material tokens from https://github.com/heydamir/unslop; CC BY 4.0: https://creativecommons.org/licenses/by/4.0/",
+  "appearance": {
+    "backgroundColor": "#f3f1eb",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#b1d8c3",
+    "accentLight": "#31694f",
+    "success": "#4b926b",
+    "warning": "#b78031",
+    "error": "#be596b",
+    "paletteDark": [
+      "#a8d9bc",
+      "#acc6ee",
+      "#edd0a1",
+      "#dfb4bd",
+      "#c6b8e2"
+    ],
+    "paletteLight": [
+      "#31694f",
+      "#3c6397",
+      "#8c601b",
+      "#934b60",
+      "#6a548b"
+    ],
+    "panelRadius": 24,
+    "cardRadius": 16,
+    "nodeRadius": 14,
+    "controlRadius": 10,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.94,
+    "blur": 8,
+    "hoverLift": 2,
+    "shadow": "soft",
+    "comparison": "standard"
+  }
+}
