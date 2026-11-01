@@ -2,7 +2,7 @@
 
 An independent open-source presentation plugin for the official DeepSeek Harness Desktop, with an offline UI component library built in. This repository contains the intelligent renderer, silent frontend-development tools and themes in one project and one installable plugin. It builds and tests on its own and uses the official application unchanged.
 
-The historical package name **`@lisihao/dsh-solar-intelligent-experience-platform`**, RPC/tool names and data directory are retained for installed-user compatibility. They do not introduce a dependency on another project. The current development version is not a claim of npm or plugin-market publication.
+The historical package name **`@lisihao/dsh-solar-intelligent-experience-platform`**, RPC/tool names and data directory are retained for installed-user compatibility. They do not introduce a dependency on another project. The public preview is distributed as a prebuilt GitHub Release archive. npm publication is not required; community-market listing depends on the catalog maintainers accepting its entry.
 
 **内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
 
@@ -31,7 +31,7 @@ flowchart LR
 
 See [component architecture and boundaries](docs/design/integrated-uiverse.md), [runtime selector](src/uiverse-render.ts), [silent Host capability](src/uiverse/host.ts) and [source manifest](resources/uiverse/upstream.json).
 
-## Research workspace (development candidate)
+## Research workspace (preview)
 
 The conversation-level **研究工作区** control adds report, judgments, sources and technical-comparison views inside the current UI-owned output. Reading remains source-preserving. Citation links and table cells open the report-local evidence inspector; returning to a source block retains the report. The inspector distinguishes a reference recorded in the report from an independently checked external source.
 
@@ -59,7 +59,8 @@ The official DSH navigation and settings stay in place. Disabling takeover resto
 Compatibility target: **DSH 0.2.1-rc.2**, macOS arm64. Install a built archive through the official plugin manager. Back up affected profile configuration and quit the app before updating an existing installation:
 
 ```sh
-dsh plugin --profile desktop add --ignore-scripts /absolute/path/to/plugin.tgz
+dsh plugin --profile desktop add --ignore-scripts \
+  "https://github.com/lisihao/dsh-intelligent-UI/releases/download/%40lisihao%2Fdsh-solar-intelligent-experience-platform%400.1.0-preview.1/lisihao-dsh-solar-intelligent-experience-platform-0.1.0-preview.1.tgz"
 ```
 
 Use the official application's bundled `dsh` CLI for an installed Desktop profile. Lifecycle scripts are disabled; the published renderer does not need its optional install telemetry.
@@ -68,7 +69,7 @@ In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. 
 
 ### Updating an older two-package installation
 
-Earlier previews installed `@lisihao/dsh-solar-uiverse-components` separately. This feature now belongs to the intelligent UI package. Disable/remove that former companion through the normal plugin manager before installing the integrated build, then restart normally. Its occupied tool/skill/service names produce a clear `UIVERSE_REGISTRATION_CONFLICT` rather than replacing another owner. Preserve existing settings, sessions and other plugins. The current development package is supplied as a built archive; npm and marketplace publication are separate release steps.
+Earlier previews installed `@lisihao/dsh-solar-uiverse-components` separately. This feature now belongs to the intelligent UI package. Disable/remove that former companion through the normal plugin manager before installing the integrated build, then restart normally. Its occupied tool/skill/service names produce a clear `UIVERSE_REGISTRATION_CONFLICT` rather than replacing another owner. Preserve existing settings, sessions and other plugins. The preview is supplied as a built GitHub Release archive. Community-market catalog review is separate from downloading or installing it.
 
 ### Themes and content appearance
 
@@ -118,7 +119,7 @@ Open `http://127.0.0.1:4173/tools/browser-experience/`. This preview uses a loca
 
 The integrated source is checked through build, types, unit/integration tests and a disposable published-DSH Host with a deterministic keyless Agent. The integration checks the official skill loader, model visibility, original component source, previews, tool availability, runtime role selection, theme/state preservation and disposal. See [current integration evidence](docs/acceptance/2026-11-01-integrated-uiverse.md) for exact results and native acceptance limits.
 
-Earlier installed-app receipts cover their exact historical archives. The integrated single-package update still needs a new normal Desktop installation receipt. No paid model selection test, exhaustive foreign-plugin business-flow test, npm publication or market release is implied.
+Earlier installed-app receipts cover their exact historical archives. The integrated research preview still needs a new normal Desktop installation receipt. Build, type checks, 347 tests, a disposable Host/Agent and browser interaction checks passed before packaging. No paid model selection test, exhaustive foreign-plugin business-flow test or npm publication is implied. Market visibility follows the community catalog review, not source publication alone.
 
 The [Empryo reference analysis](docs/design/empryo-foundation.md), [token catalog](docs/design/empryo-tokens.json) and [local reference atlas](docs/design/empryo-atlas.html) document the visual foundation. They are analysis records, not copied Empryo application source or branding assets.
 
