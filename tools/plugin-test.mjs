@@ -75,7 +75,11 @@ async function themeProbe(ctx) {
       try { await rpc('saveSettings', { expectedRevision: state.revision, ...input.flags, themeId: input.theme.id }) } catch (error) { stale = error }
       assert(stale && /revision conflict/i.test(stale.message), 'theme selection accepted a stale settings revision')
       result.checks.cas = true
-      state = await rpc('saveSettings', { expectedRevision: imported.revision, ...input.flags, themeId: input.theme.id })
+      const direct = await rpc('saveSettings', { expectedRevision: imported.revision, ...input.flags, appearance: { ...input.theme.appearance, backgroundOpacity: 0.37 } })
+      assert(direct.appearance.backgroundOpacity === 0.37, 'direct appearance override did not cross the actual RPC boundary')
+      const restored = await rpc('saveSettings', { expectedRevision: direct.revision, ...input.flags, appearance: imported.appearance })
+      result.checks.directOpacityRpc = true
+      state = await rpc('saveSettings', { expectedRevision: restored.revision, ...input.flags, themeId: input.theme.id })
       assert(state.theme?.activeId === input.theme.id, 'real theme selection was not acknowledged')
       assert(JSON.stringify(state.appearance) === JSON.stringify(input.theme.appearance), 'theme selection did not apply its default appearance')
       result.checks.selected = true
@@ -156,7 +160,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
     }
     phases.push(result)
     if (!result.ok || processError) throw Object.assign(new Error(`theme ${phase} failed: ${JSON.stringify(result)}`, { cause: processError }), { themeEvidence: { ok: false, failedPhase: phase, phases, externalModelCalls: 0 } })
-    const required = ['ownerRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback'])]
+    const required = ['ownerRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback'])]
     if (required.some(check => result.checks[check] !== true)) throw new Error(`theme ${phase} is missing acceptance evidence: ${JSON.stringify(result)}`)
   }
   if (phases[0].pid === phases[1].pid) throw new Error('theme restart acceptance reused one Host process')

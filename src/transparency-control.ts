@@ -41,7 +41,8 @@ export function TransparencyControl({ store }: { store: ExperienceStore }): Reac
     const current = store.snapshot().settings
     if (!current) return
     saving.current = true; dirty.current = false; setBusy(true); setFailure('')
-    try { await store.save({ expectedRevision: current.revision, takeover: current.takeover, openui: current.openui, mcpApps: current.mcpApps, appearance: next }) }
+    const request = { expectedRevision: current.revision, takeover: current.takeover, openui: current.openui, mcpApps: current.mcpApps, appearance: next }
+    try { await store.save(request) }
     catch (error) { setFailure(error instanceof Error ? error.message : String(error)); await store.refresh() }
     finally { store.previewAppearance(owner); saving.current = false; setBusy(false) }
   }

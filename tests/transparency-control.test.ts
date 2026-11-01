@@ -5,11 +5,12 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ExperienceStore as ClientStore, HeaderControls, Settings } from '../src/client.js'
+import { ExperienceStore as ClientStore, HeaderControls, Settings, apiFromWire } from '../src/client.js'
 import { ExperienceStore as HostStore } from '../src/store.js'
 import { initialSettings, type ExperienceSettings, type ExperienceApi, type SaveSettingsInput } from '../src/contracts.js'
 import { appearancePreferences, appearanceTokens, type Appearance } from '../src/appearance.js'
 import { installAppearanceStyles } from '../src/appearance-style.js'
+import { RPC_REMOTE } from '../src/remote.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const mounted: Array<{ root: Root, element: HTMLElement, dispose(): void }> = []
@@ -163,5 +164,48 @@ describe('transparent background persistence', () => {
     expect(restarted).toMatchObject(flags)
     expect(appearanceTokens(restarted.appearance).backgroundOpacity).toBe(0.3)
     expect(save).toHaveBeenCalledTimes(3)
+  })
+})
+
+
+describe('transparency settings at the actual client wire adapter', () => {
+  it('preserves exact opacity through the strict RPC input codec, removes optional undefined fields and leaves the caller unchanged', async () => {
+    const input: SaveSettingsInput = {
+      expectedRevision: 4, ...flags,
+      appearance: { backgroundColor: '#344556', translucent: true, backgroundOpacity: 0.37 },
+      themeId: undefined, themeSource: undefined,
+    }
+    const original = structuredClone(input)
+    const descriptor = RPC_REMOTE.descriptors!.find(value => value.method === 'saveSettings')!
+    const codec = descriptor.parameters[0]!.codec
+    if (codec.mode !== 'strict') throw new Error('saveSettings must expose a strict input codec')
+    const schema = codec.create()
+    // This wire double checks the real registered codec; it does not claim to run the Gateway or transport.
+    const save = vi.fn(async (value: SaveSettingsInput) => {
+      const parsed = schema.parse(value) as SaveSettingsInput
+      expect(parsed).toStrictEqual(value)
+      expect(Object.hasOwn(value, 'themeId')).toBe(false)
+      expect(Object.hasOwn(value, 'themeSource')).toBe(false)
+      expect(value.appearance?.backgroundOpacity).toBe(0.37)
+      return { ok: true as const, value: { ...base(), revision: 5, appearance: parsed.appearance } }
+    })
+    const api = apiFromWire({ settings: async () => ({ ok: true as const, value: base() }), saveSettings: save,
+      artifacts: async () => ({ ok: true as const, value: [] }), publish: async () => { throw new Error('not used') } })
+    const saved = await api.saveSettings(input)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(saved.appearance?.backgroundOpacity).toBe(0.37)
+    expect(input).toStrictEqual(original)
+    expect(Object.hasOwn(input, 'themeId')).toBe(true)
+    expect(Object.hasOwn(input, 'themeSource')).toBe(true)
+    expect(save.mock.calls[0]![0]).not.toBe(input)
+    expect(save.mock.calls[0]![0].appearance).not.toBe(input.appearance)
+  })
+
+  it('rejects invalid opacity before invoking the wire save method', async () => {
+    const save = vi.fn(async (_value: SaveSettingsInput) => ({ ok: true as const, value: base() }))
+    const api = apiFromWire({ settings: async () => ({ ok: true as const, value: base() }), saveSettings: save,
+      artifacts: async () => ({ ok: true as const, value: [] }), publish: async () => { throw new Error('not used') } })
+    await expect(api.saveSettings({ expectedRevision: 4, ...flags, appearance: { backgroundColor: '#344556', translucent: true, backgroundOpacity: 0.29 } })).rejects.toThrow()
+    expect(save).not.toHaveBeenCalled()
   })
 })
