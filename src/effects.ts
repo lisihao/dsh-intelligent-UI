@@ -104,10 +104,13 @@ export function VisualEffectSlot({ id, children }: { id: VisualEffectId, childre
     setLoadFailed(false)
     if (!eligible || !manifest?.load) return
     let live = true
-    void manifest.load().then(component => { if (live) setLoaded({ manifest, component }) }).catch(() => { if (live) setLoadFailed(true) })
+    void Promise.resolve().then(() => manifest.load!()).then(component => {
+      if (typeof component !== 'function') throw new Error('EXPERIENCE_EFFECT_INVALID_COMPONENT')
+      if (live) setLoaded({ manifest, component })
+    }).catch(() => { if (live) setLoadFailed(true) })
     return () => { live = false }
   }, [manifest, eligible])
-  const renderer = manifest?.component ?? (loaded?.manifest === manifest ? loaded.component : undefined)
+  const renderer = manifest?.component ?? (loaded && loaded.manifest === manifest ? loaded.component : undefined)
   const active = eligible && !!renderer
   const status = !manifest ? 'unavailable' : reducedMotion ? 'reduced-motion' : !eligible ? 'inactive' : loadFailed ? 'load-failed' : active ? 'active' : 'loading'
   return h('div', { ref: container, className: 'iexp-effect-slot', 'data-iexp-effect-id': id, 'data-iexp-effect-status': status },
