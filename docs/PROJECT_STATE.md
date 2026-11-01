@@ -20,7 +20,7 @@
 ## Unverified / remaining
 - The Canvas UI GPU component has not been bundled, registered or tested in the DSH Desktop runtime.
 - Upstream redistribution permission, Chromium HTML-in-Canvas capability, WebGL context loss and GPU perf need acceptance.
-- Changes on this feature branch need full `pnpm check` and installed-app smoke verification.
+- GitHub Actions `pnpm check` passed on code commit `233bebe9d76b365d0c47cfe70410e7730dbb1daa`: build, typecheck, 35 Vitest files / 284 tests and disposable published-DSH profile; see [acceptance](acceptance/2026-11-01-canvasui-effects-foundation.md). A normal installed-app GPU smoke test remains pending.
 
 ## Unique next task
 Obtain an explicit Canvas UI component distribution decision; after authorization, register the pinned Decrypt Reveal wrapper and engine in the optional provider slot, run full `pnpm check` and the installed-Dsh GPU canary with fallback/memory teardown coverage.
