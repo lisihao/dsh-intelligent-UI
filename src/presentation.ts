@@ -182,7 +182,7 @@ export function ContentView({ value, isStreaming = false }: { value: unknown, is
   } else if (Array.isArray(value) && value.length > 0 && value.every(x => x && typeof x === 'object' && (x as { type?: unknown }).type === 'text' && typeof (x as { text?: unknown }).text === 'string')) {
     content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming }))
   } else content = h(StructuredContent, { value, isStreaming })
-  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, content))
+  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, content))
 }
 
 export interface McpUiApi {

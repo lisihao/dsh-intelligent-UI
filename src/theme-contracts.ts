@@ -6,7 +6,7 @@ export const MAX_THEME_BYTES = 32 * 1024
 export const MAX_IMPORTED_THEMES = 32
 export const themeIdSchema = z.string().min(1).max(64).regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/)
-export const appearanceSchema = z.strictObject({ backgroundColor: hex, translucent: z.boolean() })
+export const appearanceSchema = z.strictObject({ backgroundColor: hex, translucent: z.boolean(), backgroundOpacity: z.number().min(0.3).max(1).optional() })
 const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
 
 /** Portable data only: no free CSS, executable extensions or external assets. */

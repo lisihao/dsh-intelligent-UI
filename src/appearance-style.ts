@@ -6,13 +6,14 @@ import { themePreferences, themeStyleTokens } from './theme-runtime.js'
 import { installThoughtDagThemeBridge } from './thoughtdag-theme.js'
 
 /** One disposable, plugin-scoped stylesheet; equal refreshes leave CSS and animations intact. */
-export function installAppearanceStyles(source: { snapshot(): { settings?: ExperienceSettings }; subscribe(listener: () => void): () => void }): () => void {
+export function installAppearanceStyles(source: { snapshot(): { settings?: ExperienceSettings; appearancePreview?: ExperienceSettings['appearance'] }; subscribe(listener: () => void): () => void }): () => void {
   const element = document.createElement('style')
   element.dataset.solarExperienceAppearance = 'true'
   let last = ''
   const variables = (settings?: ExperienceSettings) => { const theme = resolveTheme(settings?.theme); return themeStyleTokens(theme, appearanceTokens(settings?.appearance, theme)) }
   const sync = () => {
-    const settings = source.snapshot().settings
+    const snapshot = source.snapshot()
+    const settings = snapshot.settings && snapshot.appearancePreview ? { ...snapshot.settings, appearance: snapshot.appearancePreview } : snapshot.settings
     const preference = settings?.appearance
     const theme = resolveTheme(settings?.theme)
     themePreferences.set(settings?.theme)

@@ -15,6 +15,7 @@ import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateApi, ThemeApi } from './contracts.js'
 import { resolveTheme, type ThemePackage } from './theme-contracts.js'
 import { type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
+import { TransparencyControl } from './transparency-control.js'
 import { ThemeSettings } from './theme-settings.js'
 import { RPC_REMOTE } from './remote.js'
 import { ArtifactView, ContentView, DisplayModeControl, OutputView, displayModes, rawText, openUiWidgets, experienceTheme, type OpenUiWidgets, type McpUiApi } from './presentation.js'
@@ -40,9 +41,15 @@ function mcpApi(api?: ClientApi): McpUiApi | undefined { return api?.mcpOpen && 
 function stateApi(api?: ClientApi): WidgetStateApi | undefined { return api?.widgetState && api.saveWidgetState ? api as WidgetStateApi : undefined }
 
 export class ExperienceStore {
-  private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string } = {}
+  private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
   private listeners = new Set<() => void>()
   private generation = 0
+  private previewOwner?: object
+  previewAppearance(owner: object, appearance?: ReturnType<typeof defaultAppearance>) {
+    if (!appearance && this.previewOwner !== owner) return
+    this.previewOwner = appearance ? owner : undefined
+    if (this.value.appearancePreview !== appearance) this.update({ ...this.value, appearancePreview: appearance })
+  }
   snapshot = () => this.value
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   update(value: typeof this.value) { this.value = value; this.listeners.forEach(listener => listener()) }
@@ -57,22 +64,7 @@ export class ExperienceStore {
 function useStore(store: ExperienceStore) { return useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot) }
 /** One global appearance shortcut beside the existing conversation display control. */
 export function HeaderControls({ store, sessionId }: { store: ExperienceStore, sessionId: string }): ReactElement {
-  const { settings, error } = useStore(store)
-  const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState('')
-  const appearance = settings?.appearance ?? defaultAppearance()
-  async function toggle(translucent: boolean) {
-    if (!settings || busy) return
-    setBusy(true); setFailure('')
-    try { await store.save({ expectedRevision: settings.revision, takeover: settings.takeover, openui: settings.openui, mcpApps: settings.mcpApps, appearance: { ...appearance, translucent } }) }
-    catch (error) { setFailure(message(error)); await store.refresh() }
-    finally { setBusy(false) }
-  }
-  return h('div', { className: 'dsh-experience iexp-header-controls' },
-    h(DisplayModeControl, { sessionId }),
-    h('label', { className: 'iexp-transparency-control', title: '切换智能体验内容的透明背景；使用当前壁纸，不读取或更改壁纸文件。' },
-      h('input', { type: 'checkbox', checked: appearance.translucent, disabled: !settings || busy, onChange: (event: { currentTarget: HTMLInputElement }) => { void toggle(event.currentTarget.checked) } }), '开启透明'),
-    (failure || error) && h('span', { role: 'alert', className: 'iexp-header-error' }, `透明设置未保存：${failure || error}`))
+  return h('div', { className: 'dsh-experience iexp-header-controls' }, h(DisplayModeControl, { sessionId }), h(TransparencyControl, { store }))
 }
 export function Settings({ store }: { store: ExperienceStore }): ReactElement {
   const { api, settings, error, takeoverError } = useStore(store)

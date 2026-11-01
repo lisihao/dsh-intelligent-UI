@@ -81,3 +81,7 @@ The [Empryo reference analysis](docs/design/empryo-foundation.md), [token catalo
 ### Settings layout
 
 Theme selection, online sources and local theme files use compact groups and a shared control scale. Settings have an opaque backing in the selected background color to keep underlying report text from interfering with controls; content transparency and hover effects remain independently adjustable.
+
+### Hover and background transparency
+
+Ordinary AI reply cards lift slightly on mouse hover; reduced-motion preferences disable the displacement. Hover or focus **开启透明** to reveal the background-transparency range. Drag for a live preview, release to save, or press Escape to cancel an unsaved preview. The checkbox preserves the selected level while turning transparency off/on. Only background alpha changes; text remains solid. High manual transparency can reduce readability over some wallpapers.

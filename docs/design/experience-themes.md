@@ -58,3 +58,7 @@ Settings optionally persists `themeSource` through the same revision-checked wri
 Owner-only `themeCatalog()` reads bounded `index.json` only when requested; `downloadTheme({expectedRevision,source,id})` rechecks the configured source, catalog identity, bounded package bytes, SHA-256 and the existing data-only schema before importing. Plain HTTP is available for explicit user-provided local sources. Requests omit credentials, reject redirects and time out after 15 seconds. The source receives no session content. Errors leave original themes/settings intact. A byte-equivalent built-in or already installed package is acknowledged without replacement; source/revision changes during download reject stale results. Downloading does not activate.
 
 The source catalog is not a DSH plugin-market release. It belongs to this independent open-source repository. DSH and other plugins are consumers of the presentation adapter and remain unmodified.
+
+## Background opacity override
+
+`appearance.backgroundOpacity` is an optional number in [.3,1]. Existing files that omit it retain their previous defaults. An explicit user slider choice overrides `tokens.translucentAlpha` and automatic alpha raising, while the checkbox still selects opaque vs translucent rendering. Theme switching restores that theme's appearance defaults. Unsaved slider previews are client-local and do not write revisions; completing a gesture uses the normal owner-only settings RPC and existing CAS. The built-package probe includes a custom alpha through real RPC, persistence and Host restart.

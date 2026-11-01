@@ -18,12 +18,12 @@ const contrast = (a: RGB, b: RGB): number => {
 const rgb = (color: RGB): string => `rgb(${color.join(', ')})`
 const rgba = (color: RGB, alpha: number): string => `rgba(${color.join(', ')}, ${alpha})`
 
-export function appearanceTokens(preference?: Appearance, theme: ThemePackage = resolveTheme()): { colorScheme: 'light' | 'dark'; variables: Record<string, string> } {
+export function appearanceTokens(preference?: Appearance, theme: ThemePackage = resolveTheme()): { colorScheme: 'light' | 'dark'; backgroundOpacity: number; variables: Record<string, string> } {
   const appearance = appearanceSchema.parse(preference ?? theme.appearance)
   const base = [1, 3, 5].map((start) => Number.parseInt(appearance.backgroundColor.slice(start, start + 2), 16)) as RGB
   const minimumContrast = (foreground: RGB, surfaces: RGB[], alpha: number): number => Math.min(...surfaces.flatMap((surface) =>
     [black, white].map((underlay) => contrast(foreground, surface.map((channel, index) => channel * alpha + underlay[index]! * (1 - alpha)) as RGB))))
-  let alpha = appearance.translucent ? theme.tokens.translucentAlpha : 1
+  let alpha = appearance.translucent ? (appearance.backgroundOpacity ?? theme.tokens.translucentAlpha) : 1
   const candidates = [black, white].filter((color) => contrast(color, base) >= 4.5)
   const foreground = candidates.sort((a, b) => minimumContrast(b, [base], alpha) - minimumContrast(a, [base], alpha))[0]!
   const colorScheme = foreground === white ? 'dark' : 'light'
@@ -38,8 +38,8 @@ export function appearanceTokens(preference?: Appearance, theme: ThemePackage = 
   }
   const card = raised(0.035), hover = raised(0.065), soft = raised(0.025)
   const surfaces = [base, card, hover, soft]
-  // Check both extreme underlays so a translucent surface stays readable over any host content.
-  while (alpha < 1 && minimumContrast(foreground, surfaces, alpha) < 4.5) alpha = Math.min(1, Math.round((alpha + 0.001) * 1000) / 1000)
+  // Theme defaults protect contrast over either extreme underlay. An explicit slider choice honors the chosen background opacity; text itself remains solid.
+  while (appearance.backgroundOpacity === undefined && alpha < 1 && minimumContrast(foreground, surfaces, alpha) < 4.5) alpha = Math.min(1, Math.round((alpha + 0.001) * 1000) / 1000)
   let muted = foreground
   for (let amount = 64; amount <= 100; amount++) {
     const candidate = mix(base, foreground, amount / 100)
@@ -56,7 +56,7 @@ export function appearanceTokens(preference?: Appearance, theme: ThemePackage = 
   const fromHex = (hex: string): RGB => [1, 3, 5].map(start => Number.parseInt(hex.slice(start, start + 2), 16)) as RGB
   const accent = readableRole(fromHex(colorScheme === 'dark' ? theme.tokens.accentDark : theme.tokens.accentLight))
   const success = readableRole(fromHex(theme.tokens.success)), warning = readableRole(fromHex(theme.tokens.warning)), error = readableRole(fromHex(theme.tokens.error))
-  return { colorScheme, variables: {
+  return { colorScheme, backgroundOpacity: alpha, variables: {
     '--iexp-color-scheme': colorScheme,
     '--iexp-bg': rgba(base, alpha),
     '--iexp-card': rgba(card, alpha),
@@ -82,7 +82,7 @@ const listeners = new Set<() => void>()
 export const appearancePreferences = {
   set(value?: Appearance): void {
     const next = value === undefined ? initial : Object.freeze(appearanceSchema.parse(value))
-    if (next.backgroundColor.toLowerCase() === snapshot.backgroundColor.toLowerCase() && next.translucent === snapshot.translucent) return
+    if (next.backgroundColor.toLowerCase() === snapshot.backgroundColor.toLowerCase() && next.translucent === snapshot.translucent && next.backgroundOpacity === snapshot.backgroundOpacity) return
     snapshot = next
     for (const listener of [...listeners]) listener()
   },
