@@ -7,6 +7,7 @@ import {
 } from './canvas-html-texture.js'
 import { acquireCanvasSlot, type CanvasEffectFactory, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { isCanvasHtmlEffectName, type CanvasHtmlEffectName } from './canvas-html-names.js'
+import { createCanvasPointerRelay } from './canvas-pointer-relay.js'
 
 /** Only these pinned upstream factories have been checked for shared DOM changes. */
 export type { CanvasHtmlEffectName } from './canvas-html-names.js'
@@ -19,6 +20,8 @@ export interface CanvasHtmlEffectOptions {
   readonly factory: CanvasEffectFactory
   readonly scope: 'visual-only'
   readonly sourceRemainsVisible: true
+  /** Magnify requires the caller to identify this as decoration, not data. */
+  readonly contentRole?: 'decoration'
   /** Pointer input is limited to the dedicated visual copy, never the source. */
   readonly pointer?: boolean
   readonly effectOptions?: Record<string, unknown>
@@ -59,12 +62,21 @@ interface Runtime {
   effect?: EffectInstance | null
   resize?: ResizeObserver
   pendingCapture?: Promise<void>
+  pointerRelay?: () => void
   startupTimer?: number
   bitmap: boolean
 }
 
 function fault(code: CanvasHtmlTextureError['code'], message: string): never {
   throw new CanvasHtmlTextureError(code, message)
+}
+
+function checkEffectContent(component: CanvasHtmlEffectName, content: HTMLElement): void {
+  // A refracted lens can make digits look like different values. This adapter
+  // only permits Magnify on text-free decorative content, never report data.
+  if (component === 'magnify' && /\S/u.test(content.textContent ?? '')) {
+    fault('unsupported', 'Magnify requires text-free decorative content.')
+  }
 }
 
 function checkPlacement(host: HTMLElement, content: HTMLElement, stage?: HTMLElement, layers: readonly Element[] = []): void {
@@ -97,6 +109,12 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
   const { host, content, component, onError } = options
   if (options.scope !== 'visual-only' || options.sourceRemainsVisible !== true) return Promise.reject(new CanvasHtmlTextureError('unsafe-content', 'The original source must remain visible.'))
   if (!isCanvasHtmlEffectName(component)) return Promise.reject(new CanvasHtmlTextureError('unsupported', 'This visual effect has not been verified.'))
+  if (component === 'magnify' && options.contentRole !== 'decoration') {
+    return Promise.reject(new CanvasHtmlTextureError('unsupported', 'Magnify requires explicitly declared decorative content.'))
+  }
+  if (component === 'magnify' && options.effectOptions?.scrollZoom !== undefined && options.effectOptions.scrollZoom !== false) {
+    return Promise.reject(new CanvasHtmlTextureError('unsupported', 'Scroll zoom is unavailable in the isolated visual effect.'))
+  }
   if (options.signal?.aborted) return Promise.reject(new CanvasHtmlTextureError('disposed', 'The visual effect was cancelled.'))
   let view: Window & typeof globalThis
   try {
@@ -105,6 +123,7 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
       fault('unsafe-content', 'The visual region must be dedicated to this effect.')
     }
     readCanvasHtmlTextureSource(content)
+    checkEffectContent(component, content)
     view = host.ownerDocument.defaultView!
     if (view.matchMedia('(prefers-reduced-motion: reduce)').matches) fault('reduced-motion', 'Animation is disabled by the system preference.')
     if (typeof view.IntersectionObserver !== 'function' || typeof view.ResizeObserver !== 'function' || typeof view.requestAnimationFrame !== 'function') {
@@ -127,7 +146,17 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
     let alive = true, settled = false
     let lastFailure: CanvasHtmlTextureError | undefined
     let contentVisible = false, hostVisible = false
-    const effectOptions = { ...options.effectOptions }
+    let autoMagnifySize = component === 'magnify' && options.effectOptions?.size === undefined
+    const magnifySize = () => {
+      const rect = host.getBoundingClientRect()
+      return Math.max(1, Math.min(72, Math.floor(Math.min(rect.width, rect.height) * 0.28)))
+    }
+    const effectOptions: Record<string, unknown> = {
+      ...(component === 'magnify' ? { zoom: 1.3, hud: 0.45, crosshair: false, ticks: false, brackets: false, dot: false, aberration: 0, haze: 0, readout: false } : {}),
+      ...options.effectOptions,
+      ...(component === 'magnify' ? { scrollZoom: false } : {}),
+    }
+    if (autoMagnifySize) effectOptions.size = magnifySize()
     const checkCurrentPlacement = () => checkPlacement(host, content, stage, runtime ? [runtime.backdrop, runtime.output] : [])
 
     const stopRuntime = () => {
@@ -143,6 +172,7 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
       if (current) {
         if (current.startupTimer !== undefined) win.clearTimeout(current.startupTimer)
         current.resize?.disconnect()
+        try { current.pointerRelay?.() } catch (error) { failures.push(error) }
         try { current.effect?.destroy() } catch (error) { failures.push(error) }
         current.source.onpaint = null; current.capture.onpaint = null
         try { current.texture?.dispose() } catch (error) { failures.push(error) }
@@ -203,7 +233,17 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
         return captureNow(runtime)
       },
       resize() { if (runtime) runtime.effect?.resize?.() },
-      setOptions(next) { Object.assign(effectOptions, next); runtime?.effect?.setOptions?.(next) },
+      setOptions(next) {
+        const update = { ...next }
+        if (component === 'magnify' && update.scrollZoom !== undefined && update.scrollZoom !== false) {
+          throw new CanvasHtmlTextureError('unsupported', 'Scroll zoom is unavailable in the isolated visual effect.')
+        }
+        if (component === 'magnify' && Object.hasOwn(update, 'size')) {
+          autoMagnifySize = update.size === undefined
+          if (autoMagnifySize) update.size = magnifySize()
+        }
+        Object.assign(effectOptions, update); runtime?.effect?.setOptions?.(update)
+      },
       splash(x, y, strength) { if (component === 'ripple' && Number.isFinite(x) && Number.isFinite(y)) runtime?.effect?.splash?.(x, y, strength) },
       melt(x, y) { if (component === 'frost' && Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 1 && y >= 0 && y <= 1) runtime?.effect?.melt?.(x, y) },
       burst() { if (component === 'glitch') runtime?.effect?.burst?.() },
@@ -265,12 +305,19 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
       try {
         checkCurrentPlacement()
         readCanvasHtmlTextureSource(content)
+        checkEffectContent(component, content)
         const capture = doc.createElement('canvas') as PaintCanvas
         const source = doc.createElement('canvas') as PaintCanvas
         const proxy = doc.createElement('div')
         const output = doc.createElement('canvas')
         const backdrop = doc.createElement('canvas')
-        source.append(proxy)
+        if (component === 'magnify') {
+          // Non-composed synthetic pointer events remain inside this private
+          // root and cannot reach other plugins' document/window capture listeners.
+          const privateProxyHost = doc.createElement('div')
+          privateProxyHost.attachShadow({ mode: 'closed' }).append(proxy)
+          source.append(privateProxyHost)
+        } else source.append(proxy)
         capture.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none'
         source.style.cssText = `position:fixed;left:-10000px;top:0;width:${host.clientWidth}px;height:${host.clientHeight}px;pointer-events:none`
         output.style.cssText = 'position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none'
@@ -309,6 +356,7 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
           if (!activeRun(current)) return
           try {
             checkCurrentPlacement()
+            checkEffectContent(component, content)
             const rect = content.getBoundingClientRect()
             capture.width = backdrop.width = Math.ceil(rect.width); capture.height = backdrop.height = Math.ceil(rect.height)
             captureContext.drawElementImage?.(content, 0, 0)
@@ -319,11 +367,19 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
         }
         current.effect = options.factory({ source, content: proxy, output }, effectOptions) as EffectInstance | null
         if (!current.effect) fault('unsupported', 'The visual effect could not start on this device.')
+        if (component === 'magnify' && options.pointer) {
+          try { current.pointerRelay = createCanvasPointerRelay({ stage, getProxy: () => activeRun(current) ? current.proxy : undefined }) }
+          catch (error) { throw new CanvasHtmlTextureError('unsupported', 'The browser cannot isolate pointer input for this effect.', { cause: error }) }
+        }
         current.resize = new win.ResizeObserver(() => {
           if (!activeRun(current)) return
           try {
             checkCurrentPlacement()
             source.style.width = `${host.clientWidth}px`; source.style.height = `${host.clientHeight}px`
+            if (autoMagnifySize) {
+              const size = magnifySize()
+              if (size !== effectOptions.size) { effectOptions.size = size; current.effect?.setOptions?.({ size }) }
+            }
             current.effect?.resize?.()
           } catch (error) { report(error) }
         })

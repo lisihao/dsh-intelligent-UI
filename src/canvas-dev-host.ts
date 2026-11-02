@@ -30,9 +30,12 @@ function dshClientAdapter(slug: string, kind: 'object' | 'html') {
   }
   if (isCanvasHtmlEffectName(slug)) return {
     service: 'ctx.solarExperienceUi', method: 'createCanvasHtmlEffect', backend: 'webgl', maturity: 'experimental',
-    inputs: ['component', 'host', 'content', 'scope', 'sourceRemainsVisible', 'onError'],
-    requiredValues: { scope: 'visual-only', sourceRemainsVisible: true },
-    limitations: 'Visual-only, separate simple source; Desktop compatibility and full interaction parity are unverified.',
+    inputs: ['component', 'host', 'content', 'scope', 'sourceRemainsVisible', ...(slug === 'magnify' ? ['contentRole'] : []), 'onError'],
+    requiredValues: { scope: 'visual-only', sourceRemainsVisible: true, ...(slug === 'magnify' ? { contentRole: 'decoration' } : {}) },
+    ...(slug === 'magnify' ? { recommendedValues: { pointer: true } } : {}),
+    limitations: slug === 'magnify'
+      ? 'Text-free decorative sources only; original stays separate. Scroll zoom is disabled. Desktop compatibility is unverified.'
+      : 'Visual-only, separate simple source; Desktop compatibility and full interaction parity are unverified.',
   }
   if (kind === 'html') return {
     service: 'ctx.solarExperienceUi', method: 'loadCanvasEffect + createCanvasHtmlTextureBridge', backend: 'webgl', maturity: 'requires-adaptation',

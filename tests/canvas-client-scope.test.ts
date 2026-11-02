@@ -244,7 +244,7 @@ describe('Canvas UI public client lifetime', () => {
     expect(order).toEqual(['visual', 'effect', 'texture'])
   })
 
-  it.each(['grid', 'displacement', 'glitch'] as const)('loads the verified %s adapter through the owned client service', async component => {
+  it.each(['grid', 'displacement', 'glitch', 'blaze', 'particle-reveal', 'canvas', 'vhs', 'decrypt-reveal', 'magnify'] as const)('loads the verified %s adapter through the owned client service', async component => {
     const load = vi.fn().mockResolvedValue(() => null), dispose = vi.fn()
     const scope = createCanvasClientScope({ load, htmlEffect: vi.fn().mockResolvedValue({ refresh: async () => {}, resize() {}, setOptions() {}, splash() {}, melt() {}, burst() {}, dispose }) })
     await scope.createCanvasHtmlEffect({ component, onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
