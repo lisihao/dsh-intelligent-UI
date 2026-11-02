@@ -1,8 +1,9 @@
+import { LocalDataImport } from './local-data-import.js'
 import { ResearchWorkspace, ResearchModeControl, researchModes } from './research-view.js'
 import { RPC_REMOTE as RESEARCH_REMOTE } from './research-remote.js'
 import { documentInput, prepareInput, markSubmissionInput, saveNotesInput, stateSchema, type ResearchApi } from './research-contracts.js'
 import { ThemeButton, ThemeInput, ThemeToggle, ThemeLoader } from './theme-components.js'
-import { createElement as h, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
+import { createElement as h, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -168,8 +169,9 @@ function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetS
 function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps })) }
 export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState('')
-  useEffect(() => { let live = true; setItems([]); setError(''); const refresh = () => { if (api) void api.artifacts({ sessionId }).then(x => { if (live) { setItems(x); setError('') } }, e => { if (live) setError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, sessionId])
-  return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => {
+  const refreshEpoch = useRef(0)
+  useEffect(() => { let live = true; setItems([]); setError(''); const refresh = () => { const epoch = ++refreshEpoch.current; if (api) void api.artifacts({ sessionId }).then(x => { if (live && epoch === refreshEpoch.current) { setItems(x); setError('') } }, e => { if (live && epoch === refreshEpoch.current) setError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, sessionId])
+  return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), api && h(LocalDataImport, { api, sessionId, onImported: artifact => { refreshEpoch.current++; setItems(current => [...current.filter(item => item.id !== artifact.id), artifact]); setError('') } }), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => {
     const text = item.protocol === 'content' && typeof item.payload === 'string' ? item.payload : undefined
     const original = h(ArtifactView, { key: item.id, artifact: item, openuiEnabled: settings?.openui, onContinue, stateApi: stateApi(api), mcpApi: settings?.mcpApps ? mcpApi(api) : undefined, ...(text ? { displayMode: 'visual' as const } : {}) })
     return text ? h(OutputView, { key: item.id, sessionId, raw: item.raw }, h(ResearchWorkspace, { sessionId, documentId: `artifact:${item.id}`, text, api: api?.research, onOrganize }, original)) : original

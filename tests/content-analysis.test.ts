@@ -277,3 +277,9 @@ describe('automatic content analysis', () => {
   })
 
 })
+
+// Real NOAA public sample: ppm is a concentration unit, not an inferred scaling.
+it('preserves explicit ppm concentration units without conversion', () => {
+  const plans = analyzeTableCharts(['日期', 'CO₂浓度（ppm）'], [['1974-05-19', '333.38'], ['1974-05-20', '333.11']])
+  expect(plans[0]?.series[0]).toMatchObject({ unit: 'ppm', values: [333.38,333.11], originals: ['333.38','333.11'] })
+})

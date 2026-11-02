@@ -21,3 +21,8 @@ Inspected upstream a04a99b235299ee79a123a16ccb2e6cf9da74b6b, https://github.com/
 ## Delivery and verification boundary
 
 Run affected unit/interaction tests during development, one full built-package scratch gate at the stable boundary, and browser desktop/narrow acceptance with exact synthetic fixture counts and timings. No model calls. Screenshots and runtime receipts remain private and outside Git. Pack one stable tarball and provide its SHA256 to the centralized installation chat; this development chat never updates or restarts desktop. Installed DSH acceptance remains separate until the installer records it.
+
+
+## Real public-data native follow-up
+
+The installed renderer lacked a normal fixture input. The user requested public sample data and actual testing on 2026-11-01. Add only a local JSON/Markdown/text picker plus an explicit Import and display action to the existing Generated content tab. Reuse the already authenticated owner publish API and UI-owned artifact store; no tool/model contract changes, hidden gateway call, session-log mutation or new dependency. Raw file text remains exact; JSON is validated as data before presentation. A failed save retains the file for retry; session changes retire late file reads. In-flight old artifact polls cannot erase a newly imported item. Completion requires official public source/provenance, exact source preservation, the real imported graph/series in installed DSH, named backend/layout outcomes and unchanged foreign plugins/settings. Data and captures stay private; only reproducible source preparation code is published.

@@ -36,7 +36,7 @@ export function selectIcon(text: string): string {
 }
 
 const units: Record<string, string> = {
-  '倍': '倍', '%': '%', '％': '%', ms: 'ms', '毫秒': 'ms', s: 's', sec: 's', seconds: 's', '秒': 's',
+  ppm: 'ppm', '倍': '倍', '%': '%', '％': '%', ms: 'ms', '毫秒': 'ms', s: 's', sec: 's', seconds: 's', '秒': 's',
   min: 'min', minutes: 'min', '分钟': 'min', h: 'h', hours: 'h', '小时': 'h',
   usd: 'USD', '美元': 'USD', '$': 'USD', cny: 'CNY', rmb: 'CNY', '人民币': 'CNY', '元': 'CNY',
   '亿元': '亿元', '万元': '万元', '亿美元': '亿美元', '万美元': '万美元',
