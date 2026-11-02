@@ -8,6 +8,136 @@ import { isCanvasHtmlEffectName } from './canvas-html-names.js'
 export type CanvasParticleScrollClientOptions = Omit<CanvasParticleScrollOptions, 'factory' | 'createTextureBridge'>
 export type CanvasHtmlEffectClientOptions = Omit<CanvasHtmlEffectOptions, 'factory' | 'createTextureBridge' | 'acquireSlot'>
 
+/** Observe both real regions before asking the host to download/build a factory. */
+function htmlVisibilityGate(host: HTMLElement, content: HTMLElement, signal: AbortSignal, cancelled: () => Error) {
+  if (signal.aborted) throw cancelled()
+  const doc = host?.ownerDocument, win = doc?.defaultView
+  if (!host || !content || !doc || !win || !(host instanceof win.HTMLElement) || !(content instanceof win.HTMLElement)
+    || content.ownerDocument !== doc || !host.isConnected || !content.isConnected
+    || !doc.body?.isConnected || typeof host.contains !== 'function' || typeof content.contains !== 'function'
+    || typeof host.getBoundingClientRect !== 'function' || typeof content.getBoundingClientRect !== 'function') {
+    throw new CanvasHtmlTextureError('detached', 'The source and visual region must remain in the same document.')
+  }
+  if (host === content || host.contains(content) || content.contains(host)) {
+    throw new CanvasHtmlTextureError('unsafe-content', 'The visual region must be separate from the original source.')
+  }
+  if (typeof win.IntersectionObserver !== 'function' || typeof win.MutationObserver !== 'function') {
+    throw new CanvasHtmlTextureError('unsupported', 'The browser cannot monitor this visual effect.')
+  }
+  let live = true, hostVisible = false, contentVisible = false, failure: unknown
+  let rejectFailure!: (reason: unknown) => void
+  const failed = new Promise<never>((_resolve, reject) => { rejectFailure = reject })
+  // The gate can fail before a caller starts racing the factory load.
+  void failed.catch(() => {})
+  const waiters = new Set<{ resolve: () => void, reject: (reason: unknown) => void }>()
+  const media = win.matchMedia?.('(prefers-reduced-motion: reduce)')
+  let intersection: IntersectionObserver | undefined, mutations: MutationObserver | undefined
+
+  const cleanup = () => {
+    if (!live) return
+    live = false
+    intersection?.disconnect(); mutations?.disconnect()
+    doc.removeEventListener('visibilitychange', onDocumentVisibility)
+    media?.removeEventListener?.('change', onMotion)
+    signal.removeEventListener('abort', onAbort)
+  }
+  const fail = (error: unknown) => {
+    if (!live) return
+    failure = error
+    cleanup()
+    for (const waiter of waiters) waiter.reject(error)
+    waiters.clear()
+    rejectFailure(error)
+  }
+  function onAbort() { fail(cancelled()) }
+  function onMotion() { if (media?.matches) fail(new CanvasHtmlTextureError('reduced-motion', 'Animation is disabled by the system preference.')) }
+  const rendered = (root: HTMLElement): boolean => {
+    let opacity = 1
+    for (let element: HTMLElement | null = root; element; element = element.parentElement) {
+      const style = win.getComputedStyle(element), value = Number(style.opacity || 1)
+      if (element.hidden || element.hasAttribute('inert') || element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true'
+        || style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse'
+        || style.contentVisibility === 'hidden' || !Number.isFinite(value)) return false
+      opacity *= value
+    }
+    return opacity >= 0.5
+  }
+  const exposed = (root: HTMLElement): boolean => {
+    if (!rendered(root)) return false
+    const rect = root.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0
+      && rect.left < win.innerWidth && rect.top < win.innerHeight
+  }
+  const checkGeometry = () => {
+    for (const root of [host, content]) {
+      if (!rendered(root)) continue
+      const rect = root.getBoundingClientRect()
+      if (![rect.width, rect.height].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0) {
+        fail(new CanvasHtmlTextureError('detached', 'The source and visual region must be visible.'))
+        return
+      }
+    }
+  }
+  const isVisible = () => {
+    if (!live) return false
+    if (!host.isConnected || !content.isConnected) { fail(new CanvasHtmlTextureError('detached', 'The source or visual region was removed.')); return false }
+    checkGeometry()
+    if (!live) return false
+    return doc.visibilityState === 'visible' && hostVisible && contentVisible && exposed(host) && exposed(content)
+  }
+  const flush = () => {
+    if (!live) return
+    if (!isVisible()) return
+    for (const waiter of waiters) waiter.resolve()
+    waiters.clear()
+  }
+  const watchAncestors = () => {
+    mutations!.disconnect()
+    const nodes = new Set<HTMLElement>()
+    for (const root of [host, content]) for (let node: HTMLElement | null = root; node; node = node.parentElement) nodes.add(node)
+    for (const node of nodes) mutations!.observe(node, { childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'inert', 'aria-hidden'] })
+  }
+  const refreshIntersection = () => {
+    hostVisible = false; contentVisible = false
+    intersection!.unobserve(host); intersection!.unobserve(content)
+    intersection!.observe(host); intersection!.observe(content)
+  }
+  function onDocumentVisibility() { if (live) { refreshIntersection(); flush() } }
+  try {
+    intersection = new win.IntersectionObserver(entries => {
+      if (!live) return
+      for (const entry of entries) {
+        if (entry.target === host) hostVisible = entry.isIntersecting
+        if (entry.target === content) contentVisible = entry.isIntersecting
+      }
+      flush()
+    })
+    mutations = new win.MutationObserver(() => {
+      if (!live) return
+      if (!host.isConnected || !content.isConnected) { fail(new CanvasHtmlTextureError('detached', 'The source or visual region was removed.')); return }
+      watchAncestors(); refreshIntersection(); flush()
+    })
+    watchAncestors()
+    doc.addEventListener('visibilitychange', onDocumentVisibility)
+    media?.addEventListener?.('change', onMotion)
+    signal.addEventListener('abort', onAbort, { once: true })
+    intersection.observe(host); intersection.observe(content)
+    if (signal.aborted) onAbort()
+    else if (media?.matches) onMotion()
+    else checkGeometry()
+  } catch (error) { cleanup(); throw error }
+  return {
+    failed,
+    isVisible,
+    wait(): Promise<void> {
+      if (failure !== undefined) return Promise.reject(failure)
+      if (!live) return Promise.reject(cancelled())
+      return new Promise<void>((resolve, reject) => { waiters.add({ resolve, reject }); flush() })
+    },
+    dispose: cleanup,
+  }
+}
+
 /** Own public consumers' effects so disabling this plugin releases their resources. */
 export function createCanvasClientScope(dependencies: {
   load?: typeof loadCanvasEffect
@@ -92,6 +222,7 @@ export function createCanvasClientScope(dependencies: {
     let closed = false
     wrapped = {
       refresh: () => bridge.refresh(),
+      ...(bridge.getSnapshot ? { getSnapshot: () => bridge.getSnapshot!() } : {}),
       ...(bridge.whenDisposed ? { whenDisposed: () => bridge.whenDisposed!() } : {}),
       dispose() {
         if (closed) return
@@ -194,8 +325,15 @@ export function createCanvasClientScope(dependencies: {
     const unlink = () => { htmlLoads.delete(controller); options.signal?.removeEventListener('abort', forwardAbort) }
     let wrapped: CanvasHtmlEffectAdapter | undefined
     let failure: CanvasHtmlTextureError | undefined
+    let visibility: ReturnType<typeof htmlVisibilityGate> | undefined
     try {
-      const factory = await loadEffect(options.component, controller.signal)
+      const cancelled = () => active ? new Error('CANVAS_CLIENT_CANCELLED: 效果已取消。') : new Error('CANVAS_CLIENT_DISPOSED: 智能 UI 已停用。')
+      visibility = htmlVisibilityGate(options.host, options.content, controller.signal, cancelled)
+      do { await visibility.wait() } while (!visibility.isVisible())
+      const factory = await Promise.race([loadEffect(options.component, controller.signal), visibility.failed])
+      // Visibility may have changed while the shared import was in flight.
+      do { await visibility.wait() } while (!visibility.isVisible())
+      visibility.dispose(); visibility = undefined
       const effect = await makeHtmlEffect({ ...options, factory, signal: controller.signal,
         acquireSlot: acquireCanvasSlot, createTextureBridge: textureOptions => createBridge(textureOptions, true), onError: error => {
           failure = error
@@ -222,7 +360,8 @@ export function createCanvasClientScope(dependencies: {
       }
       htmlEffects.add(wrapped)
       return wrapped
-    } catch (error) { unlink(); throw error }
+    } catch (error) { controller.abort(); unlink(); throw error }
+    finally { visibility?.dispose() }
   }
 
   function dispose() {

@@ -8,6 +8,7 @@ import {
 import { acquireCanvasSlot, type CanvasEffectFactory, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { isCanvasHtmlEffectName, type CanvasHtmlEffectName } from './canvas-html-names.js'
 import { createCanvasPointerRelay } from './canvas-pointer-relay.js'
+import { createCanvasTextMaskProxy, type CanvasTextMaskProxy } from './canvas-text-mask-proxy.js'
 
 /** Only these pinned upstream factories have been checked for shared DOM changes. */
 export type { CanvasHtmlEffectName } from './canvas-html-names.js'
@@ -49,6 +50,8 @@ type PaintContext = CanvasRenderingContext2D & { drawElementImage?: (element: El
 type EffectInstance = CanvasEffectInstance & { splash?: (x: number, y: number, strength?: number) => void, melt?: (x: number, y: number) => void, burst?: () => void }
 const STARTUP_CAPTURE_TIMEOUT_MS = 10_000
 const SLOT_WAIT_TIMEOUT_MS = 15_000
+const CLOUDS_COLOR_REFRESH_MS = 250
+type Rgb = [number, number, number]
 interface Runtime {
   readonly generation: number
   readonly output: HTMLCanvasElement
@@ -59,6 +62,7 @@ interface Runtime {
   readonly captureContext: PaintContext
   readonly sourceContext: PaintContext
   texture?: CanvasHtmlTextureBridge
+  maskProxy?: CanvasTextMaskProxy
   effect?: EffectInstance | null
   resize?: ResizeObserver
   pendingCapture?: Promise<void>
@@ -69,6 +73,143 @@ interface Runtime {
 
 function fault(code: CanvasHtmlTextureError['code'], message: string): never {
   throw new CanvasHtmlTextureError(code, message)
+}
+
+function explicitCloudsColor(value: unknown): Rgb {
+  if (!Array.isArray(value) || value.length !== 3 || [value[0], value[1], value[2]].some(item => typeof item !== 'number' || !Number.isFinite(item) || item < 0 || item > 1)) {
+    fault('unsupported', 'Clouds color must be auto or three RGB values between 0 and 1.')
+  }
+  return [value[0], value[1], value[2]]
+}
+
+/** Match the upstream first non-transparent background rule on the real source. */
+function createCloudsColorReader(content: HTMLElement, win: Window & typeof globalThis): () => Rgb {
+  let context: CanvasRenderingContext2D | null | undefined
+  return () => {
+    try {
+      if (context === undefined) {
+        const probe = content.ownerDocument.createElement('canvas')
+        probe.width = probe.height = 1
+        context = probe.getContext('2d', { willReadFrequently: true })
+      }
+      if (!context) fault('unsupported', 'Clouds cannot determine the source background; provide an explicit color.')
+      for (let node: HTMLElement | null = content; node; node = node.parentElement) {
+        const style = win.getComputedStyle(node)
+        if (style.backgroundImage && style.backgroundImage !== 'none') {
+          fault('unsupported', 'Clouds cannot infer a background from an image or gradient; provide an explicit color.')
+        }
+        const value = style.backgroundColor
+        if (!value || value === 'transparent') continue
+        // Canvas keeps its previous fillStyle when a CSS color is unsupported.
+        // Two sentinels distinguish an accepted color from that silent failure.
+        context.fillStyle = '#010203'; context.fillStyle = value
+        const first = context.fillStyle
+        context.fillStyle = '#fefdfc'; context.fillStyle = value
+        if (first !== context.fillStyle) fault('unsupported', 'Clouds cannot parse the source background; provide an explicit color.')
+        context.clearRect(0, 0, 1, 1); context.fillRect(0, 0, 1, 1)
+        const rgba = context.getImageData(0, 0, 1, 1).data
+        if (rgba[3] !== 0) return [rgba[0]! / 255, rgba[1]! / 255, rgba[2]! / 255]
+      }
+      fault('unsupported', 'Clouds cannot determine a background; provide an explicit color.')
+    } catch (error) {
+      if (error instanceof CanvasHtmlTextureError) throw error
+      throw new CanvasHtmlTextureError('unsupported', 'Clouds cannot determine the source background; provide an explicit color.', { cause: error })
+    }
+  }
+}
+
+/** Asciify has one global backing luminance; ambiguous composites fail closed. */
+function createAsciifyBackgroundReader(content: HTMLElement, win: Window & typeof globalThis): () => string {
+  let context: CanvasRenderingContext2D | null | undefined
+  return () => {
+    try {
+      if (context === undefined) {
+        const probe = content.ownerDocument.createElement('canvas')
+        probe.width = probe.height = 1
+        context = probe.getContext('2d', { willReadFrequently: true })
+      }
+      if (!context) fault('unsupported', 'Asciify cannot determine a solid source background.')
+      const styles = new Map<HTMLElement, CSSStyleDeclaration>()
+      const computedStyle = (element: HTMLElement) => {
+        let computed = styles.get(element)
+        if (!computed) { computed = win.getComputedStyle(element); styles.set(element, computed) }
+        return computed
+      }
+      const rgbaOf = (value: string): readonly [number, number, number, number] => {
+        if (!value || value === 'transparent') return [0, 0, 0, 0]
+        context!.fillStyle = '#010203'; context!.fillStyle = value
+        const first = context!.fillStyle
+        context!.fillStyle = '#fefdfc'; context!.fillStyle = value
+        if (first !== context!.fillStyle) fault('unsupported', 'Asciify cannot parse the source background.')
+        context!.clearRect(0, 0, 1, 1); context!.fillRect(0, 0, 1, 1)
+        const rgba = context!.getImageData(0, 0, 1, 1).data
+        return [rgba[0]!, rgba[1]!, rgba[2]!, rgba[3]!]
+      }
+      for (let node: HTMLElement | null = content; node; node = node.parentElement) {
+        const computed = computedStyle(node), opacity = Number(computed.opacity || 1)
+        if (!Number.isFinite(opacity) || opacity !== 1
+          || (computed.filter && computed.filter !== 'none')
+          || (computed.mixBlendMode && computed.mixBlendMode !== 'normal')) {
+          fault('unsupported', 'Asciify cannot infer a translucent or blended source background.')
+        }
+      }
+      const root = computedStyle(content)
+      if (root.backgroundImage && root.backgroundImage !== 'none') {
+        fault('unsupported', 'Asciify cannot infer a background from an image or gradient.')
+      }
+      const clip = root.getPropertyValue('background-clip').trim().toLowerCase()
+      if (clip && clip !== 'border-box') fault('unsupported', 'Asciify requires a background covering the whole source.')
+      const zeroRadius = (value: string) => !value || value.split(/[\s/]+/u).filter(Boolean).every(part => /^[-+]?(?:0+(?:\.0*)?|\.0+)(?:px|%)?$/iu.test(part))
+      if (['border-radius', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius']
+        .some(property => !zeroRadius(root.getPropertyValue(property).trim()))) {
+        fault('unsupported', 'Asciify cannot infer a rounded source background.')
+      }
+      for (const [property, allowed] of [
+        ['clip-path', 'none'], ['clip', 'auto'], ['mask-image', 'none'], ['-webkit-mask-image', 'none'],
+      ] as const) {
+        const value = root.getPropertyValue(property).trim().toLowerCase()
+        if (value && value !== allowed) fault('unsupported', 'Asciify cannot infer a clipped source background.')
+      }
+      if (/\binset\b/iu.test(root.getPropertyValue('box-shadow'))) fault('unsupported', 'Asciify cannot infer an inset-shadowed source background.')
+      const background = rgbaOf(root.backgroundColor)
+      if (background[3] === 0) fault('unsupported', 'Asciify requires a solid background on the source itself.')
+      if (background[3] !== 255) fault('unsupported', 'Asciify cannot infer a translucent source background.')
+
+      // A child with text can introduce another backing color even though the
+      // root is opaque. Non-text decoration remains valid foreground imagery.
+      const walker = content.ownerDocument.createTreeWalker(content, NodeFilter.SHOW_TEXT)
+      const checked = new Set<HTMLElement>()
+      let node: Node | null, textNodes = 0
+      while ((node = walker.nextNode())) {
+        if (!node.textContent?.trim()) continue
+        if (++textNodes > 512) fault('too-large', 'Asciify cannot inspect this many text nodes.')
+        const parent = node.parentElement
+        if (!parent || ['hidden', 'collapse'].includes(computedStyle(parent).visibility)) continue
+        const branch: HTMLElement[] = []
+        let hidden = false
+        for (let element: HTMLElement | null = parent; element && element !== content; element = element.parentElement) {
+          const style = computedStyle(element)
+          if (style.display === 'none' || style.contentVisibility === 'hidden' || Number(style.opacity || 1) === 0) { hidden = true; break }
+          branch.push(element)
+        }
+        if (hidden) continue
+        for (const element of branch) {
+          if (checked.has(element)) continue
+          checked.add(element)
+          const style = computedStyle(element)
+          if (style.backgroundImage && style.backgroundImage !== 'none') fault('unsupported', 'Asciify cannot infer a text background from an image or gradient.')
+          const layer = rgbaOf(style.backgroundColor)
+          if (layer[3] && layer.slice(0, 3).some((value, index) => value !== background[index])) {
+            fault('unsupported', 'Asciify cannot infer multiple text background colors.')
+          }
+        }
+      }
+      return `rgb(${background[0]}, ${background[1]}, ${background[2]})`
+    } catch (error) {
+      if (error instanceof CanvasHtmlTextureError) throw error
+      throw new CanvasHtmlTextureError('unsupported', 'Asciify cannot determine a solid source background.', { cause: error })
+    }
+  }
 }
 
 function checkEffectContent(component: CanvasHtmlEffectName, content: HTMLElement): void {
@@ -117,6 +258,12 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
   }
   if (options.signal?.aborted) return Promise.reject(new CanvasHtmlTextureError('disposed', 'The visual effect was cancelled.'))
   let view: Window & typeof globalThis
+  let readCloudsColor: (() => Rgb) | undefined
+  let initialCloudsColor: Rgb | undefined
+  let readAsciifyBackground: (() => string) | undefined
+  let initialAsciifyBackground: string | undefined
+  const requestedCloudsColor = options.effectOptions?.color
+  const initiallyAutoClouds = component === 'clouds' && (requestedCloudsColor === undefined || requestedCloudsColor === 'auto')
   try {
     checkPlacement(host, content)
     if ([...host.childNodes].some(node => node.nodeType === 1 || (node.nodeType === 3 && !!node.textContent?.trim()))) {
@@ -126,6 +273,14 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
     checkEffectContent(component, content)
     view = host.ownerDocument.defaultView!
     if (view.matchMedia('(prefers-reduced-motion: reduce)').matches) fault('reduced-motion', 'Animation is disabled by the system preference.')
+    if (component === 'clouds') {
+      readCloudsColor = createCloudsColorReader(content, view)
+      initialCloudsColor = initiallyAutoClouds ? readCloudsColor() : explicitCloudsColor(requestedCloudsColor)
+    }
+    if (component === 'asciify') {
+      readAsciifyBackground = createAsciifyBackgroundReader(content, view)
+      initialAsciifyBackground = readAsciifyBackground()
+    }
     if (typeof view.IntersectionObserver !== 'function' || typeof view.ResizeObserver !== 'function' || typeof view.requestAnimationFrame !== 'function') {
       fault('unsupported', 'The browser cannot monitor this visual effect.')
     }
@@ -146,6 +301,10 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
     let alive = true, settled = false
     let lastFailure: CanvasHtmlTextureError | undefined
     let contentVisible = false, hostVisible = false
+    let autoCloudsColor = initiallyAutoClouds
+    let lastCloudsColorCheck = 0
+    let asciifyBackground = initialAsciifyBackground
+    let lastAsciifyBackgroundCheck = 0
     let autoMagnifySize = component === 'magnify' && options.effectOptions?.size === undefined
     const magnifySize = () => {
       const rect = host.getBoundingClientRect()
@@ -153,11 +312,38 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
     }
     const effectOptions: Record<string, unknown> = {
       ...(component === 'magnify' ? { zoom: 1.3, hud: 0.45, crosshair: false, ticks: false, brackets: false, dot: false, aberration: 0, haze: 0, readout: false } : {}),
+      ...(component === 'asciify' ? { background: 'auto', glow: 0, aberration: 0 } : {}),
       ...options.effectOptions,
       ...(component === 'magnify' ? { scrollZoom: false } : {}),
+      ...(component === 'clouds' ? { color: initialCloudsColor } : {}),
     }
     if (autoMagnifySize) effectOptions.size = magnifySize()
     const checkCurrentPlacement = () => checkPlacement(host, content, stage, runtime ? [runtime.backdrop, runtime.output] : [])
+    const syncCloudsColor = (force = false) => {
+      if (component !== 'clouds' || !autoCloudsColor) return
+      const now = win.performance.now()
+      if (!force && now - lastCloudsColorCheck < CLOUDS_COLOR_REFRESH_MS) return
+      const color = readCloudsColor!()
+      lastCloudsColorCheck = now
+      const previous = effectOptions.color as Rgb
+      if (previous?.every((value, index) => value === color[index])) return
+      effectOptions.color = color
+      runtime?.effect?.setOptions?.({ color })
+      if (runtime) checkCurrentPlacement()
+    }
+    const syncAsciifyBackground = (force = false) => {
+      if (component !== 'asciify') return
+      const now = win.performance.now()
+      if (!force && now - lastAsciifyBackgroundCheck < CLOUDS_COLOR_REFRESH_MS) return
+      const background = readAsciifyBackground!()
+      lastAsciifyBackgroundCheck = now
+      if (background === asciifyBackground) return
+      asciifyBackground = background
+      if (runtime?.maskProxy) {
+        runtime.proxy.style.backgroundColor = background
+        runtime.effect?.resize?.()
+      }
+    }
 
     const stopRuntime = () => {
       generation++
@@ -174,6 +360,7 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
         current.resize?.disconnect()
         try { current.pointerRelay?.() } catch (error) { failures.push(error) }
         try { current.effect?.destroy() } catch (error) { failures.push(error) }
+        try { current.maskProxy?.dispose() } catch (error) { failures.push(error) }
         current.source.onpaint = null; current.capture.onpaint = null
         try { current.texture?.dispose() } catch (error) { failures.push(error) }
         try { drained = current.texture?.whenDisposed?.() } catch (error) { failures.push(error) }
@@ -232,8 +419,19 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
         if (!runtime) return Promise.reject(new CanvasHtmlTextureError(alive ? 'unsupported' : 'disposed', alive ? 'The visual effect is not currently visible.' : 'The visual effect was closed.'))
         return captureNow(runtime)
       },
-      resize() { if (runtime) runtime.effect?.resize?.() },
+      resize() {
+        const current = runtime
+        if (!current) return
+        if (component !== 'asciify') { current.effect?.resize?.(); return }
+        try {
+          checkCurrentPlacement()
+          syncAsciifyBackground(true)
+          current.maskProxy?.resize()
+          current.effect?.resize?.()
+        } catch (error) { report(error); throw lastFailure ?? error }
+      },
       setOptions(next) {
+        if (component === 'clouds' && !alive) return
         const update = { ...next }
         if (component === 'magnify' && update.scrollZoom !== undefined && update.scrollZoom !== false) {
           throw new CanvasHtmlTextureError('unsupported', 'Scroll zoom is unavailable in the isolated visual effect.')
@@ -242,7 +440,17 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
           autoMagnifySize = update.size === undefined
           if (autoMagnifySize) update.size = magnifySize()
         }
+        if (component === 'clouds' && Object.hasOwn(update, 'color')) {
+          const useAuto = update.color === undefined || update.color === 'auto'
+          const color = useAuto ? readCloudsColor!() : explicitCloudsColor(update.color)
+          autoCloudsColor = useAuto
+          lastCloudsColorCheck = win.performance.now()
+          update.color = color
+        }
         Object.assign(effectOptions, update); runtime?.effect?.setOptions?.(update)
+        if (runtime && component === 'clouds') {
+          try { checkCurrentPlacement() } catch (error) { report(error); throw error }
+        }
       },
       splash(x, y, strength) { if (component === 'ripple' && Number.isFinite(x) && Number.isFinite(y)) runtime?.effect?.splash?.(x, y, strength) },
       melt(x, y) { if (component === 'frost' && Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 1 && y >= 0 && y <= 1) runtime?.effect?.melt?.(x, y) },
@@ -264,13 +472,15 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
       visibilityObserver.disconnect()
       const nodes = new Set<HTMLElement>()
       for (const root of [host, content]) for (let node: HTMLElement | null = root; node; node = node.parentElement) nodes.add(node)
-      for (const node of nodes) visibilityObserver.observe(node, { childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'inert', 'aria-hidden'] })
+      const attributes = ['class', 'style', 'hidden', 'inert', 'aria-hidden']
+      if (component === 'clouds' || component === 'asciify') attributes.push('data-theme', 'data-color-mode')
+      for (const node of nodes) visibilityObserver.observe(node, { childList: true, attributes: true, attributeFilter: attributes })
     }
     const monitor = () => {
       geometryFrame = undefined
       if (!alive) return
       if (!hostIsVisible()) { visibility(); return }
-      try { checkCurrentPlacement(); geometryFrame = win.requestAnimationFrame(monitor) } catch (error) { report(error) }
+      try { checkCurrentPlacement(); syncCloudsColor(); syncAsciifyBackground(); geometryFrame = win.requestAnimationFrame(monitor) } catch (error) { report(error) }
     }
     function visibility() {
       if (!alive) return
@@ -284,6 +494,8 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
       }
       try {
         checkPlacement(host, content)
+        syncCloudsColor(true)
+        syncAsciifyBackground(true)
         stage.style.display = 'block'
         checkCurrentPlacement()
         if (geometryFrame === undefined) geometryFrame = win.requestAnimationFrame(monitor)
@@ -308,16 +520,20 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
         checkEffectContent(component, content)
         const capture = doc.createElement('canvas') as PaintCanvas
         const source = doc.createElement('canvas') as PaintCanvas
-        const proxy = doc.createElement('div')
         const output = doc.createElement('canvas')
         const backdrop = doc.createElement('canvas')
-        if (component === 'magnify') {
-          // Non-composed synthetic pointer events remain inside this private
-          // root and cannot reach other plugins' document/window capture listeners.
-          const privateProxyHost = doc.createElement('div')
-          privateProxyHost.attachShadow({ mode: 'closed' }).append(proxy)
-          source.append(privateProxyHost)
-        } else source.append(proxy)
+        let proxy: HTMLElement | undefined
+        let maskProxy: CanvasTextMaskProxy | undefined
+        if (component !== 'asciify') {
+          proxy = doc.createElement('div')
+          if (component === 'magnify' || component === 'clouds') {
+            // Non-composed synthetic pointer events remain inside this private
+            // root and cannot reach other plugins' document/window capture listeners.
+            const privateProxyHost = doc.createElement('div')
+            privateProxyHost.attachShadow({ mode: 'closed' }).append(proxy)
+            source.append(privateProxyHost)
+          } else source.append(proxy)
+        }
         capture.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none'
         source.style.cssText = `position:fixed;left:-10000px;top:0;width:${host.clientWidth}px;height:${host.clientHeight}px;pointer-events:none`
         output.style.cssText = 'position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none'
@@ -327,16 +543,23 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
           doc.body.append(capture, source)
           stage.append(backdrop, output)
           checkPlacement(host, content, stage, [backdrop, output])
+          if (component === 'asciify') {
+            maskProxy = createCanvasTextMaskProxy({ stage, output })
+            proxy = maskProxy.content
+            proxy.style.backgroundColor = asciifyBackground!
+          }
           const captured = capture.getContext('2d') as PaintContext | null
           const source2d = source.getContext('2d') as PaintContext | null
           const backdrop2d = backdrop.getContext('2d')
           if (!captured || !source2d || !backdrop2d) fault('unsupported', 'The browser cannot create this visual texture.')
           captureContext = captured; sourceContext = source2d; backdropContext = backdrop2d
         } catch (error) {
+          maskProxy?.dispose()
           capture.remove(); source.remove(); output.remove(); backdrop.remove()
           throw error
         }
-        const current: Runtime = { generation: currentGeneration, output, backdrop, capture, source, proxy, captureContext, sourceContext, bitmap: false }
+        if (!proxy) fault('capture', 'The visual effect proxy could not be created.')
+        const current: Runtime = { generation: currentGeneration, output, backdrop, capture, source, proxy, maskProxy, captureContext, sourceContext, bitmap: false }
         runtime = current
         Object.defineProperties(proxy, {
           clientWidth: { configurable: true, get: () => content.clientWidth },
@@ -351,23 +574,55 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
           if (current.bitmap) source.onpaint?.()
           else void captureNow(current).catch(error => { if (activeRun(current)) report(error) })
         } })
-        current.texture = (options.createTextureBridge ?? createCanvasHtmlTextureBridge)({ source: capture, content, scope: 'visual-only', sourceRemainsVisible: true, onError: error => { if (activeRun(current)) report(error) } })
+        const texture = (options.createTextureBridge ?? createCanvasHtmlTextureBridge)({ source: capture, content, scope: 'visual-only', sourceRemainsVisible: true, ...(component === 'asciify' ? { captureTextRects: true } : {}), onError: error => { if (activeRun(current)) report(error) } })
+        if (!activeRun(current)) { texture.dispose(); return }
+        current.texture = texture
+        if (component === 'asciify' && typeof texture.getSnapshot !== 'function') {
+          fault('unsupported', 'Asciify requires matching text geometry from the visual texture.')
+        }
         capture.onpaint = () => {
           if (!activeRun(current)) return
           try {
             checkCurrentPlacement()
             checkEffectContent(component, content)
             const rect = content.getBoundingClientRect()
+            if (component === 'asciify') {
+              syncAsciifyBackground(true)
+              const snapshot = current.texture?.getSnapshot?.()
+              if (!snapshot) {
+                const changed = current.maskProxy!.update(undefined)
+                current.bitmap = false
+                captureContext.clearRect(0, 0, capture.width, capture.height)
+                backdropContext.clearRect(0, 0, backdrop.width, backdrop.height)
+                sourceContext.clearRect(0, 0, source.width, source.height)
+                const gl = output.getContext('webgl2')
+                if (gl && !gl.isContextLost()) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT) }
+                source.onpaint?.()
+                if (changed && activeRun(current)) current.effect?.resize?.()
+                return
+              }
+              if (snapshot.width !== Math.ceil(rect.width) || snapshot.height !== Math.ceil(rect.height)) {
+                fault('capture', 'The Asciify source changed size during capture.')
+              }
+              if (!current.maskProxy!.update(snapshot)) fault('capture', 'The Asciify text geometry is out of date.')
+            }
             capture.width = backdrop.width = Math.ceil(rect.width); capture.height = backdrop.height = Math.ceil(rect.height)
             captureContext.drawElementImage?.(content, 0, 0)
             backdropContext.drawImage(capture, 0, 0)
             current.bitmap = true
             source.onpaint?.()
+            if (component === 'asciify' && activeRun(current)) current.effect?.resize?.()
           } catch (error) { report(error) }
         }
-        current.effect = options.factory({ source, content: proxy, output }, effectOptions) as EffectInstance | null
-        if (!current.effect) fault('unsupported', 'The visual effect could not start on this device.')
-        if (component === 'magnify' && options.pointer) {
+        const effect = options.factory({ source, content: proxy, output }, effectOptions) as EffectInstance | null
+        if (!activeRun(current)) { effect?.destroy(); return }
+        current.effect = effect
+        if (!effect) fault('unsupported', 'The visual effect could not start on this device.')
+        if (component === 'asciify' && typeof effect.resize !== 'function') {
+          fault('unsupported', 'Asciify cannot refresh its text mask on this device.')
+        }
+        if (component === 'asciify' && current.bitmap) effect.resize?.()
+        if ((component === 'magnify' || component === 'clouds') && options.pointer) {
           try { current.pointerRelay = createCanvasPointerRelay({ stage, getProxy: () => activeRun(current) ? current.proxy : undefined }) }
           catch (error) { throw new CanvasHtmlTextureError('unsupported', 'The browser cannot isolate pointer input for this effect.', { cause: error }) }
         }
@@ -380,6 +635,7 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
               const size = magnifySize()
               if (size !== effectOptions.size) { effectOptions.size = size; current.effect?.setOptions?.({ size }) }
             }
+            if (component === 'asciify') { syncAsciifyBackground(true); current.maskProxy?.resize() }
             current.effect?.resize?.()
           } catch (error) { report(error) }
         })
@@ -392,6 +648,7 @@ export function createCanvasHtmlEffectAdapter(options: CanvasHtmlEffectOptions):
           current.startupTimer = undefined
         }
         if (!activeRun(current)) return
+        if (component === 'asciify' && !current.bitmap) fault('capture', 'The Asciify visual texture is unavailable.')
         if (!settled) { settled = true; resolve(adapter) }
       } catch (error) { if (alive && currentGeneration === generation) report(error) }
     }

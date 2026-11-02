@@ -32,9 +32,13 @@ function dshClientAdapter(slug: string, kind: 'object' | 'html') {
     service: 'ctx.solarExperienceUi', method: 'createCanvasHtmlEffect', backend: 'webgl', maturity: 'experimental',
     inputs: ['component', 'host', 'content', 'scope', 'sourceRemainsVisible', ...(slug === 'magnify' ? ['contentRole'] : []), 'onError'],
     requiredValues: { scope: 'visual-only', sourceRemainsVisible: true, ...(slug === 'magnify' ? { contentRole: 'decoration' } : {}) },
-    ...(slug === 'magnify' ? { recommendedValues: { pointer: true } } : {}),
+    ...(['magnify', 'clouds', 'asciify'].includes(slug) ? { recommendedValues: { pointer: true } } : {}),
     limitations: slug === 'magnify'
       ? 'Text-free decorative sources only; original stays separate. Scroll zoom is disabled. Desktop compatibility is unverified.'
+      : slug === 'clouds'
+        ? 'Visual-only, separate simple source. Automatic background color requires a resolvable solid source background; otherwise supply an explicit RGB color. Desktop compatibility is unverified.'
+        : slug === 'asciify'
+          ? 'Visual-only, separate simple source with a reliably opaque solid background. Text geometry matches the sandbox snapshot, not necessarily the original fonts or glyph pixels. Desktop compatibility is unverified.'
       : 'Visual-only, separate simple source; Desktop compatibility and full interaction parity are unverified.',
   }
   if (kind === 'html') return {

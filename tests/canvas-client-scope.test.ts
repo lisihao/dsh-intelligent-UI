@@ -1,10 +1,35 @@
-import { describe, expect, it, vi } from 'vitest'
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCanvasClientScope } from '../src/canvas-client-scope.js'
 import { CanvasHtmlTextureError, type CanvasHtmlTextureOptions } from '../src/canvas-html-texture.js'
 import type { CanvasParticleScrollOptions } from '../src/canvas-scroll-texture.js'
 import type { CanvasHtmlEffectClientOptions, CanvasParticleScrollClientOptions } from '../src/canvas-client-scope.js'
 import type { CanvasIsolatedOptions } from '../src/canvas-isolated-client.js'
 import type { CanvasHtmlEffectAdapter } from '../src/canvas-html-effect-adapter.js'
+
+class VisibleIntersectionObserver {
+  private disconnected = false
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe(target: Element) { queueMicrotask(() => { if (!this.disconnected) this.callback([{ target, isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver) }) }
+  unobserve() {}
+  disconnect() { this.disconnected = true }
+}
+
+function htmlOptions(overrides: Partial<CanvasHtmlEffectClientOptions> = {}): CanvasHtmlEffectClientOptions {
+  const content = document.createElement('div'), host = document.createElement('div')
+  document.body.append(content, host)
+  const rect = { x: 0, y: 0, top: 0, left: 0, right: 100, bottom: 100, width: 100, height: 100, toJSON: () => ({}) }
+  content.getBoundingClientRect = () => rect
+  host.getBoundingClientRect = () => ({ ...rect, left: 150, right: 250, x: 150 })
+  return { component: 'ripple', host, content, scope: 'visual-only', sourceRemainsVisible: true, onError: vi.fn(), ...overrides }
+}
+
+beforeEach(() => {
+  vi.stubGlobal('IntersectionObserver', VisibleIntersectionObserver)
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} })))
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+})
+afterEach(() => { document.body.replaceChildren(); vi.unstubAllGlobals() })
 
 describe('Canvas UI public client lifetime', () => {
   it('disposes effects before visual bridges and rejects use after plugin shutdown', async () => {
@@ -72,6 +97,18 @@ describe('Canvas UI public client lifetime', () => {
     ;(await scope.loadCanvasEffect('glass'))({ source })
     texture.dispose(); scope.dispose()
     expect(order).toEqual(['effect', 'bridge'])
+  })
+
+  it('forwards the texture snapshot getter through the public scope', () => {
+    const snapshot = { revision: 4, width: 100, height: 80, textRects: [{ x: 1, y: 2, width: 3, height: 4 }] }
+    let active = true
+    const scope = createCanvasClientScope({
+      bridge: vi.fn(() => ({ refresh: async () => {}, getSnapshot: () => active ? snapshot : undefined, dispose: () => { active = false } })),
+    })
+    const texture = scope.createCanvasHtmlTextureBridge({ source: {} as HTMLCanvasElement, content: {} as HTMLElement, scope: 'visual-only', sourceRemainsVisible: true, captureTextRects: true, onError: () => {} })
+    expect(texture.getSnapshot?.()).toBe(snapshot)
+    scope.dispose()
+    expect(texture.getSnapshot?.()).toBeUndefined()
   })
 
   it('does not expose the private reduced-motion disposal flag to callers', async () => {
@@ -234,7 +271,7 @@ describe('Canvas UI public client lifetime', () => {
     })
     const scope = createCanvasClientScope({ load, bridge, htmlEffect })
     const injected = vi.fn()
-    const effect = await scope.createCanvasHtmlEffect({ component: 'ripple', onError: vi.fn(), factory: injected, createTextureBridge: injected, acquireSlot: injected } as unknown as CanvasHtmlEffectClientOptions)
+    const effect = await scope.createCanvasHtmlEffect({ ...htmlOptions(), factory: injected, createTextureBridge: injected, acquireSlot: injected } as unknown as CanvasHtmlEffectClientOptions)
     expect(load).toHaveBeenCalledWith('ripple')
     expect(htmlEffect.mock.calls[0]![0].factory).not.toBe(injected)
     expect(htmlEffect.mock.calls[0]![0].createTextureBridge).not.toBe(injected)
@@ -244,10 +281,10 @@ describe('Canvas UI public client lifetime', () => {
     expect(order).toEqual(['visual', 'effect', 'texture'])
   })
 
-  it.each(['grid', 'displacement', 'glitch', 'blaze', 'particle-reveal', 'canvas', 'vhs', 'decrypt-reveal', 'magnify'] as const)('loads the verified %s adapter through the owned client service', async component => {
+  it.each(['grid', 'displacement', 'glitch', 'blaze', 'particle-reveal', 'canvas', 'vhs', 'decrypt-reveal', 'magnify', 'clouds', 'asciify'] as const)('loads the verified %s adapter through the owned client service', async component => {
     const load = vi.fn().mockResolvedValue(() => null), dispose = vi.fn()
     const scope = createCanvasClientScope({ load, htmlEffect: vi.fn().mockResolvedValue({ refresh: async () => {}, resize() {}, setOptions() {}, splash() {}, melt() {}, burst() {}, dispose }) })
-    await scope.createCanvasHtmlEffect({ component, onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
+    await scope.createCanvasHtmlEffect(htmlOptions({ component }))
     expect(load).toHaveBeenCalledWith(component)
     scope.dispose()
     expect(dispose).toHaveBeenCalledOnce()
@@ -257,7 +294,8 @@ describe('Canvas UI public client lifetime', () => {
     const load = vi.fn(() => new Promise(() => {})), htmlEffect = vi.fn()
     const scope = createCanvasClientScope({ load: load as never, htmlEffect: htmlEffect as never })
     const controller = new AbortController()
-    const pending = scope.createCanvasHtmlEffect({ component: 'ripple', signal: controller.signal, onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
+    const pending = scope.createCanvasHtmlEffect(htmlOptions({ signal: controller.signal }))
+    await vi.waitFor(() => expect(load).toHaveBeenCalledOnce())
     controller.abort()
     await expect(pending).rejects.toThrow('CANVAS_CLIENT_CANCELLED')
     expect(htmlEffect).not.toHaveBeenCalled()
@@ -273,7 +311,7 @@ describe('Canvas UI public client lifetime', () => {
         adapterSignal.addEventListener('abort', () => reject(new Error('adapter cancelled')), { once: true })
       })),
     })
-    const pending = scope.createCanvasHtmlEffect({ component: 'frost', onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
+    const pending = scope.createCanvasHtmlEffect(htmlOptions({ component: 'frost' }))
     await vi.waitFor(() => expect(adapterSignal).toBeDefined())
     scope.dispose()
     await expect(pending).rejects.toThrow('adapter cancelled')

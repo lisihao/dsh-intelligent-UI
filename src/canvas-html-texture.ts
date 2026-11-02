@@ -28,11 +28,31 @@ export interface CanvasHtmlTextureOptions {
   readonly scope: 'visual-only'
   /** Failures leave the original source visible and are reported here. */
   readonly onError: (error: CanvasHtmlTextureError) => void
+  /** Capture text geometry from the same sandbox revision as the bitmap. */
+  readonly captureTextRects?: boolean
+}
+
+/** Coordinates are relative to the sandbox bitmap, in CSS pixels. */
+export interface CanvasHtmlTextRect {
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+}
+
+export interface CanvasHtmlTextureSnapshot {
+  readonly revision: number
+  readonly width: number
+  readonly height: number
+  /** Layout only; no text or source nodes are exposed. */
+  readonly textRects: readonly CanvasHtmlTextRect[]
 }
 
 export interface CanvasHtmlTextureBridge {
   /** Re-capture after an external theme change; rejects if capture is unsafe or fails. */
   refresh(): Promise<void>
+  /** The committed geometry associated with the bitmap; undefined when unavailable. */
+  getSnapshot?(): CanvasHtmlTextureSnapshot | undefined
   /** Restores only this canvas instance and removes its sandbox and observers. */
   dispose(): void
   /** Resolves after a disposed bridge's in-flight capture releases its quota. */
@@ -44,6 +64,8 @@ const INTERACTIVE_ROLES = new Set(['button', 'checkbox', 'combobox', 'link', 'me
 const RESOURCE_STYLE = /(?:url\s*\(|image-set\s*\(|(?:^|[\s,(])src\s*\(|@import|expression\s*\()/iu
 const MAX_ELEMENTS = 128
 const MAX_TEXT_LENGTH = 16_384
+const MAX_TEXT_NODES = 512
+const MAX_TEXT_RECTS = 512
 const MAX_DIMENSION = 2048
 const MAX_PIXELS = 2_097_152
 const MAX_ACTIVE = 2
@@ -195,6 +217,144 @@ function clearBitmap(canvas: HTMLCanvasElement | undefined): void {
   if (canvas) { canvas.width = 0; canvas.height = 0 }
 }
 
+/** Measure the inert sandbox tree, never the live source or its text content. */
+function measureTextRects(target: HTMLElement, width: number, height: number): readonly CanvasHtmlTextRect[] {
+  const doc = target.ownerDocument
+  const win = doc.defaultView
+  if (!win) throw new CanvasHtmlTextureError('capture', 'The sandbox text geometry is unavailable.')
+  const origin = target.getBoundingClientRect()
+  if (!Number.isFinite(origin.left) || !Number.isFinite(origin.top)) {
+    throw new CanvasHtmlTextureError('capture', 'The sandbox text geometry is unavailable.')
+  }
+  const walker = doc.createTreeWalker(target, NodeFilter.SHOW_TEXT)
+  const range = doc.createRange()
+  const rects: CanvasHtmlTextRect[] = []
+  const styles = new Map<HTMLElement, CSSStyleDeclaration>()
+  const boxes = new Map<HTMLElement, DOMRect>()
+  const computed = (element: HTMLElement) => {
+    let style = styles.get(element)
+    if (!style) { style = win.getComputedStyle(element); styles.set(element, style) }
+    return style
+  }
+  const value = (style: CSSStyleDeclaration, property: string) => style.getPropertyValue(property).trim().toLowerCase()
+  const unsupported = () => { throw new CanvasHtmlTextureError('unsupported', 'The sandbox text uses geometry that cannot be mapped reliably.') }
+  const nonzero = (input: string) => {
+    if (!input) return false
+    const parts = input.split(/[\s/]+/u)
+    return parts.some(part => !/^[-+]?(?:0+(?:\.0*)?|\.0+)(?:[a-z%]+)?$/u.test(part))
+  }
+  const border = (style: CSSStyleDeclaration, property: string) => {
+    const raw = value(style, property)
+    if (!raw) return 0
+    const parsed = Number.parseFloat(raw)
+    if (!Number.isFinite(parsed) || parsed < 0) return unsupported()
+    return parsed
+  }
+  const transparent = (input: string) => input === 'transparent'
+    || /^(?:rgba|hsla)\([^)]*,\s*(?:0(?:\.0*)?|\.0+)%?\s*\)$/u.test(input)
+    || /\/\s*(?:0(?:\.0*)?|\.0+)%?\s*\)$/u.test(input)
+  const forbidden = [
+    ['clip-path', ['none']], ['clip', ['auto']], ['filter', ['none']], ['backdrop-filter', ['none']],
+    ['-webkit-backdrop-filter', ['none']], ['mask-image', ['none']], ['-webkit-mask-image', ['none']],
+    ['mask-border-source', ['none']], ['-webkit-mask-box-image-source', ['none']],
+    ['transform', ['none']], ['translate', ['none']], ['rotate', ['none']], ['scale', ['none']],
+    ['text-shadow', ['none']], ['text-decoration-line', ['none']], ['text-emphasis-style', ['none']],
+    ['-webkit-text-emphasis-style', ['none']], ['text-overflow', ['clip']], ['-webkit-line-clamp', ['none']],
+  ] as const
+  let count = 0
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    if (!node.textContent?.trim()) continue
+    if (++count > MAX_TEXT_NODES) throw new CanvasHtmlTextureError('too-large', 'The visual source has too many text nodes.')
+    const parent = node.parentElement
+    if (!parent) continue
+    const ancestry: HTMLElement[] = []
+    for (let element: HTMLElement | null = parent; element; element = element.parentElement) {
+      ancestry.push(element)
+      if (element === target) break
+    }
+    if (ancestry.at(-1) !== target) throw new CanvasHtmlTextureError('capture', 'The sandbox text is outside its captured source.')
+    // Resolve visibility on the text's parent: a child can override an inherited
+    // visibility:hidden, whereas display and opacity suppress the whole subtree.
+    const ownStyle = computed(parent)
+    if (['hidden', 'collapse'].includes(value(ownStyle, 'visibility'))) continue
+    let hidden = false
+    for (const element of ancestry) {
+      const style = computed(element), opacity = value(style, 'opacity')
+      if (value(style, 'display') === 'none' || value(style, 'content-visibility') === 'hidden'
+        || (opacity && Number(opacity) === 0)) { hidden = true; break }
+      if (opacity && !Number.isFinite(Number(opacity))) return unsupported()
+    }
+    if (hidden) continue
+    let leftClip = origin.left, topClip = origin.top, rightClip = origin.left + width, bottomClip = origin.top + height
+    for (const element of ancestry) {
+      const style = computed(element)
+      for (const [property, allowed] of forbidden) {
+        const actual = value(style, property)
+        if (actual && !(allowed as readonly string[]).includes(actual)) return unsupported()
+      }
+      const zoom = value(style, 'zoom'), visibility = value(style, 'content-visibility')
+      if ((zoom && zoom !== 'normal' && Number(zoom) !== 1) || (visibility && visibility !== 'visible')) return unsupported()
+      if (value(style, 'background-clip').includes('text') || value(style, '-webkit-background-clip').includes('text')) return unsupported()
+      const stroke = value(style, '-webkit-text-stroke-width')
+      if (stroke && nonzero(stroke)) return unsupported()
+      const overflowX = value(style, 'overflow-x') || value(style, 'overflow') || 'visible'
+      const overflowY = value(style, 'overflow-y') || value(style, 'overflow') || 'visible'
+      if ([overflowX, overflowY].some(overflow => !['visible', 'hidden', 'clip', 'auto'].includes(overflow))
+        || (overflowX === 'auto' && element.scrollWidth > element.clientWidth)
+        || (overflowY === 'auto' && element.scrollHeight > element.clientHeight)
+        || element.scrollLeft !== 0 || element.scrollTop !== 0) return unsupported()
+      const clipX = overflowX !== 'visible', clipY = overflowY !== 'visible'
+      if (!clipX && !clipY) continue
+      if (nonzero(value(style, 'overflow-clip-margin')) || !['', 'auto'].includes(value(style, 'scrollbar-gutter'))
+        || ['border-radius', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius'].some(property => nonzero(value(style, property)))) return unsupported()
+      let box = boxes.get(element)
+      if (!box) { box = element.getBoundingClientRect(); boxes.set(element, box) }
+      if (![box.left, box.top, box.right, box.bottom].every(Number.isFinite)) throw new CanvasHtmlTextureError('capture', 'The sandbox clipping geometry is invalid.')
+      if (clipX) {
+        leftClip = Math.max(leftClip, box.left + border(style, 'border-left-width'))
+        rightClip = Math.min(rightClip, box.right - border(style, 'border-right-width'))
+      }
+      if (clipY) {
+        topClip = Math.max(topClip, box.top + border(style, 'border-top-width'))
+        bottomClip = Math.min(bottomClip, box.bottom - border(style, 'border-bottom-width'))
+      }
+    }
+    const fill = value(ownStyle, '-webkit-text-fill-color') || value(ownStyle, 'color')
+    if (fill && transparent(fill)) continue
+    range.selectNodeContents(node)
+    for (const rect of range.getClientRects()) {
+      if (![rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite)) {
+        throw new CanvasHtmlTextureError('capture', 'The sandbox text geometry is invalid.')
+      }
+      const left = Math.max(leftClip, rect.left) - origin.left
+      const top = Math.max(topClip, rect.top) - origin.top
+      const right = Math.min(rightClip, rect.right) - origin.left
+      const bottom = Math.min(bottomClip, rect.bottom) - origin.top
+      if (right <= left || bottom <= top) continue
+      if (rects.length >= MAX_TEXT_RECTS) throw new CanvasHtmlTextureError('too-large', 'The visual source has too many text rectangles.')
+      rects.push(Object.freeze({ x: left, y: top, width: right - left, height: bottom - top }))
+    }
+  }
+  return Object.freeze(rects)
+}
+
+/** Compare rectangle edges in the source and the scale-1 capture, without retaining text. */
+function verifyTextLayout(source: HTMLElement, expected: readonly CanvasHtmlTextRect[], width: number, height: number): void {
+  const actual = measureTextRects(source, width, height)
+  // The bitmap is captured at one pixel per CSS pixel; permit at most one
+  // capture pixel of fractional layout/raster rounding on each edge.
+  const sameEdge = (a: number, b: number) => Math.abs(a - b) <= 1
+  if (actual.length !== expected.length || actual.some((rect, index) => {
+    const other = expected[index]!
+    return !sameEdge(rect.x, other.x) || !sameEdge(rect.y, other.y)
+      || !sameEdge(rect.x + rect.width, other.x + other.width)
+      || !sameEdge(rect.y + rect.height, other.y + other.height)
+  })) {
+    throw new CanvasHtmlTextureError('unsupported', 'The visual text layout differs from the original source.')
+  }
+}
+
 function normalizeError(error: unknown): CanvasHtmlTextureError {
   return error instanceof CanvasHtmlTextureError ? error : new CanvasHtmlTextureError('capture', 'Unable to capture this visual source.', { cause: error })
 }
@@ -231,7 +391,7 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
   const disposed = new Promise<void>(resolve => { resolveDisposed = resolve })
   let dirty = false
   let revision = 0
-  let current: HTMLCanvasElement | undefined
+  let current: { bitmap: HTMLCanvasElement, snapshot?: CanvasHtmlTextureSnapshot } | undefined
   let inFlight: Promise<void> | undefined
   let iframe: HTMLIFrameElement | undefined
   let framePromise: Promise<Document> | undefined
@@ -258,7 +418,7 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
     if (!released && !alive && !inFlight) { released = true; activeBridges--; resolveDisposed() }
   }
   const clearTexture = () => {
-    clearBitmap(current)
+    clearBitmap(current?.bitmap)
     current = undefined
     try { ctx.clearRect(0, 0, source.width, source.height) } catch { /* original source stays visible */ }
     try { paintable.onpaint?.() } catch { /* the caller retains the original source */ }
@@ -309,6 +469,7 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
     const snapshot = readCanvasHtmlTextureSource(content)
     const doc = await frame()
     if (!alive) throw new CanvasHtmlTextureError('disposed', 'The visual effect was closed.')
+    if (version !== revision) return
     if (!iframe) throw new CanvasHtmlTextureError('sandbox', 'The isolated texture sandbox is unavailable.')
     iframe.style.width = `${snapshot.width}px`
     iframe.style.height = `${snapshot.height}px`
@@ -317,6 +478,8 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
     let captureContext: Awaited<ReturnType<typeof createContext>> | undefined
     let next: HTMLCanvasElement | undefined
     try {
+      const textRects = options.captureTextRects ? measureTextRects(target, snapshot.width, snapshot.height) : undefined
+      if (textRects) verifyTextLayout(content, textRects, snapshot.width, snapshot.height)
       captureContext = await createContext(target, {
         width: snapshot.width, height: snapshot.height, scale: 1, maximumCanvasSize: MAX_DIMENSION,
         font: false, timeout: 3_000, fetch: { placeholderImage: '' },
@@ -329,9 +492,16 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
         throw new CanvasHtmlTextureError('capture', 'The captured visual size does not match the source.')
       }
       if (!alive || version !== revision) { clearBitmap(next); return }
+      if (textRects) {
+        try { verifyTextLayout(content, textRects, snapshot.width, snapshot.height) }
+        catch (error) { clearBitmap(next); throw error }
+      }
       const previous = current
-      current = next
-      clearBitmap(previous)
+      current = {
+        bitmap: next,
+        snapshot: textRects && Object.freeze({ revision: version, width: snapshot.width, height: snapshot.height, textRects }),
+      }
+      clearBitmap(previous?.bitmap)
       paintable.onpaint?.()
     } finally {
       try { if (captureContext) destroyContext(captureContext) } finally { target.remove() }
@@ -374,23 +544,40 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
     }
     return inFlight
   }
-  const refresh = () => enqueue(true)
+  const refresh = () => {
+    // A manual refresh can follow a synchronous change before the mutation
+    // observer fires. Retire the previous text snapshot before disconnecting
+    // the observer or awaiting a replacement.
+    if (options.captureTextRects && current) clearTexture()
+    return enqueue(true)
+  }
   const queueRefresh = () => {
     if (alive) void enqueue(false).catch(() => {})
+  }
+  const onFontsChange = () => {
+    if (!alive) return
+    if (current) clearTexture()
+    queueRefresh()
   }
   const onMutation: MutationCallback = records => {
     if (!alive) return
     const visibilityChanged = records.some(record =>
       (record.type === 'attributes' && observedAncestors.has(record.target))
       || (record.type === 'childList' && [...record.removedNodes].some(node => observedAncestors.has(node))))
-    if (visibilityChanged) clearTexture()
-    if (visibilityChanged || records.some(record => record.type !== 'childList' || content.contains(record.target))) queueRefresh()
+    const changed = visibilityChanged || records.some(record => record.type !== 'childList' || content.contains(record.target))
+    if (visibilityChanged || (options.captureTextRects && changed && current)) clearTexture()
+    if (changed) queueRefresh()
   }
   const draw = (element: Element, x: number, y: number) => {
     if (!alive || element !== content) throw new CanvasHtmlTextureError('unsafe-content', 'The visual source does not match this texture.')
-    if (current) ctx.drawImage(current, x, y, source.width, source.height)
+    if (current) ctx.drawImage(current.bitmap, x, y, source.width, source.height)
   }
-  const request = () => queueRefresh()
+  const request = () => {
+    // A request can arrive in the same turn as a DOM change, before the
+    // observer has delivered it. Retire the prior text bitmap immediately.
+    if (options.captureTextRects && current) clearTexture()
+    queueRefresh()
+  }
   const onMotion = () => {
     if (motion.matches) {
       try { onError(new CanvasHtmlTextureError('reduced-motion', 'Animation is disabled by the system preference.')) }
@@ -402,6 +589,9 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
     alive = false
     observer?.disconnect()
     resize?.disconnect()
+    if (options.captureTextRects) {
+      for (const event of ['loading', 'loadingdone', 'loadingerror']) source.ownerDocument.fonts?.removeEventListener(event, onFontsChange)
+    }
     motion.removeEventListener('change', onMotion)
     cancelWait?.()
     if (paintable.requestPaint === request) {
@@ -412,7 +602,7 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
       if (originalDraw) Object.defineProperty(ctx, 'drawElementImage', originalDraw)
       else delete ctx.drawElementImage
     }
-    clearBitmap(current)
+    clearBitmap(current?.bitmap)
     current = undefined
     cancelFrame?.()
     iframe?.remove()
@@ -420,15 +610,21 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
   }
   try {
     observer = new win.MutationObserver(onMutation)
-    resize = new win.ResizeObserver(queueRefresh)
+    resize = new win.ResizeObserver(() => {
+      if (options.captureTextRects && current) clearTexture()
+      queueRefresh()
+    })
     Object.defineProperty(ctx, 'drawElementImage', { configurable: true, value: draw })
     Object.defineProperty(source, 'requestPaint', { configurable: true, value: request })
     observeVisibility(visibilityChain(content))
     resize.observe(content)
     motion.addEventListener('change', onMotion)
+    if (options.captureTextRects) {
+      for (const event of ['loading', 'loadingdone', 'loadingerror']) source.ownerDocument.fonts?.addEventListener(event, onFontsChange)
+    }
   } catch (error) {
     dispose()
     throw normalizeError(error)
   }
-  return { refresh, dispose, whenDisposed: () => disposed }
+  return { refresh, getSnapshot: () => current?.snapshot, dispose, whenDisposed: () => disposed }
 }
