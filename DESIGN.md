@@ -176,7 +176,7 @@ The user-pinned Empryo reference now informs distinct compositions rather than a
 
 The official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.
 
-ASCII is a separate selectable presentation alongside the default Empryo. Its character plots and fixed-width type organize eligible source-derived comparisons without changing the source. Its current implementation is a development candidate; official DSH installation and acceptance are pending.
+ASCII is a separate selectable presentation alongside the default Empryo. Its character plots and fixed-width type organize eligible source-derived comparisons without changing the source. Candidate g passed scoped official DSH checks for theme switching, source-preserving reports and selected model/image paths, but its native header overlapped host controls at narrower window sizes. The subsequent header repair remains pending native installation and acceptance.
 
 **Key Characteristics:**
 
@@ -266,6 +266,8 @@ One labeled native select in the conversation header offers 展示, 原文 and �
 
 The adjacent **主题** select offers built-in and installed themes without leaving the conversation. It uses the existing revision-checked settings save, shows pending and failure states, and keeps the display-mode and transparency controls separate.
 
+The revised header keeps display and theme controls on one row. When the nearest existing inline-size or size container is under 1100 CSS pixels wide, research (when takeover is enabled) and transparency move into one mounted panel behind **更多显示选项**; without such a container, the viewport width is used. Wide layouts show those controls inline. The native popover closes on Escape or outside input; closing or moving back to the wide layout also closes the transparency slider and cancels an unsaved preview. Returning to wide mode restores focus to a visible control when focus was in the compact controls. The more button has a visible keyboard-focus outline. A theme-save error floats outside the row instead of expanding it. This repair is source-level behavior pending native retest.
+
 ### Comparisons and maintained charts
 
 A local thin meter adapter handles one nonnegative finite series with two to six nonempty category labels. Each original value sits beside a shared-scale organic stroke; a zero remains zero. Complex categorical and time-series plots continue through unmodified OpenUI. This is one compact benchmark grammar, not every Empryo benchmark variant.
@@ -325,7 +327,7 @@ The user requested slightly denser content while retaining the accepted material
 
 ## Visible transparency shortcut (2026-10-31)
 
-A single **开启透明** checkbox sits beside the conversation-header display selector and shares the existing persisted appearance state with Settings. It preserves the selected color and takeover/OpenUI/MCP flags, uses revision-checked saves, disables while saving and exposes failure without claiming success. Translucent dark gray starts at alpha 0.72 with 4px blur so the existing wallpaper is more visible; contrast protection can increase opacity for custom midtones. Opaque mode keeps alpha 1 and no blur. The same preference supplies neutral tokens to the public conversation-view outlet when takeover is on. Original independent page components and controls remain intact; known owner card selectors add consistent radii and depth. Turning takeover off removes the additional page rules. Unknown embedded apps, iframe interiors and portals stay separate; the explicit ThoughtDAG exception is recorded below.
+A single **开启透明** checkbox shares the existing persisted appearance state with Settings. The revised header keeps it inline when space permits and places the same mounted control in **更多显示选项** in compact layouts. It preserves the selected color and takeover/OpenUI/MCP flags, uses revision-checked saves, disables while saving and exposes failure without claiming success. Translucent dark gray starts at alpha 0.72 with 4px blur so the existing wallpaper is more visible; contrast protection can increase opacity for custom midtones. Opaque mode keeps alpha 1 and no blur. The same preference supplies neutral tokens to the public conversation-view outlet when takeover is on. Original independent page components and controls remain intact; known owner card selectors add consistent radii and depth. Turning takeover off removes the additional page rules. Unknown embedded apps, iframe interiors and portals stay separate; the explicit ThoughtDAG exception is recorded below.
 
 ## Independent conversation pages
 

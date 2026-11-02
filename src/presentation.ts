@@ -53,7 +53,7 @@ export const displayModes = new DisplayModes()
 export function useDisplayMode(sessionId: string): DisplayMode { return useSyncExternalStore(displayModes.subscribe, () => displayModes.get(sessionId), () => 'visual') }
 export function DisplayModeControl({ sessionId }: { sessionId: string }): ReactElement {
   const mode = useDisplayMode(sessionId)
-  return h('label', { className: 'dsh-experience iexp-mode-control', style: styles.modeControl, title: '统一切换本会话的智能体验输出' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'panels-top-left', size: 15 })), '显示 ', h('select', { 'aria-label': '输出显示方式', value: mode, style: styles.button, onChange: (event: { currentTarget: HTMLSelectElement }) => displayModes.set(sessionId, event.currentTarget.value as DisplayMode) }, h('option', { value: 'visual' }, '展示'), h('option', { value: 'raw' }, '原文'), h('option', { value: 'compare' }, '对照')))
+  return h('label', { className: 'dsh-experience iexp-mode-control', style: styles.modeControl, title: '统一切换本会话的智能体验输出' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'panels-top-left', size: 15 })), h('span', { className: 'iexp-mode-caption' }, '显示'), h('select', { 'aria-label': '输出显示方式', value: mode, style: styles.button, onChange: (event: { currentTarget: HTMLSelectElement }) => displayModes.set(sessionId, event.currentTarget.value as DisplayMode) }, h('option', { value: 'visual' }, '展示'), h('option', { value: 'raw' }, '原文'), h('option', { value: 'compare' }, '对照')))
 }
 export function OutputView({ sessionId, raw, mode: override, children }: { sessionId: string, raw: unknown, mode?: DisplayMode, children?: ReactNode }): ReactElement {
   const shared = useDisplayMode(sessionId); const mode = override ?? shared; const theme = useExperienceTheme()

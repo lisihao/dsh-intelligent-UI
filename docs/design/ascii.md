@@ -19,4 +19,10 @@ User-approved scope, 2026-11-02: a selectable flagship style alongside Empryo, w
 5. Theme switching preserves source strings and disclosure state. Transparency controls and revision-checked save/error behavior remain available.
 6. Verify rendered output at 1280px and 320px, actual switching, error/disabled states and source preservation. Browser proof is distinct from centralized official Desktop installation acceptance.
 
+## Native header refinement
+
+Candidate g's formal native check exposed overlapping host controls at the narrower desktop window sizes; the standalone preview's expandable header did not represent this constraint. The repaired header keeps display and theme selects on one row. Below 1100px of the nearest existing inline-size container, research and transparency move into the same mounted panel behind **更多显示选项**. Wide layouts keep them inline. The adapter observes geometry; it does not change the host container or another plugin's CSS.
+
+The native auto popover closes with Escape/outside input. Its existing manual transparency slider closes with it; resizing restores focus to a visible control and cancels only unsaved preview. Each control remains mounted once across layouts. A theme save error floats outside the row and can be dismissed, so error text cannot expand the toolbar. The current style remains visible and directly selectable in compact mode.
+
 Screenshots and private reports stay outside Git. The implementation does not claim general Asciify HTML coverage or that all charts become character plots.

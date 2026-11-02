@@ -78,7 +78,7 @@ This is source/build candidate behavior; the new archive requires centralized De
 - Unmodified OpenUI components supply Markdown, charts, forms and streaming UI. React Flow and ELK supply source-relationship diagrams with animated edges, pause, pan/zoom and keyboard selection. Edges describe source relationships and do not assert that work executed.
 - Content-aware Uiverse adapters are selected automatically for supported UI-owned semantic surfaces. Three explicit component themes also supply coordinated buttons, inputs, toggles, cards and loaders, with original-source comparison. Foreign pages retain token/CSS appearance compatibility and their original behavior. See [mapping and compatibility](docs/design/uiverse-component-themes.md).
 - Selectable data-only themes control color, typography, roundness, density, depth and transparency. Compatible independent conversation pages receive reversible appearance rules while retaining their original components and behavior.
-- The development-candidate **ASCII** theme adds source-backed character bars for eligible categorical charts and a compact conversation-header theme selector. Empryo remains the default; official Desktop acceptance for this new theme is pending.
+- The **ASCII** theme adds source-backed character bars for eligible categorical charts and a conversation-header theme selector. Empryo remains the default. Candidate g passed scoped native checks; the subsequent native-header repair still needs Desktop acceptance.
 - An optional, explicitly configured MCP Apps adapter preserves UI metadata and uses an isolated bridge. Existing MCP connections are untouched. This connector remains off by default.
 
 The official DSH navigation and settings stay in place. Disabling takeover restores original output/page presentation. Disabling or uninstalling this plugin removes its owned styles, controls and listeners; retained plugin data remains in its own namespace. It does not patch foreign plugin packages, source or configuration.
@@ -94,7 +94,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 
 Use the official application's bundled `dsh` CLI for an installed Desktop profile. Lifecycle scripts are disabled; the published renderer does not need its optional install telemetry.
 
-In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
+In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings; in the revised compact header it is under **更多显示选项**. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
 
 ### Updating an older two-package installation
 
@@ -110,7 +110,9 @@ In the current development candidate, **界面主题** includes built-in Empryo,
 
 Empryo uses translucent dark gray by default, rounded panels and subtle hover lift. 简洁 uses an opaque dark gray, system fonts and standard comparisons. The color picker and transparency toggle override appearance; selecting a different theme applies its defaults. Reduced-motion preferences suppress lift and animation.
 
-ASCII uses a translucent graphite ground, pale green accents and bundled Recursive's monospaced axis. Eligible categorical bars with a shared unit become responsive character plots; marks are discrete approximations, with the exact values, units and original data still available. The shared scale includes zero and remains consistent across pages. Other chart types retain their existing renderer. Eligible GLB models use the existing ASCII Object effect; images and report text are not converted by it. The ASCII theme and header switch are source/build work pending centralized official Desktop installation and acceptance; they are not claimed as part of the older published preview.
+ASCII uses a translucent graphite ground, pale green accents and bundled Recursive's monospaced axis. Eligible categorical bars with a shared unit become responsive character plots; marks are discrete approximations, with the exact values, units and original data still available. The shared scale includes zero and remains consistent across pages. Other chart types retain their existing renderer. Eligible GLB models use the existing ASCII Object effect; images and report text are not converted by it. Candidate g passed scoped official Desktop checks for theme switching, source-preserving report bars, selected GLB/PNG paths and plugin off/on. Its header overlapped host controls at narrower native window sizes. The revised compact header has not yet been installed and retested in official Desktop; these changes are not part of the older published preview.
+
+In the revised header, **显示** and **主题** stay directly available. On narrow host containers, **更多显示选项** holds the existing research and transparency controls; wider layouts keep them inline. Closing the menu or returning to the wide layout clears only an unsaved transparency preview. The application and other plugins remain unmodified.
 
 Theme packages contain validated JSON tokens, with no executable code, arbitrary CSS or remote assets. Unknown fields/versions, packages above 32 KiB, duplicate/reserved IDs and more than 32 imported packages are rejected. See the [theme examples](theme/README.md), [format and lifecycle](docs/design/experience-themes.md), and [design system](DESIGN.md).
 

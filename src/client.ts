@@ -1,9 +1,9 @@
 import { LocalDataImport } from './local-data-import.js'
-import { ResearchWorkspace, ResearchModeControl, researchModes } from './research-view.js'
+import { ResearchWorkspace, researchModes } from './research-view.js'
 import { RPC_REMOTE as RESEARCH_REMOTE } from './research-remote.js'
 import { documentInput, prepareInput, markSubmissionInput, saveNotesInput, stateSchema, type ResearchApi } from './research-contracts.js'
 import { ThemeButton, ThemeInput, ThemeToggle, ThemeLoader } from './theme-components.js'
-import { createElement as h, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
+import { createElement as h, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -20,7 +20,7 @@ import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateApi, ThemeApi } from './contracts.js'
 import { resolveTheme, type ThemePackage } from './theme-contracts.js'
 import { type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
-import { TransparencyControl } from './transparency-control.js'
+import { HeaderExtras } from './header-extras.js'
 import { ThemeQuickSwitch } from './theme-quick-switch.js'
 import { ThemeSettings } from './theme-settings.js'
 import { RPC_REMOTE } from './remote.js'
@@ -152,7 +152,37 @@ export class ExperienceStore {
 function useStore(store: ExperienceStore) { return useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot) }
 /** One global appearance shortcut beside the existing conversation display control. */
 export function HeaderControls({ store, sessionId }: { store: ExperienceStore, sessionId: string }): ReactElement {
-  return h('div', { className: 'dsh-experience iexp-header-controls' }, h(DisplayModeControl, { sessionId }), store.snapshot().settings?.takeover && h(ResearchModeControl, { sessionId }), h(ThemeQuickSwitch, { store }), h(TransparencyControl, { store }))
+  const { settings } = useStore(store)
+  const root = useRef<HTMLDivElement>(null)
+  const beforeWide = useRef<() => void>(() => {})
+  const compactRef = useRef(true)
+  const [compact, setCompact] = useState(true)
+  useLayoutEffect(() => {
+    const element = root.current, view = element?.ownerDocument.defaultView
+    if (!element || !view) return
+    let container = element.parentElement
+    while (container) {
+      const type = view.getComputedStyle(container).containerType
+      if (type === 'size' || type === 'inline-size') break
+      container = container.parentElement
+    }
+    const measure = () => {
+      const next = (container?.clientWidth ?? view.innerWidth) < 1100
+      if (next !== compactRef.current) {
+        if (!next) beforeWide.current()
+        compactRef.current = next
+        setCompact(next)
+      }
+    }
+    const observer = container && view.ResizeObserver ? new view.ResizeObserver(measure) : undefined
+    if (container) observer?.observe(container)
+    view.addEventListener('resize', measure)
+    measure()
+    return () => { observer?.disconnect(); view.removeEventListener('resize', measure) }
+  }, [])
+  return h('div', { ref: root, className: 'dsh-experience iexp-header-controls', 'data-compact': compact },
+    h(DisplayModeControl, { sessionId }), h(ThemeQuickSwitch, { store }),
+    h(HeaderExtras, { store, sessionId, compact, showResearch: !!settings?.takeover, beforeWide }))
 }
 export function Settings({ store }: { store: ExperienceStore }): ReactElement {
   const { api, settings, error, takeoverError } = useStore(store)
