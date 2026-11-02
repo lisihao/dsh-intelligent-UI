@@ -1,6 +1,6 @@
 {
   "name": "@lisihao/dsh-solar-intelligent-experience-platform",
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "description": "Source-preserving intelligent UI with built-in offline Uiverse components and automatic semantic rendering.",
   "license": "MIT",
   "author": {

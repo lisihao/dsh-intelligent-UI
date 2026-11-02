@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-preview.2 — 2026-11-01
+
+- Render large valid tables and relationship maps beyond the former 200-row and 40-node / 100-edge refusal thresholds, within configured artifact limits.
+- Add continuous-date original-value trend overviews, exact range detail and source-order chart/table pagination with all original data retained.
+- Add background ELK layout and WebGL2 graph overviews, searchable readable neighborhoods and explicit fallback states.
+- Import local JSON, Markdown and text through Generated content, retaining original text and optional provenance without model calls.
+- Preserve ppm units and fix plotted sample-count metrics being incorrectly used to partition their own chart.
+
+Real public-data candidate acceptance passed in official DSH: 10,000 NOAA observations, 1,000 SNAP nodes / 5,000 directed edges and 1,000 derived categories. The release contains metadata changes around that accepted runtime; exact archive verification is recorded separately. Compatibility remains DSH 0.2.1-rc.2 on macOS arm64. 3D terrain and real-model research organization are not part of this acceptance.
+
 ## 0.1.0-preview.1 — 2026-11-01
 
 First public prebuilt preview of the independent intelligent UI plugin.
