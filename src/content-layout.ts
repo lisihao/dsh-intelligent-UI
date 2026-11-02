@@ -125,9 +125,10 @@ export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], out
 
 const nonempty = (maximum: number) => z.string().max(maximum).refine(value => value.trim().length > 0, 'Expected nonempty text')
 const graphSchema = z.object({
-  nodes: z.array(z.object({ id: nonempty(200), label: nonempty(1_000), description: z.string().max(10_000).optional() }).strict()).min(1).max(40),
-  edges: z.array(z.object({ source: nonempty(200), target: nonempty(200), label: z.string().max(1_000).optional() }).strict()).max(100),
+  nodes: z.array(z.object({ id: nonempty(200), label: nonempty(1_000), description: z.string().max(10_000).optional() }).strict()).min(1),
+  edges: z.array(z.object({ source: nonempty(200), target: nonempty(200), label: z.string().max(1_000).optional() }).strict()),
 }).strict().superRefine((graph, context) => {
+  if (new TextEncoder().encode(JSON.stringify(graph)).byteLength > 1024 * 1024) context.addIssue({ code: 'custom', message: 'Graph exceeds the host 1 MiB source boundary' })
   const ids = new Set<string>()
   graph.nodes.forEach((node, index) => {
     if (ids.has(node.id)) context.addIssue({ code: 'custom', path: ['nodes', index, 'id'], message: 'Duplicate node ID' })

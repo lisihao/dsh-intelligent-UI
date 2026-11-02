@@ -82,14 +82,20 @@ describe('canonical explicit graph validation', () => {
     { nodes: [{ id: 'a', label: 'A' }], edges: [], html: '<script>untrusted</script>' },
     { nodes: [], edges: [] },
     { nodes: [{ id: 'a', label: 'A' }] },
-    { nodes: Array.from({ length: 41 }, (_, index) => ({ id: String(index), label: String(index) })), edges: [] },
-    { nodes: [{ id: 'a', label: 'A' }], edges: Array.from({ length: 101 }, () => ({ source: 'a', target: 'a' })) },
     JSON.parse('{"nodes":[{"id":"a","label":"A"}],"edges":[],"__proto__":{"polluted":true}}'),
   ])('returns a named error for recognized invalid graphs: %j', value => {
     const result = analyzeGraph(value)
     expect(result.status).toBe('invalid')
     if (result.status === 'invalid') expect(result.error).toMatchObject({ name: 'InvalidGraphPayload', message: expect.any(String) })
     expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+  })
+  it.each([
+    { nodes: Array.from({ length: 41 }, (_, index) => ({ id: String(index), label: String(index) })), edges: [] },
+    { nodes: [{ id: 'a', label: 'A' }], edges: Array.from({ length: 101 }, () => ({ source: 'a', target: 'a' })) },
+  ])('preserves graphs beyond the former tiny limits: %j', value => {
+    const result = analyzeGraph(value)
+    expect(result.status).toBe('valid')
+    if (result.status === 'valid') { expect(result.plan.nodes).toEqual(value.nodes); expect(result.plan.edges).toEqual(value.edges) }
   })
   it('does not reinterpret prose, numeric tables or unrelated records as graphs', () => {
     for (const value of ['A causes B', null, [{ name: 'A', value: 20 }], { title: 'ordinary record' }]) expect(analyzeGraph(value)).toEqual({ status: 'unrecognized' })

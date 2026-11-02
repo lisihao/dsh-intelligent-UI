@@ -1,3 +1,4 @@
+import { chartViewportCss } from './chart-viewport.js'
 import { researchCss } from './research-style.js'
 import { themeComponentsCss } from './theme-components-style.js'
 import { openuiCss } from './openui-css.js'
@@ -120,7 +121,7 @@ export function installExperienceStyles(): () => void {
 .dsh-experience .openui-markdown-renderer { overflow-wrap: anywhere; }
 .dsh-experience .openui-markdown-renderer-code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
+` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
   document.head.append(element)
   return () => element.remove()
 }
