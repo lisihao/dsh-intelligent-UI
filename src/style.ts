@@ -60,6 +60,8 @@ export function installExperienceStyles(): () => void {
 .iexp-content .openui-markdown-renderer :is(h4,h5,h6) { font-size: 15px; margin: 20px 0 8px; }
 .iexp-content .openui-markdown-renderer :is(h1,h2,h3) svg { color: var(--iexp-accent); width: 18px; height: 18px; stroke-width: 1.6; }
 .iexp-content .openui-markdown-renderer a { color: var(--iexp-accent); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.iexp-content .iexp-model-source-link { color: var(--iexp-text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.iexp-content .iexp-model-source-link:focus-visible { outline: 2px solid var(--iexp-accent); outline-offset: 3px; border-radius: 2px; }
 .iexp-content .openui-markdown-renderer :is(pre,blockquote) { background: var(--iexp-soft); border: 1px solid var(--iexp-line); border-radius: var(--iexp-control-radius); padding: calc(12px * var(--iexp-density)) calc(16px * var(--iexp-density)); color: var(--iexp-text); }
 .iexp-content .openui-markdown-renderer pre { font-family: var(--iexp-code-font); font-variation-settings: 'MONO' 1, 'CASL' 0; }
 .iexp-content .openui-markdown-renderer :not(pre) > code { background: var(--iexp-soft); color: var(--iexp-accent); border-radius: min(4px,var(--iexp-control-radius)); padding: 2px 5px; }

@@ -23,7 +23,7 @@ class ProbeAdapter extends LlmAdapter {
       return
     }
     const available = options.tools?.map((tool) => tool.name) ?? []
-    for (const name of ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview']) assert(available.includes(name), `actual Agent request lacks ${name}`)
+    for (const name of ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview', 'solar_ui_canvas_search']) assert(available.includes(name), `actual Agent request lacks ${name}`)
     assert(available.includes('solar_present'), 'the actual Agent request did not receive solar_present')
     const call = { type: 'tool-call', id: randomUUID(), name: 'solar_present', arguments: JSON.stringify({
       protocol: 'content', payload: { fixture: true, source: 'AgentLoop' }, label: 'Keyless DSH fixture output',
@@ -108,7 +108,7 @@ async function probe(ctx) {
     assert(typeof tools.get('solar_present')?.execute === 'function', 'solar_present has no registered execution handler')
     checks.toolRegistered = true
 
-    const componentNames = ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview']
+    const componentNames = ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview', 'solar_ui_canvas_search']
     const skills = ctx.get('skills')
     const componentService = ctx.get('solarUiComponents')
     assert(componentService, 'integrated component service absent')
@@ -120,7 +120,10 @@ async function probe(ctx) {
       return JSON.parse(result.content.find(block => block.type === 'text').text)
     }
     const loadedSkill = await tools.execute({ callId: randomUUID(), name: 'skill', arguments: { name: 'uiverse-components' }, signal: new AbortController().signal })
-    assert(!loadedSkill.isError && JSON.stringify(loadedSkill.content).includes('solar_ui_search'), 'official loader cannot read integrated component skill')
+    assert(!loadedSkill.isError && JSON.stringify(loadedSkill.content).includes('solar_ui_search') && JSON.stringify(loadedSkill.content).includes('solar_ui_canvas_search'), 'official loader cannot read integrated component skill')
+    const canvas = await executeComponent('solar_ui_canvas_search', { query: 'ink object' })
+    assert(canvas.scope === 'metadata-only' && canvas.items.some(item => item.slug === 'ink-object'), 'Canvas UI discovery did not return the upstream Ink Object reference')
+    checks.canvasDiscovery = true
     const page = await executeComponent('solar_ui_search', { category: 'Buttons', limit: 1 })
     assert(page.archiveTotal === 3802 && page.categories.length === 11, 'integrated archive inventory differs')
     const source = await executeComponent('solar_ui_source', { id: page.items[0].id })

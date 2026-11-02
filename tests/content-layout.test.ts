@@ -130,7 +130,7 @@ describe('read-only task and detail layouts', () => {
     expect(analyzeTaskRecords([{ name: 'A', status: 'paid', amount: 10 }, { name: 'B', status: 'unpaid', amount: 20 }])).toBeUndefined()
     expect(analyzeTaskRecords([{ taskName: '核对财务', status: '进行中', amount: 10 }, { taskName: '确认账单', status: '待检查', amount: 20 }])).toBeDefined()
   })
-  it('keeps 102 interleaved tasks and table rows within the existing 200-record source limit', () => {
+  it('keeps interleaved tasks and table rows in original source order', () => {
     const records = Array.from({ length: 102 }, (_, index) => ({ id: `source-${index}`, taskName: `原始任务 ${index}`, status: index % 2 ? '等待实际回执' : '来源自定义状态' }))
     records[73]!.taskName = '完整参数化用例名'.repeat(370) + '末' // 2961 UTF-16 code units, matching observed long task names.
     expect(records[73]!.taskName).toHaveLength(2961)
@@ -149,9 +149,26 @@ describe('read-only task and detail layouts', () => {
     expect(table.groups[1]!.items.at(-1)?.sourceRow).toBe(101)
     expect(table.groups[1]!.items.at(-1)?.cells).toEqual(rows[101])
     expect(table.groups[1]!.items.find(item => item.sourceRow === 73)?.title).toBe(records[73]!.taskName)
-    const overLimit = Array.from({ length: 201 }, (_, index) => ({ taskName: `任务 ${index}`, status: '来源状态' }))
-    expect(analyzeTaskRecords(overLimit)).toBeUndefined()
-    expect(analyzeTaskTable(['任务', '状态'], overLimit.map(record => [record.taskName, record.status]))).toBeUndefined()
+  })
+  it.each([201, 1000])('retains all %i tasks and source rows in a 31-column table', count => {
+    const headers = ['任务名称', '状态', ...Array.from({ length: 29 }, (_, index) => `字段 ${index}`)]
+    const rows = Array.from({ length: count }, (_, index) => [`任务 ${index}`, `状态 ${index % 7}`, ...Array.from({ length: 29 }, (_, field) => `值 ${index}/${field}`)])
+    const plan = analyzeTaskTable(headers, rows)!
+    expect(plan.headers).toEqual(headers)
+    expect(plan.records).toHaveLength(count)
+    expect(plan.records.map(record => headers.map(header => record[header]))).toEqual(rows)
+    expect(plan.groups.map(group => group.status)).toEqual(Array.from({ length: 7 }, (_, i) => `状态 ${i}`))
+    const items = plan.groups.flatMap(group => group.items).sort((a, b) => a.sourceRow! - b.sourceRow!)
+    expect(items.map(item => item.sourceRow)).toEqual(Array.from({ length: count }, (_, i) => i))
+    expect(items.map(item => item.cells)).toEqual(rows)
+    expect(items.at(-1)?.cells?.at(-1)).toBe(`值 ${count - 1}/28`)
+    const records = rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index]])))
+    expect(analyzeTaskRecords(records)?.records).toBe(records)
+  })
+  it('retains financial false-positive protection for large ordinary status records', () => {
+    const records = Array.from({ length: 201 }, (_, index) => ({ name: `公司 ${index}`, status: '上市', revenue: index }))
+    expect(analyzeTaskRecords(records)).toBeUndefined()
+    expect(analyzeTaskTable(['名称', '状态', '收入'], records.map(record => [record.name, record.status, String(record.revenue)]))).toBeUndefined()
   })
   it('falls back for task titles exceeding 10000 characters without truncating or filtering the source', () => {
     const records = [{ taskName: '原始任务', status: '来源状态' }, { taskName: 'x'.repeat(10_000), status: '来源状态' }]
@@ -173,5 +190,12 @@ describe('read-only task and detail layouts', () => {
     expect(analyzeMasterDetail([{ name: 'A', description: 'short' }, { name: 'B', description: 'short' }])).toBeUndefined()
     expect(analyzeMasterDetail([{ name: 'A', value: 10 }, { name: 'B', value: 20 }])).toBeUndefined()
     expect(analyzeMasterDetail([records[0], { name: 'B' }])).toBeUndefined()
+  })
+  it('retains more than 200 master/detail records without changing their descriptions', () => {
+    const records = Array.from({ length: 201 }, (_, i) => ({ name: `对象 ${i}`, description: `原始描述 ${i} ` + '说明'.repeat(50), source: `原始来源 ${i}` }))
+    const plan = analyzeMasterDetail(records)!
+    expect(plan.items).toHaveLength(201)
+    expect(plan.items.at(-1)?.record).toBe(records[200])
+    expect(plan.items.at(-1)?.description).toBe(records[200]?.description)
   })
 })

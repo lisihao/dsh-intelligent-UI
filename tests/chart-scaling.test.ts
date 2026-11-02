@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHART_POINT_BUDGET, chartAtRows, chartRowIndexes } from '../src/chart-scaling.js'
+import { CHART_POINT_BUDGET, chartAtRows, chartRowIndexes, hasSourceGapBetween } from '../src/chart-scaling.js'
 import type { AutoChartPlan } from '../src/content-analysis.js'
 
 function sourcePlan(): AutoChartPlan {
@@ -45,6 +45,28 @@ describe('source-preserving scalable chart display', () => {
     const indexes = chartRowIndexes(categories, 9800, 9900)
     expect(indexes).toEqual(Array.from({ length: 100 }, (_, index) => 9800 + index))
     expect(chartAtRows(categories, indexes).labels).toEqual(source.labels.slice(9800, 9900))
+  })
+  it('retains the points on both sides of a real missing row under the display budget', () => {
+    const rows = Array.from({ length: 2000 }, (_, index) => index < 900 ? index : index + 1)
+    const source: AutoChartPlan = { kind: 'line', labels: rows.map(String), sourceRows: rows, omittedRowRanges: [[900, 901]], series: [{ name: '净值', unit: '', values: rows.map(row => row / 1000), originals: rows.map(String) }], reason: '', icon: 'trending-up' }
+    const indexes = chartRowIndexes(source)
+    expect(indexes.length).toBeLessThanOrEqual(CHART_POINT_BUDGET)
+    expect(indexes).toContain(899); expect(indexes).toContain(900)
+    const display = chartAtRows(source, indexes)
+    const left = display.sourceRows!.indexOf(899), right = display.sourceRows!.indexOf(901)
+    expect(right).toBe(left + 1)
+    expect(hasSourceGapBetween(display, display.sourceRows![left]!, display.sourceRows![right]!)).toBe(true)
+    expect(hasSourceGapBetween(display, 40, 50)).toBe(false)
+    expect(source.series[0]?.values).toHaveLength(2000)
+  })
+  it('stays bounded with many missing ranges and never calls ordinary sampled points missing', () => {
+    const rows = Array.from({ length: 2000 }, (_, index) => index * 2)
+    const source: AutoChartPlan = { kind: 'line', labels: rows.map(String), sourceRows: rows, omittedRowRanges: rows.slice(0, -1).map(row => [row + 1, row + 2]), series: [{ name: '原始值', unit: '', values: rows }], reason: '', icon: 'trending-up' }
+    const indexes = chartRowIndexes(source)
+    expect(indexes.length).toBeLessThanOrEqual(CHART_POINT_BUDGET)
+    expect(indexes[0]).toBe(0); expect(indexes.at(-1)).toBe(rows.length - 1)
+    expect(hasSourceGapBetween(source, rows[indexes[0]!]!, rows[indexes[1]!]!)).toBe(true)
+    expect(hasSourceGapBetween({ ...source, omittedRowRanges: [] }, rows[indexes[0]!]!, rows[indexes[1]!]!)).toBe(false)
   })
   it.each([[-1, 100], [0, 10_001], [100, 100], [100, 99], [0.5, 100], [0, 100.5], [Number.NaN, 100]])('rejects invalid source windows instead of silently clamping them: %s–%s', (start, end) => {
     expect(() => chartRowIndexes(sourcePlan(), start, end)).toThrow(RangeError)

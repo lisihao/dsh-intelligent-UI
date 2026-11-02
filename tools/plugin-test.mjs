@@ -9,6 +9,8 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const CLI_ROOT = ROOT
 const TEMP_ROOT = process.platform === 'darwin' ? '/private/tmp' : tmpdir()
 const PACKAGE = ROOT
+// Optional exact packed candidate; the source tree still supplies fixture and expected metadata.
+const PACKAGE_SPEC = process.env.INTELLIGENT_UI_TEST_PACKAGE_TGZ ? resolve(process.env.INTELLIGENT_UI_TEST_PACKAGE_TGZ) : PACKAGE
 const PROBE = join(ROOT, 'tools', 'fixtures', 'intelligent-experience-probe')
 const PROFILE = 'solar-intelligent-experience-test'
 const TIMEOUT = 120_000
@@ -190,7 +192,7 @@ async function main() {
   let themes
   try {
     try {
-      for (const packageDir of [PACKAGE, PROBE]) await command(dshCli, ['plugin', '--profile', PROFILE, 'add', packageDir], env)
+      for (const packageDir of [PACKAGE_SPEC, PROBE]) await command(dshCli, ['plugin', '--profile', PROFILE, 'add', packageDir], env)
       const profile = JSON.parse(await readFile(join(profileDir, 'package.json'), 'utf8'))
       const bundles = profile?.dsh?.profile?.bundles
       const expected = [plugin.name, fixture.name]
@@ -198,7 +200,7 @@ async function main() {
       await command(dshCli, ['--profile', PROFILE], env)
       marker = JSON.parse(await readFile(env.SOLAR_PLUGIN_PROBE_MARKER, 'utf8'))
       if (marker?.ok !== true) throw new Error(`keyless fixture reported failure: ${JSON.stringify(marker)}`)
-      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
+      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'canvasDiscovery', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
       const missing = required.filter((key) => marker.checks?.[key] !== true)
       if (missing.length) throw new Error(`probe missing checks ${missing.join(', ')}: ${JSON.stringify(marker)}`)
       const root = join(scratch, 'solar', 'intelligent-experience-platform')

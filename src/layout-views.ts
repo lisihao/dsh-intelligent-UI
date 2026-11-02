@@ -5,23 +5,51 @@ import { IconWrapper } from '@openuidev/react-ui'
 import type { BoardItem, BoardPlan, HeadingIndexPlan, MasterDetailPlan } from './content-layout.js'
 
 function SourceRecords({ records }: { records: unknown }): ReactElement {
-  return h('details', { className: 'iexp-layout-source' }, h('summary', null, h(IconWrapper, { name: 'database', size: 15 }), '查看完整原始记录'), h('pre', null, JSON.stringify(records, null, 2)))
+  const [open, setOpen] = useState(false)
+  // Keep small disclosures mounted as before; defer only large collections.
+  const defer = Array.isArray(records) && records.length > 100
+  return h('details', { className: 'iexp-layout-source', onToggle: (event: { currentTarget: HTMLDetailsElement }) => setOpen(event.currentTarget.open) },
+    h('summary', null, h(IconWrapper, { name: 'database', size: 15 }), '查看完整原始记录'),
+    (!defer || open) && h('pre', null, JSON.stringify(records, null, 2)))
 }
+
+const BOARD_GROUP_PAGE_SIZE = 4
+const BOARD_ITEM_PAGE_SIZE = 20
+const DETAIL_PAGE_SIZE = 20
 
 /** A board groups the exact source status. Selecting a card never changes the task. */
 export function BoardView({ plan }: { plan: BoardPlan }): ReactElement {
   const count = plan.records.length
   const [query, setQuery] = useState('')
+  const [groupPage, setGroupPage] = useState(0)
+  const [itemPages, setItemPages] = useState(() => new Map<string, number>())
   const needle = query.trim().toLocaleLowerCase('en-US')
-  const groups = plan.groups.map(group => ({ ...group, items: group.items.filter(item => !needle || [item.title, item.description, group.status].join(' ').toLocaleLowerCase('en-US').includes(needle)) }))
+  const groups = plan.groups.map(group => ({ ...group, items: group.items.filter(item => !needle || [item.title, item.description, group.status].join(' ').toLocaleLowerCase('en-US').includes(needle)) })).filter(group => !needle || group.items.length)
   const matched = groups.reduce((sum, group) => sum + group.items.length, 0)
-  const columns = groups.map((group, index) => h('section', { key: index, className: 'iexp-board-column', 'aria-label': `状态：${group.status}` },
-    h('h4', null, group.status, h('span', null, String(group.items.length))),
-    ...group.items.map((item, row) => h(ThemeCard, { as: 'article', key: row, className: 'iexp-task' }, item.title.length > 160 ? h('details', { className: 'iexp-task-long-title' }, h('summary', { 'aria-label': '展开或收起完整任务标题' }, h('h5', null, item.title))) : h('h5', null, item.title), item.description && h('p', null, item.description)))))
+  const maxGroupPage = Math.max(0, Math.ceil(groups.length / BOARD_GROUP_PAGE_SIZE) - 1)
+  const shownGroupPage = Math.min(groupPage, maxGroupPage)
+  const groupStart = shownGroupPage * BOARD_GROUP_PAGE_SIZE
+  const columns = groups.slice(groupStart, groupStart + BOARD_GROUP_PAGE_SIZE).map(group => {
+    const maxPage = Math.max(0, Math.ceil(group.items.length / BOARD_ITEM_PAGE_SIZE) - 1)
+    const page = Math.min(itemPages.get(group.status) ?? 0, maxPage)
+    const start = page * BOARD_ITEM_PAGE_SIZE
+    const changePage = (next: number) => setItemPages(previous => new Map(previous).set(group.status, next))
+    return h('section', { key: group.status, className: 'iexp-board-column', 'aria-label': `状态：${group.status}` },
+      h('h4', null, group.status, h('span', null, String(group.items.length))),
+      maxPage > 0 && h('div', { role: 'group', className: 'iexp-layout-pagination', 'aria-label': `${group.status}任务分页` },
+        h(ThemeButton, { type: 'button', disabled: page === 0, 'aria-label': `${group.status}上一页任务`, onClick: () => changePage(page - 1) }, '上一页'),
+        h('span', { role: 'status' }, `${start + 1}–${Math.min(start + BOARD_ITEM_PAGE_SIZE, group.items.length)} / ${group.items.length}`),
+        h(ThemeButton, { type: 'button', disabled: page === maxPage, 'aria-label': `${group.status}下一页任务`, onClick: () => changePage(page + 1) }, '下一页')),
+      ...group.items.slice(start, start + BOARD_ITEM_PAGE_SIZE).map((item, row) => h(ThemeCard, { as: 'article', key: start + row, className: 'iexp-task' }, item.title.length > 160 ? h('details', { className: 'iexp-task-long-title' }, h('summary', { 'aria-label': '展开或收起完整任务标题' }, h('h5', null, item.title))) : h('h5', null, item.title), item.description && h('p', null, item.description))))
+  })
   return h(UiverseRenderScope, { role: 'task' }, h('section', { className: 'iexp-board', 'data-content-layout': 'board', 'aria-label': '按原始状态分组的任务看板' },
     h('div', { className: 'iexp-layout-head' }, h('h3', null, h(IconWrapper, { name: 'columns-3', size: 18 }), '任务看板'), h('span', null, `${needle ? `${matched} / ` : ''}${count} 项任务 · 按原始状态分组`)),
-    h(ThemeInput, { type: 'search', className: 'iexp-board-search', 'aria-label': '搜索任务', placeholder: '搜索任务、说明或状态', value: query, onChange: (event: { currentTarget: HTMLInputElement }) => setQuery(event.currentTarget.value) }),
+    h(ThemeInput, { type: 'search', className: 'iexp-board-search', 'aria-label': '搜索任务', placeholder: '搜索任务、说明或状态', value: query, onChange: (event: { currentTarget: HTMLInputElement }) => { setQuery(event.currentTarget.value); setGroupPage(0); setItemPages(new Map()) } }),
     !matched && h('p', { role: 'status', className: 'iexp-board-empty' }, '没有匹配的任务，清空搜索可查看全部记录。'),
+    maxGroupPage > 0 && h('div', { role: 'group', className: 'iexp-layout-pagination', 'aria-label': '任务状态分页' },
+      h(ThemeButton, { type: 'button', disabled: shownGroupPage === 0, onClick: () => setGroupPage(shownGroupPage - 1) }, '上一组状态'),
+      h('span', { role: 'status' }, `状态 ${groupStart + 1}–${Math.min(groupStart + BOARD_GROUP_PAGE_SIZE, groups.length)} / ${groups.length}`),
+      h(ThemeButton, { type: 'button', disabled: shownGroupPage === maxGroupPage, onClick: () => setGroupPage(shownGroupPage + 1) }, '下一组状态')),
     h('div', { className: 'iexp-board-columns', tabIndex: 0, role: 'region', 'aria-label': '任务分组，窄屏可横向滚动' }, ...columns),
     h(SourceRecords, { records: plan.records })))
 }
@@ -35,9 +63,18 @@ function DetailFields({ item }: { item: BoardItem }): ReactElement {
 /** Long named records share one detail region instead of repeating identical cards. */
 export function MasterDetailView({ plan }: { plan: MasterDetailPlan }): ReactElement {
   const [selected, setSelected] = useState(0)
+  const [page, setPage] = useState(0)
   const index = Math.min(selected, plan.items.length - 1), item = plan.items[index]!
+  const maxPage = Math.max(0, Math.ceil(plan.items.length / DETAIL_PAGE_SIZE) - 1), shownPage = Math.min(page, maxPage)
+  const start = shownPage * DETAIL_PAGE_SIZE
+  const changePage = (next: number) => { setPage(next); setSelected(next * DETAIL_PAGE_SIZE) }
   return h(UiverseRenderScope, { role: 'record' }, h('section', { className: 'iexp-master-detail', 'data-content-layout': 'master-detail', 'aria-label': '对象列表与详情' },
-    h('div', { className: 'iexp-object-list', 'aria-label': '选择对象' }, ...plan.items.map((entry, i) => h(ThemeButton, { key: i, type: 'button', onClick: () => setSelected(i), 'aria-pressed': i === index }, h('strong', null, entry.title), h('span', null, entry.description)))),
+    h('div', { className: 'iexp-object-picker' },
+      h('div', { className: 'iexp-object-list', 'aria-label': '选择对象' }, ...plan.items.slice(start, start + DETAIL_PAGE_SIZE).map((entry, i) => h(ThemeButton, { key: start + i, type: 'button', onClick: () => setSelected(start + i), 'aria-pressed': start + i === index }, h('strong', null, entry.title), h('span', null, entry.description)))),
+      maxPage > 0 && h('div', { role: 'group', className: 'iexp-layout-pagination', 'aria-label': '对象列表分页' },
+        h(ThemeButton, { type: 'button', disabled: shownPage === 0, onClick: () => changePage(shownPage - 1) }, '上一组对象'),
+        h('span', { role: 'status' }, `${start + 1}–${Math.min(start + DETAIL_PAGE_SIZE, plan.items.length)} / ${plan.items.length}`),
+        h(ThemeButton, { type: 'button', disabled: shownPage === maxPage, onClick: () => changePage(shownPage + 1) }, '下一组对象'))),
     h(ThemeCard, { className: 'iexp-object-detail', 'aria-live': 'polite' }, h('h3', null, item.title), h('p', { className: 'iexp-object-description' }, item.description), h(DetailFields, { item }), h(SourceRecords, { records: item.record }))))
 }
 
@@ -77,6 +114,8 @@ export const layoutViewCss = `
 .dsh-experience .iexp-board-search { width: 100%; min-height: 40px; padding: 8px 12px; margin-bottom: 12px; border: 1px solid var(--iexp-line); border-radius: var(--iexp-small-control-radius); color: var(--iexp-text); background: var(--iexp-soft); font: inherit; font-size: 13px; }
 .dsh-experience .iexp-board-search::placeholder { color: var(--iexp-muted); }
 .dsh-experience .iexp-board-empty { color: var(--iexp-muted); font-size: 13px; }
+.dsh-experience .iexp-layout-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-block: 8px; color: var(--iexp-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dsh-experience .iexp-layout-pagination button { min-height: 32px; padding: 4px 8px; }
 .dsh-experience .iexp-board-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px,1fr); gap: 12px; overflow-x: auto; padding-bottom: 12px; }
 .dsh-experience .iexp-board-column { min-width: 0; background: var(--iexp-soft); border-radius: var(--iexp-card-radius); padding: 12px; max-height: 640px; overflow-y: auto; }
 .dsh-experience .iexp-board-column > h4 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 14px; font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
@@ -90,6 +129,7 @@ export const layoutViewCss = `
 .dsh-experience .iexp-layout-source { margin-top: 12px; font-size: 12px; }
 .dsh-experience .iexp-layout-source pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; margin-top: 12px; font-size: 12px; line-height: 1.7; }
 .dsh-experience .iexp-master-detail { display: grid; grid-template-columns: minmax(180px, 26%) minmax(0,1fr); gap: calc(20px * var(--iexp-density)); align-items: start; }
+.dsh-experience .iexp-object-picker { min-width: 0; }
 .dsh-experience .iexp-object-list { min-width: 0; max-height: 480px; overflow: auto; border-inline-start: 1px solid var(--iexp-line); }
 .dsh-experience .iexp-object-list button { display: block; width: 100%; text-align: start; font: inherit; color: var(--iexp-text); background: transparent; border: 0; border-radius: 0; padding: calc(10px * var(--iexp-density)) 12px; cursor: pointer; border-bottom: 1px solid var(--iexp-line); }
 .dsh-experience .iexp-object-list button[aria-pressed=true] { background: var(--iexp-card); box-shadow: inset 1px 0 var(--iexp-accent); }

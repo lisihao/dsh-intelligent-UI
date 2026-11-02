@@ -31,6 +31,16 @@ flowchart LR
 
 See [component architecture and boundaries](docs/design/integrated-uiverse.md), [runtime selector](src/uiverse-render.ts), [silent Host capability](src/uiverse/host.ts) and [source manifest](resources/uiverse/upstream.json).
 
+## Canvas UI integration (development candidate)
+
+The `solar_ui_canvas_search` tool discovers the 35 effects in a fixed Canvas UI catalog for frontend work. The optional `solarExperienceUi.loadCanvasEffect(slug)` client service obtains the requested WebGL factory from that exact upstream revision, checks its source hashes and builds it locally. The plugin package does not redistribute the upstream component sources. This requires access to the official source on first use after a Host restart; failure leaves the original content readable. Canvas UI's [MIT + Commons Clause terms](assets/Canvas-UI-LICENSE.md), including its component-redistribution restriction, remain in force.
+
+The automatic integration currently targets explicitly identified GLB records with a source-aware object view (Ink by default; explicit coding and project-management domains select ASCII and Glass). It observes visibility, reduced-motion preferences and a shared GPU budget. Original model records remain available; rendering does not call a model. These are candidate paths, not a claim that every effect is automatically selected or works in every browser. HTML-in-Canvas, WebGPU, Draco-compressed models and the official Desktop's `dsh-app://` module loading still require the corresponding host-specific checks. Developers can inspect the official source and requirements returned by the tool before using a factory; they own instance cleanup.
+
+`solarExperienceUi.DocumentView` is a read-only client service for other plugin authors to adopt voluntarily. It reuses the intelligent renderer with an owner-controlled original/visual/compare mode and does not rewrite their data or introduce a session. Existing foreign plugins do not become consumers automatically. Removing or disabling this plugin removes its owned service and routes; consumers must provide their own fallback when the service is absent.
+
+This section describes development work beyond the published `0.1.0-preview.2` archive below; it has not yet been accepted in the installed Desktop. See [integration design](docs/integrations/canvas-ui.md).
+
 ## Research workspace (preview)
 
 The conversation-level **研究工作区** control adds report, judgments, sources and technical-comparison views inside the current UI-owned output. Reading remains source-preserving. Citation links and table cells open the report-local evidence inspector; returning to a source block retains the report. The inspector distinguishes a reference recorded in the report from an independently checked external source.

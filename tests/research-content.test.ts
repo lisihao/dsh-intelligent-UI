@@ -78,6 +78,7 @@ describe('deterministic research document adapter', () => {
     expect(table.plans).toHaveLength(1)
     expect(table.plans[0]?.labels).toEqual(['A', 'B'])
     expect(table.plans[0]?.sourceRows).toEqual([0, 2])
+    expect(table.plans[0]?.omittedRowRanges).toEqual([[1, 2]])
     expect(table.plans[0]?.sourceColumns).toEqual([1])
     expect(table.plans[0]?.series[0]).toMatchObject({ values: [48, 36], originals: ['**48**', '约36'] })
     expect(table.plans[0]?.notes?.join(' ')).toContain('上下文=8K；精度=BF16')
@@ -92,6 +93,7 @@ describe('deterministic research document adapter', () => {
     const table = analyzeResearchDocument(incomplete).tables[0]!
     expect(table.rows).toHaveLength(4)
     expect(table.plans[0]?.sourceRows).toEqual([0, 1])
+    expect(table.plans[0]?.omittedRowRanges).toEqual([[2, 4]])
     expect(table.plans[0]?.notes?.join(' ')).toContain('C、D')
   })
 

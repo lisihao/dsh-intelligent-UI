@@ -1,4 +1,5 @@
-import { DenseLinePlot } from './dense-line-plot.js'
+import { DenseLinePlot, requiresDenseLinePlot } from './dense-line-plot.js'
+import { CanvasObjectView, glbSource } from './canvas-object-view.js'
 import { ChartViewport, ChartDataTable, PagedTableBody } from './chart-viewport.js'
 import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
@@ -104,7 +105,7 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
     const horizontal = view.kind === 'bar'
     const data = view.labels.map((label, i) => Object.fromEntries([[categoryKey, horizontal && view.series.length === 1 ? `${label} · ${view.series[0]!.originals?.[i] ?? `${view.series[0]!.values[i]}${view.series[0]!.unit}`}` : label], ...view.series.map(series => [series.name, series.values[i]!])]))
     const chartProps = { data, categoryKey, height: horizontal ? Math.max(230, view.labels.length * (30 + view.series.length * 26) + 56 + (view.series.length > 1 ? 50 : 0)) : 280, width: '100%', showYAxis: true, legend: view.series.length > 1, grid: true, isAnimationActive: false, customPalette: palette.slice(0, view.series.length), ...(horizontal ? { xAxisLabel: view.series[0]?.unit || '数值' } : { yAxisLabel: view.series[0]?.unit || '数值' }) }
-    if (plan.kind === 'line' && plan.labels.length > 200) return h(DenseLinePlot, { plan: view, palette })
+    if (requiresDenseLinePlot(plan)) return h(DenseLinePlot, { plan: view, palette })
     return compact ? h(ComparisonPlot, { plan: view }) : view.kind === 'line' ? h(LineChart, { ...chartProps, variant: 'linear', showDots: view.labels.length <= 80, crosshair: true, highlight: true }) : h(BarChart, { ...chartProps, orientation: 'horizontal', internalLine: false, barRadius: 3, density: 'compact' })
   }
   const title = plan.title ?? (plan.kind === 'line' ? '时间趋势' : '数值比较')
@@ -170,7 +171,9 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
   }, [layout, prefix, tables, sections])
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
-function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming: boolean }): ReactElement {
+function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {
+  const model = !isStreaming && glbSource(value)
+  if (model) return h('div', null, h(CanvasObjectView, { value, source: model, dark }), h('pre', { style: styles.raw }, rawText(value)))
   const graph = isStreaming ? { status: 'unrecognized' as const } : analyzeGraph(value)
   if (graph.status === 'invalid') return h('div', null, h('p', { role: 'alert' }, '关系图数据不完整或格式不受支持，请查看原始内容。'), h('pre', { style: styles.raw }, rawText(value)))
   if (graph.status === 'valid') return h(ChartBoundary, { fallback: h('pre', { style: styles.raw }, rawText(value)) }, h(FlowView, { plan: { ...graph.plan, title: '原文关系', sourceText: rawText(value), reason: '仅绘制来源明确提供的节点与连线，图示不改变原始数据。' } }))
@@ -193,10 +196,10 @@ export function ContentView({ value, isStreaming = false }: { value: unknown, is
   if (typeof value === 'string') {
     let decoded: unknown, parsed = false
     try { if (/^\s*[\[{]/.test(value)) { decoded = JSON.parse(value); parsed = true } } catch { /* Ordinary Markdown remains unchanged. */ }
-    content = parsed ? h(StructuredContent, { value: decoded, isStreaming }) : h(MarkdownContent, { text: value, isStreaming })
+    content = parsed ? h(StructuredContent, { value: decoded, isStreaming, dark: theme === 'dark' }) : h(MarkdownContent, { text: value, isStreaming })
   } else if (Array.isArray(value) && value.length > 0 && value.every(x => x && typeof x === 'object' && (x as { type?: unknown }).type === 'text' && typeof (x as { text?: unknown }).text === 'string')) {
     content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming }))
-  } else content = h(StructuredContent, { value, isStreaming })
+  } else content = h(StructuredContent, { value, isStreaming, dark: theme === 'dark' })
   return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, content)))
 }
 

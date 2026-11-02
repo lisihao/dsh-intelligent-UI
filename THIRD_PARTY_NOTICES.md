@@ -1,5 +1,9 @@
 # Third-party notices
 
+## Canvas UI, Three.js and esbuild-wasm
+
+Canvas UI is obtained on the user's machine from its fixed upstream commit when an effect is needed; its component sources are not distributed in this package. Its full MIT + Commons Clause notice is in `lib/Canvas-UI-LICENSE.md` and is included with locally generated effect modules. The pinned runtime dependencies Three.js 0.185.1 and esbuild-wasm 0.25.0 retain their MIT license files in their installed packages. Canvas UI terms apply separately to its effects.
+
 This plugin consumes fixed, unmodified npm distributions. OpenUI and MCP Apps adapters are independently replaceable. The browser bundle preserves dependency legal comments. MCP Apps has a licensing transition; the complete distributed license below takes precedence over its manifest shorthand.
 
 ## @openuidev/lang-core 1.0.2
