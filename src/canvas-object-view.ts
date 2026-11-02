@@ -464,7 +464,9 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
         failed && h(ThemeButton, { type: 'button', onClick: () => setRetry(value => value + 1), style: { minHeight: 32, padding: '4px 8px' } }, '重试')))
   const originalAlt = value && typeof value === 'object' && !Array.isArray(value) && typeof (value as Record<string, unknown>).alt === 'string'
     ? (value as Record<string, string>).alt : '原始插画'
-  const originalImage = originalView ?? (verifiedImage && !imageError && h('img', { src: verifiedImage.url, alt: originalAlt, onError: () => setImageError('插画解码失败，仍可打开原始来源。'), style: { display: 'block', width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: 260, objectFit: 'contain' } }))
+  const originalTitle = value && typeof value === 'object' && !Array.isArray(value) && typeof (value as Record<string, unknown>).title === 'string'
+    ? (value as Record<string, string>).title : undefined
+  const originalImage = originalView ?? (verifiedImage && !imageError && h('img', { src: verifiedImage.url, alt: originalAlt, title: originalTitle, onError: () => setImageError('插画解码失败，仍可打开原始来源。'), style: { display: 'block', width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: 260, objectFit: 'contain' } }))
   const sourceImage = imageSource && originalImage && h('figure', { style: { flex: '1 1 200px', minWidth: 0, margin: 0 } },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', width: '100%', maxHeight: 300, padding: 16, background: 'var(--iexp-soft)', borderRadius: 'var(--iexp-card-radius)' } }, originalImage),
     h('figcaption', { style: { marginTop: 6, color: 'var(--iexp-muted)', fontSize: 12 } }, '原图'))

@@ -158,11 +158,11 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         if (flow) return h(SafeFlow, { plan: flow })
         const illustration = illustrations.find(item => item.start === node?.position?.start.offset)
         if (illustration) {
-          // The Markdown node itself provides the URL, alt text and image kind;
-          // retain the original child even if verification or the effect fails.
-          const record = { type: illustration.mime, role: 'illustration', url: illustration.url, alt: illustration.alt }
+          // Keep ordinary Markdown images as rendered by the host. Its URL filter
+          // removes data: image sources, so use the byte-validated blob for those.
+          const record = { type: illustration.mime, role: 'illustration', url: illustration.url, alt: illustration.alt, title: illustration.title }
           const source = glbSource(record)
-          if (source) return h('div', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: h('div', { className: 'iexp-markdown-illustration-original' }, children) }))
+          if (source) return h('div', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: /^data:/i.test(illustration.url) ? undefined : h('div', { className: 'iexp-markdown-illustration-original' }, children) }))
         }
         return h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
       },

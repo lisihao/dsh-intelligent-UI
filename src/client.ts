@@ -195,7 +195,7 @@ export function apply(ctx: Context): void {
     return h(CanvasRuntimeContext.Provider, { value: canvasScope.loadCanvasEffect }, h(DocumentView, props))
   }
   // Retain the existing registry instance and method identities for current consumers.
-  const uiClient: IntelligentUiClient = Object.assign(openUiWidgets, { DocumentView: ScopedDocumentView, loadCanvasEffect: canvasScope.loadCanvasEffect, createCanvasHtmlTextureBridge: canvasScope.createCanvasHtmlTextureBridge })
+  const uiClient: IntelligentUiClient = Object.assign(openUiWidgets, { DocumentView: ScopedDocumentView, loadCanvasEffect: canvasScope.loadCanvasEffect, createCanvasHtmlTextureBridge: canvasScope.createCanvasHtmlTextureBridge, createCanvasParticleScrollBridge: canvasScope.createCanvasParticleScrollBridge, createCanvasIsolatedEffect: canvasScope.createCanvasIsolatedEffect })
   // Host and browser both contribute Context.sessions in the shared type graph.
   // This entry is browser-only and consumes the published client service face.
   const sessionContext = {sessions: ctx.get('sessions') as unknown as ISessions}

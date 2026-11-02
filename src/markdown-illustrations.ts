@@ -8,6 +8,7 @@ export interface MarkdownIllustration {
   readonly start: number
   readonly url: string
   readonly alt: string
+  readonly title?: string
   readonly mime: 'image/png' | 'image/jpeg'
 }
 
@@ -36,7 +37,7 @@ export function markdownIllustrations(text: string): readonly MarkdownIllustrati
         else if (path.endsWith('.jpg') || path.endsWith('.jpeg')) mime = 'image/jpeg'
       } catch { /* The original Markdown renderer remains responsible for this URL. */ }
     }
-    if (mime) result.push({ start, url: image.url, alt, mime })
+    if (mime) result.push({ start, url: image.url, alt, mime, ...(image.title ? { title: image.title } : {}) })
   }
   return result
 }

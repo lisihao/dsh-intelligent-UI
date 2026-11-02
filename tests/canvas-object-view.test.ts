@@ -9,7 +9,7 @@ vi.mock('../src/canvas-runtime-client.js', () => ({
   acquireCanvasSlot: (activate: () => void) => { activate(); return runtime.release },
 }))
 import { CanvasObjectView, glbSource, inspectGlb, isGlb, isSafeRaster, modelDomain, readGlbResponse } from '../src/canvas-object-view.js'
-import { ContentView } from '../src/presentation.js'
+import { ContentView, OutputView } from '../src/presentation.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -34,6 +34,29 @@ function fixtureJpeg(): Uint8Array {
 
 describe('source-bound Canvas object display', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks() })
+
+  it.each([false, true])('renders a validated Markdown data PNG as the original image with reduced motion %s', async reduced => {
+    const bytes = fixturePng()
+    const url = `data:image/png;base64,${btoa(String.fromCharCode(...bytes))}`
+    const markdown = `# Report\n\n![技术插画](${url} "画作标题")\n\n原始说明`
+    vi.stubGlobal('matchMedia', () => ({ matches: reduced, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }))
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as WebGL2RenderingContext)
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/verified-illustration')
+    URL.revokeObjectURL = vi.fn()
+    runtime.load.mockResolvedValue((_elements: unknown, options: { onLoad(): void }) => { options.onLoad(); return { destroy: runtime.destroy } })
+    const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
+    try {
+      await act(async () => { root.render(h(OutputView, { sessionId: 'data-illustration', raw: markdown, mode: 'compare' }, h(ContentView, { value: markdown }))); await new Promise(resolve => setTimeout(resolve, 20)) })
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+      const image = host.querySelector<HTMLImageElement>('img[alt="技术插画"]')!
+      expect(image?.getAttribute('src')).toBe('blob:http://localhost/verified-illustration')
+      expect(image?.getAttribute('title')).toBe('画作标题')
+      expect(host.querySelector('.iexp-raw-output pre')?.textContent).toBe(markdown)
+      expect(fetch).toHaveBeenCalledWith(url, expect.objectContaining({ redirect: 'error' }))
+      expect(runtime.load).toHaveBeenCalledTimes(reduced ? 0 : 1)
+    } finally { await act(async () => root.unmount()); host.remove() }
+  })
 
   it('only recognizes explicit GLB records and verifies the binary header and length', () => {
     expect(glbSource({ type: 'model/gltf-binary', url: '/model.glb' })).toEqual({ field: 'url', reference: '/model.glb' })
