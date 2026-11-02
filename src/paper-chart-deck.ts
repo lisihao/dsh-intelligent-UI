@@ -1,3 +1,4 @@
+import { ChartDataTable } from './chart-viewport.js'
 import { createElement as h, useEffect, useId, useRef, useState, type ComponentType, type KeyboardEvent, type ReactElement } from 'react'
 import type { AutoChartPlan } from './content-analysis.js'
 
@@ -9,6 +10,7 @@ function planMeta(plan: AutoChartPlan): string {
   return [...new Set([plan.basis, ...plan.series.map(series => plan.basis?.includes(series.unit) ? '' : series.unit)].filter((value): value is string => !!value))].join(' · ')
 }
 function SourceRail({ plan }: { plan: AutoChartPlan }): ReactElement {
+  if (plan.labels.length > 100) return h('div', { className: 'iexp-paper-chart-data' }, h('p', { className: 'iexp-paper-chart-data-meta' }, planTitle(plan), planMeta(plan) && ` · ${planMeta(plan)}`), h(ChartDataTable, { plan }))
   const data = h('div', { className: 'iexp-paper-chart-data-scroll', tabIndex: 0, role: 'region', 'aria-label': '当前图表完整选取数据' },
     h('table', null,
       h('thead', null, h('tr', null, h('th', { scope: 'col' }, '原始标签'), ...plan.series.map((series, index) => h('th', { key: index, scope: 'col' }, series.name, series.unit && `（${series.unit}）`)))),

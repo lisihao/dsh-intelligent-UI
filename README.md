@@ -142,3 +142,15 @@ Short conversations align above the composer while takeover is enabled. Native c
 Compatible benchmark catalog/run cards and Mnemon status, storage and memory cards share the theme’s hover lift, accent border and elevated shadow. Nested cards lift at the hovered level only; reduced motion removes displacement. See the [card acceptance record](docs/acceptance/2026-10-31-page-card-hover.md).
 
 Theme source validation shows an inline explanation and disables save for malformed, unsupported or incomplete directory URLs. Restoring an unchanged default clears an invalid draft without rewriting saved settings.
+
+
+### Large source-backed charts and relationship maps
+
+Valid content is no longer refused at 200 table rows or 40 nodes / 100 edges. Long series get an explicit original-value extrema overview with continuous time spacing and exact range detail; categorical comparisons keep source order with page navigation. Full original chart data and tables are paginated rather than silently truncated. Unit, period and comparability safeguards still apply.
+
+Large relationship maps combine an ELK background Worker, a native WebGL2 overview, exact node search and viewport-limited React Flow detail. Complete nodes, edges, labels and source records remain available. Canvas2D and source-order fallback states are explicit; no experimental browser flag is required. This uses the existing pinned dependencies and a thin native drawing adapter, not a redistributed Canvas UI catalog. See [the capacity design and acceptance boundary](docs/design/scalable-content-rendering.md).
+
+These changes are development source until a new package is installed and accepted; the existing public preview release remains unchanged. Desktop updates are coordinated separately.
+
+
+The **Generated content** tab accepts local JSON, Markdown and text files through its ordinary file picker and **Import and display** action. Original file text is retained in the UI-owned artifact namespace. Import does not submit a model request or edit session logs. Source units and sampling/subset notes should be included in the file; the configured artifact size/count limits still apply.

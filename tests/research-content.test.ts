@@ -52,7 +52,11 @@ describe('deterministic research document adapter', () => {
     expect(result.tables).toHaveLength(2)
     expect(result.tables[0]?.rows).toHaveLength(205)
     expect(result.tables[0]?.cellAnchors).toHaveLength(206)
-    expect(result.tables[0]?.plans).toEqual([])
+    expect(result.tables[0]?.plans).toHaveLength(1)
+    expect(result.tables[0]?.plans[0]?.labels).toHaveLength(205)
+    expect(result.tables[0]?.plans[0]?.series[0]?.values).toEqual(Array.from({ length: 205 }, (_, i) => i))
+    expect(result.tables[0]?.plans[0]?.sourceRows?.at(-1)).toBe(204)
+    expect(result.tables[1]?.plans).toEqual([])
     expect(result.tables[1]?.rows).toEqual([['a', '', 'extra'], ['z']])
     expect(result.tables[1]?.cellAnchors.map(row => row.length)).toEqual([2, 3, 1])
     for (const table of result.tables) for (const row of table.cellAnchors) for (const cell of row) expect(text.slice(cell.start, cell.end)).toBe(cell.quote)
@@ -137,4 +141,21 @@ describe('deterministic research document adapter', () => {
     expect(draft).toContain('不要把报告中的引用标记视为已经验证的证据')
     expect(buildFollowupDraft('  这个结论依据是什么？  ', '  😀中文原文 [1]  ')).toBe(draft)
   })
+})
+
+
+it('does not split a plotted sample-count measurement into equal-value pseudo-conditions', () => {
+  const text = '|论文|样本内被引次数（次）|\n|---|---|\n' + Array.from({length:1000}, (_,i) => `|论文 ${1000+i}|${i%31}|`).join('\n')
+  const table = analyzeResearchDocument(text).tables[0]!
+  expect(table.plans).toHaveLength(1)
+  expect(table.plans[0]?.labels).toHaveLength(1000)
+  expect(table.plans[0]?.series[0]?.values).toEqual(Array.from({length:1000},(_,i)=>i%31))
+  expect(table.plans[0]?.sourceRows?.at(-1)).toBe(999)
+})
+
+it('still separates unplotted explicit operating conditions when the measured name contains 样本', () => {
+  const text = '|方案|运行条件|样本内被引次数（次）|\n|---|---|---|\n|A|相同环境|2|\n|B|相同环境|3|\n|C|另一环境|4|\n|D|另一环境|5|'
+  const plans = analyzeResearchDocument(text).tables[0]!.plans
+  expect(plans.map(plan=>plan.labels)).toEqual([['A','B'],['C','D']])
+  expect(plans.map(plan=>plan.series[0]!.values)).toEqual([[2,3],[4,5]])
 })

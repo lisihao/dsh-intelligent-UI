@@ -94,8 +94,11 @@ describe('automatic content analysis', () => {
     }
     expect(analyzeTable(['时间', '数量'], [['2026-02-30', '1'], ['2026-04-31', '2']])).toBeUndefined()
   })
-  it('does not truncate large tables or flatten nested/incomplete records', () => {
-    expect(analyzeTable(['类别', '数值'], Array.from({ length: 201 }, (_, index) => [`c${index}`, String(index)]))).toBeUndefined()
+  it('keeps valid tables beyond the old row threshold and does not flatten nested/incomplete records', () => {
+    const rows = Array.from({ length: 201 }, (_, index) => [`c${index}`, String(index)])
+    const plan = analyzeTable(['类别', '数值'], rows)!
+    expect(plan.labels).toEqual(rows.map(row => row[0]))
+    expect(plan.sourceRows).toEqual(rows.map((_row, index) => index))
     expect(rowsFromRecords([{ a: 'one', b: 1 }, { a: 'two' }])).toBeUndefined()
     expect(rowsFromRecords([{ a: 'one', b: { value: 1 } }])).toBeUndefined()
   })
@@ -176,4 +179,107 @@ describe('automatic content analysis', () => {
     expect(analyzeTableCharts(['初始估值', '倍数', '所需收入'], [['A', '30倍', '约10美元'], ['A', '40倍', '约20美元']])).toEqual([])
   })
 
+  it('retains every value in ten thousand categorical records across forty compatible numeric columns', () => {
+    const records = Array.from({ length: 10_000 }, (_, row) => Object.fromEntries([
+      ['类别', `原始类别 ${row}`], ...Array.from({ length: 40 }, (_, column) => [`metric_${column}`, row * 40 + column]),
+    ]))
+    const table = rowsFromRecords(records)!
+    expect(table.rows).toHaveLength(10_000); expect(table.headers).toHaveLength(41)
+    const plans = analyzeTableCharts(table.headers, table.rows)
+    expect(plans).toHaveLength(10)
+    expect(plans.flatMap(plan => plan.sourceColumns!)).toEqual(Array.from({ length: 40 }, (_, column) => column + 1))
+    for (const plan of plans) {
+      expect(plan.labels).toEqual(records.map(record => record['类别']))
+      expect(plan.sourceRows).toEqual(Array.from({ length: 10_000 }, (_, row) => row))
+      expect(plan.sourceRowCount).toBe(10_000); expect(plan.sourceColumnCount).toBe(41)
+      expect(plan.omittedRowRanges).toEqual([])
+      for (let series = 0; series < plan.series.length; series++) {
+        const sourceColumn = plan.sourceColumns![series]!
+        expect(plan.series[series]!.values).toEqual(records.map(record => Number(record[table.headers[sourceColumn]!])))
+        expect(plan.series[series]!.originals).toEqual(table.rows.map(row => row[sourceColumn]))
+      }
+      expect(plan.notes?.join('\n').length).toBeLessThan(1000)
+    }
+  })
+
+  it('preserves the existing complete small-note phrasing at the six-item boundary', () => {
+    const rows = [['甲', '约1ms', '保留说明'], ['乙', '约2ms', '保留说明'], ...Array.from({ length: 6 }, (_, index) => [`缺失${index}`, '未提供', '保留说明'])]
+    const plan = analyzeTable(['地区', '耗时', '说明'], rows)!
+    expect(plan.notes).toContain(`本图未纳入：${Array.from({ length: 6 }, (_, index) => `缺失${index}（未提供）`).join('、')}。原因：缺失、非数值、单位、期间或数据定义不同；完整数据见原表。`)
+    expect(plan.notes).toContain('本图未使用列：说明；仍保留在原表。')
+    expect(plan.notes).toContain('含原文近似值（不是精确值）：甲 / 耗时：约1ms；乙 / 耗时：约2ms。')
+    const larger = analyzeTable(['地区', '耗时', '说明'], [...rows, ['再缺失', '未知', '保留说明']])!
+    expect(larger.notes?.find(note => note.startsWith('本图未纳入'))).toContain('本图未纳入 7 行：')
+    expect(larger.notes?.find(note => note.startsWith('本图未纳入'))).toContain('另有 1 项')
+    expect(larger.omittedRowRanges).toEqual([[2, 9]])
+  })
+
+  it('retains a ten-thousand-day time series without sampling, sorting or changing decimal source strings', () => {
+    const rows = Array.from({ length: 10_000 }, (_, index) => [new Date(Date.UTC(1990, 0, 1) + index * 86_400_000).toISOString().slice(0, 10), (index / 8).toFixed(3)])
+    const plan = analyzeTable(['日期', '耗时（ms）'], rows)!
+    expect(plan.kind).toBe('line'); expect(plan.labels).toEqual(rows.map(row => row[0]))
+    expect(plan.series[0]!.values).toEqual(rows.map(row => Number(row[1])))
+    expect(plan.series[0]!.originals).toEqual(rows.map(row => row[1]))
+    expect(plan.series[0]!.unit).toBe('ms'); expect(plan.sourceRows?.at(-1)).toBe(9999)
+    expect(plan.omittedRowRanges).toEqual([])
+    const invalidOrder = rows.map(row => [...row]); invalidOrder[9999]![0] = invalidOrder[9998]![0]!
+    expect(analyzeTable(['日期', '耗时（ms）'], invalidOrder)).toBeUndefined()
+  })
+
+  it('keeps compact exact provenance for many small compatible groups instead of duplicating all omitted rows', () => {
+    const rows = Array.from({ length: 10_000 }, (_, index) => [`测点 ${index}`, `${index}（定义-${Math.floor(index / 2)}）`])
+    const plans = analyzeTableCharts(['测点', '读数'], rows)
+    expect(plans).toHaveLength(5000)
+    expect(plans.flatMap(plan => plan.sourceRows!)).toEqual(Array.from({ length: 10_000 }, (_, index) => index))
+    for (const plan of plans) {
+      expect(plan.labels).toHaveLength(2)
+      expect(plan.omittedRowRanges!.reduce((count, [start, end]) => count + end - start, 0)).toBe(9998)
+      expect(plan.omittedRowRanges!.length).toBeLessThanOrEqual(2)
+      expect(plan.notes!.join('\n')).toContain('未纳入 9998 行')
+      expect(plan.notes!.join('\n').length).toBeLessThan(1500)
+      for (const [start, end] of plan.omittedRowRanges!) {
+        expect(plan.sourceRows!.every(row => row < start || row >= end)).toBe(true)
+      }
+    }
+  })
+
+  it('summarizes large approximation notes while preserving all originals and source selection', () => {
+    const rows = Array.from({ length: 10_000 }, (_, index) => [`任务 ${index}`, `约${(index / 8).toFixed(3)}ms`])
+    const plan = analyzeTable(['任务', '耗时'], rows)!
+    expect(plan.series[0]!.originals).toEqual(rows.map(row => row[1]))
+    expect(plan.sourceRows).toHaveLength(10_000); expect(plan.omittedRowRanges).toEqual([])
+    expect(plan.notes!.join('\n')).toContain('不是精确值，共 10000 项')
+    expect(plan.notes!.join('\n').length).toBeLessThan(1500)
+  })
+
+  it('retains invalid-unit and identifier exclusions at large scale with exact source ranges', () => {
+    const rows = Array.from({ length: 10_000 }, (_, index) => [`任务 ${index}`, `${index}ms`, String(index + 100_000)])
+    rows[9998]![1] = '3s'; rows[9999]![1] = '99fortnights'
+    const plan = analyzeTable(['任务', '耗时（ms）', 'record_id'], rows)!
+    expect(plan.series).toHaveLength(1); expect(plan.series[0]!.unit).toBe('ms')
+    expect(plan.sourceColumns).toEqual([1]); expect(plan.omittedColumnRanges).toEqual([[2, 3]])
+    expect(plan.sourceRows).toHaveLength(9998); expect(plan.omittedRowRanges).toEqual([[9998, 10_000]])
+    expect(plan.notes!.join('\n')).toContain('3s'); expect(plan.notes!.join('\n')).toContain('99fortnights')
+    expect(plan.series[0]!.originals?.at(-1)).toBe('9997ms')
+    expect(rows[9999]![1]).toBe('99fortnights')
+    expect(analyzeTable(['uuid', '耗时（ms）'], rows.map(row => [row[0]!, row[1]!]))).toBeUndefined()
+  })
+
+  it('keeps distinct periods separate for large record sets without changing raw values', () => {
+    const rows = Array.from({ length: 10_000 }, (_, index) => [`公司 ${index}，${index < 5000 ? '2026 Q3' : 'TTM'}`, index % 2 ? '10.20美元' : '约+12.00美元'])
+    const plans = analyzeTableCharts(['公司与期间', '收入'], rows)
+    expect(plans).toHaveLength(2)
+    expect(plans.map(plan => plan.basis)).toEqual(['2026 Q3；单位：USD', 'TTM；单位：USD'])
+    expect(plans.map(plan => plan.sourceRows!.length)).toEqual([5000, 5000])
+    expect(plans.map(plan => plan.omittedRowRanges)).toEqual([[[5000, 10_000]], [[0, 5000]]])
+    expect(plans[1]!.series[0]!.originals![0]).toBe('约+12.00美元')
+    expect(plans[1]!.series[0]!.values[0]).toBe(12)
+  })
+
+})
+
+// Real NOAA public sample: ppm is a concentration unit, not an inferred scaling.
+it('preserves explicit ppm concentration units without conversion', () => {
+  const plans = analyzeTableCharts(['日期', 'CO₂浓度（ppm）'], [['1974-05-19', '333.38'], ['1974-05-20', '333.11']])
+  expect(plans[0]?.series[0]).toMatchObject({ unit: 'ppm', values: [333.38,333.11], originals: ['333.38','333.11'] })
 })

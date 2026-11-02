@@ -60,9 +60,11 @@ const unknownCondition = /^(?:未知|不详|未说明|未提供|未披露|待确
 
 /** Keep chart arithmetic untouched and compare only rows with the same explicit, fully known conditions. */
 function conditionMatchedPlans(headers: string[], rows: string[][], plans: AutoChartPlan[]): AutoChartPlan[] {
-  const columns = headers.flatMap((header, index) => conditionHeader.test(header) ? [index] : [])
-  if (!columns.length) return plans
   return plans.flatMap(plan => {
+    // A plotted measurement cannot also partition itself merely because its name contains 样本/批量/etc.
+    const measurements = new Set(plan.sourceColumns ?? [])
+    const columns = headers.flatMap((header, index) => conditionHeader.test(header) && !measurements.has(index) ? [index] : [])
+    if (!columns.length) return [plan]
     const sourceRows = plan.sourceRows
     if (!sourceRows || sourceRows.length !== plan.labels.length || plan.series.some(series => series.values.length !== sourceRows.length || series.originals && series.originals.length !== sourceRows.length)) return []
     const groups = new Map<string, { values: string[], positions: number[] }>()

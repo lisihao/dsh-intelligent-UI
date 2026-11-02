@@ -1,3 +1,4 @@
+import { chartViewportCss } from './chart-viewport.js'
 import { researchCss } from './research-style.js'
 import { themeComponentsCss } from './theme-components-style.js'
 import { openuiCss } from './openui-css.js'
@@ -104,7 +105,11 @@ export function installExperienceStyles(): () => void {
 .iexp-content tbody tr:hover td { background: var(--iexp-soft); }
 .iexp-content [class*='table-row'] { background: transparent; }
 .iexp-content :is(summary,button,a,[tabindex]):focus-visible { outline: 2px solid var(--iexp-accent); outline-offset: 3px; border-radius: min(4px,var(--iexp-control-radius)); }
-.iexp-source-label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary, inherit); }
+.iexp-local-import { min-width:0; padding-block:8px 16px; border-bottom:1px solid var(--iexp-line); }
+.iexp-local-import label { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
+.iexp-local-import input[type='file'] { font:inherit; color:inherit; }
+.iexp-import-help { color:var(--iexp-muted); font-size:13px; line-height:1.6; margin-block:8px; }
+.iexp-source-label { min-width:0; overflow-wrap:anywhere; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary, inherit); }
 .iexp-mode-control { border: 1px solid var(--dsw-alias-border-l2, #b9bdc4); border-radius: 999px; padding: 3px 5px 3px 10px; }
 .iexp-mode-control select { border: 0 !important; padding: 4px 6px !important; }
 @media (max-width: 560px) {
@@ -120,7 +125,7 @@ export function installExperienceStyles(): () => void {
 .dsh-experience .openui-markdown-renderer { overflow-wrap: anywhere; }
 .dsh-experience .openui-markdown-renderer-code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
+` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
   document.head.append(element)
   return () => element.remove()
 }
