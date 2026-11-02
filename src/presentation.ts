@@ -1,3 +1,6 @@
+import { DenseLinePlot } from './dense-line-plot.js'
+import { ChartViewport, ChartDataTable, PagedTableBody } from './chart-viewport.js'
+import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
 import { Component, Fragment, createElement as h, useCallback, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type ReactElement, type ReactNode, type ComponentProps } from 'react'
@@ -87,29 +90,29 @@ class ChartBoundary extends Component<{ children?: ReactNode, fallback?: ReactNo
 }
 function SafeAutoChart({ plan }: { plan: AutoChartPlan }): ReactElement { return h(ChartBoundary, { key: JSON.stringify(plan) }, h(AutoChart, { plan })) }
 
-function ChartSource({ plan }: { plan: AutoChartPlan }): ReactElement {
-  const header = h(TableHeader, null, h(TableRow, null, h(TableHead, null, '原表项目'), ...plan.series.map((series, i) => h(TableHead, { key: i }, series.name))))
-  const rows = plan.labels.map((label, row) => h(TableRow, { key: row }, h(TableCell, null, label), ...plan.series.map((series, col) => h(TableCell, { key: col }, series.originals?.[row] ?? String(series.values[row])))))
-  return h('details', { className: 'iexp-disclosure' }, h('summary', null, h(IconWrapper, { name: 'table-2', size: 15 }), '图表所用原始数据'), h('div', { style: styles.overflow, tabIndex: 0, role: 'region', 'aria-label': '图表选取的原始数据' }, h(Table, null, header, h(TableBody, null, ...rows))))
-}
+function ChartSource({ plan }: { plan: AutoChartPlan }): ReactElement { return plan.labels.length > 100 ? h(ChartDataTable, { plan }) : h('details', { className: 'iexp-disclosure' }, h('summary', null, h(IconWrapper, { name: 'table-2', size: 15 }), '图表所用原始数据'), h(ChartDataTable, { plan, inline: true })) }
 
 /** Charts are derived locally; the unmodified table remains the accessible data source. */
 export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
   const theme = useExperienceTheme(), selectedTheme = useSelectedTheme()
-  let categoryKey = 'category'
-  while (plan.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
-  const horizontal = plan.kind === 'bar'
-  const data = plan.labels.map((label, i) => Object.fromEntries([[categoryKey, horizontal && plan.series.length === 1 ? `${label} · ${plan.series[0]!.originals?.[i] ?? `${plan.series[0]!.values[i]}${plan.series[0]!.unit}`}` : label], ...plan.series.map(series => [series.name, series.values[i]!])]))
   const colors = appearanceTokens(appearancePreferences.getSnapshot(), selectedTheme).variables
   const palette = (theme === 'dark' ? selectedTheme.tokens.paletteDark : selectedTheme.tokens.paletteLight).map((_, index) => colors[`--iexp-series-${index + 1}`]!)
   const compact = selectedTheme.tokens.comparison === 'organic' && isCompactComparison(plan)
-  const chartProps = { data, categoryKey, height: horizontal ? Math.max(230, plan.labels.length * (30 + plan.series.length * 26) + 56 + (plan.series.length > 1 ? 50 : 0)) : 280, width: '100%', showYAxis: true, legend: plan.series.length > 1, grid: true, isAnimationActive: false, customPalette: palette.slice(0, plan.series.length), ...(horizontal ? { xAxisLabel: plan.series[0]?.unit || '数值' } : { yAxisLabel: plan.series[0]?.unit || '数值' }) }
+  const plot = (view: AutoChartPlan) => {
+    let categoryKey = 'category'
+    while (view.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
+    const horizontal = view.kind === 'bar'
+    const data = view.labels.map((label, i) => Object.fromEntries([[categoryKey, horizontal && view.series.length === 1 ? `${label} · ${view.series[0]!.originals?.[i] ?? `${view.series[0]!.values[i]}${view.series[0]!.unit}`}` : label], ...view.series.map(series => [series.name, series.values[i]!])]))
+    const chartProps = { data, categoryKey, height: horizontal ? Math.max(230, view.labels.length * (30 + view.series.length * 26) + 56 + (view.series.length > 1 ? 50 : 0)) : 280, width: '100%', showYAxis: true, legend: view.series.length > 1, grid: true, isAnimationActive: false, customPalette: palette.slice(0, view.series.length), ...(horizontal ? { xAxisLabel: view.series[0]?.unit || '数值' } : { yAxisLabel: view.series[0]?.unit || '数值' }) }
+    if (plan.kind === 'line' && plan.labels.length > 200) return h(DenseLinePlot, { plan: view, palette })
+    return compact ? h(ComparisonPlot, { plan: view }) : view.kind === 'line' ? h(LineChart, { ...chartProps, variant: 'linear', showDots: view.labels.length <= 80, crosshair: true, highlight: true }) : h(BarChart, { ...chartProps, orientation: 'horizontal', internalLine: false, barRadius: 3, density: 'compact' })
+  }
   const title = plan.title ?? (plan.kind === 'line' ? '时间趋势' : '数值比较')
   const notes = plan.notes ?? []
   const caveat = [notes.some(note => /近似|不是精确/.test(note)) && '含近似值', notes.some(note => /合计行/.test(note)) && '合计未参与比较', notes.some(note => /未纳入/.test(note)) && '含排除项', notes.some(note => /未使用列/.test(note)) && '仅展示选取列', notes.some(note => /未经审计|未审计|unaudited/i.test(note)) && '未经审计'].filter(Boolean).join(' · ')
   return h(ThemeCard, { renderRole: 'chart', as: 'figure', className: `iexp-chart-card${compact ? ' iexp-chart-comparison' : ''}`, 'aria-label': `自动生成的${title}`, 'data-auto-chart': plan.kind },
     h('figcaption', { className: 'iexp-card-head' }, h('span', { className: 'iexp-card-title' }, h('span', { 'aria-hidden': true, className: 'iexp-card-icon' }, h(IconWrapper, { name: plan.icon, size: 17 })), h('strong', null, title)), h('span', { className: 'iexp-card-basis' }, plan.basis || plan.series[0]?.unit || '原表数值')),
-    h('div', { className: 'iexp-chart-plot' }, compact ? h(ComparisonPlot, { plan }) : plan.kind === 'line' ? h(LineChart, { ...chartProps, variant: 'linear', showDots: true, crosshair: true, highlight: true }) : h(BarChart, { ...chartProps, orientation: 'horizontal', internalLine: false, barRadius: 3, density: 'compact' })),
+    h('div', { className: 'iexp-chart-plot' }, h(ChartViewport, { key: JSON.stringify([plan.labels, plan.kind]), plan, children: plot })),
     h('div', { className: 'iexp-card-foot' }, caveat && h('p', { className: 'iexp-chart-caveat' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'info', size: 14 })), caveat),
       selectedTheme.tokens.composition === 'continuous' ? h('div', { className: 'iexp-chart-notes' }, h('p', null, plan.reason), !!notes.length && h('ul', null, ...notes.map((note, i) => h('li', { key: i }, note)))) : h('details', { className: 'iexp-disclosure' }, h('summary', null, h(IconWrapper, { name: 'list-filter', size: 15 }), `口径与选取说明${notes.length ? `（${notes.length}）` : ''}`), h('p', null, plan.reason), !!notes.length && h('ul', null, ...notes.map((note, i) => h('li', { key: i }, note)))), selectedTheme.tokens.composition !== 'continuous' && h(ChartSource, { plan })))
 }
@@ -131,7 +134,7 @@ function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
 function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
-  const tables = useMemo(() => isStreaming ? [] : parseMarkdownTables(text), [text, isStreaming])
+  const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
   const sections = useMemo(() => !isStreaming && selectedTheme.tokens.composition === 'continuous' ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition])
@@ -140,15 +143,19 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
   const markdownOptions = useMemo<ComponentProps<typeof MarkDownRenderer>['options']>(() => {
     const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number } } } }) => {
       const start = node?.position?.start.offset, icon = selectIcon(headingText(children))
-      const heading = h(`h${level}`, { id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
+      const heading = h(`h${level}`, { 'data-iexp-source-start': start, 'data-iexp-source-end': (node as { position?: { end?: { offset?: number } } } | undefined)?.position?.end?.offset, id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
       return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
     }]))
     return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
+      tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
-        return flow ? h(SafeFlow, { plan: flow }) : h('p', null, children)
+        return flow ? h(SafeFlow, { plan: flow }) : h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
       },
+      a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
+      td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
+      th: ({ children, node, align }) => h(TableHead, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       ol: ({ children, node, start }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'ordered-list' && plan.start === node?.position?.start.offset)
         return flow ? h(SafeFlow, { plan: flow }) : h('ol', { start }, children)
@@ -157,7 +164,7 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         const table = tables.find(table => table.start === node?.position?.start.offset), plans = table?.plans ?? []
         const board = table ? analyzeTaskTable(table.headers, table.rows) : undefined
         const detail = sections && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
-        return h('div', { className: 'iexp-table-group' }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
+        return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
   }, [layout, prefix, tables, sections])
@@ -176,7 +183,7 @@ function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming
     const { headers, rows: cells } = records, plans = isStreaming ? [] : analyzeTableCharts(headers, cells)
     const head = h(TableHeader, null, h(TableRow, null, ...headers.map(k => h(TableHead, { key: k }, k))))
     const rows = cells.map((row, i) => h(TableRow, { key: i }, ...row.map((cell, j) => h(TableCell, { key: j }, cell))))
-    return h('div', { className: 'iexp-table-group' }, plans.length > 0 && h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan }))), h(SourceTable, { plans }, head, h(TableBody, null, ...rows)))
+    return h('div', { className: 'iexp-table-group' }, plans.length > 0 && h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan }))), h(SourceTable, { plans }, head, h(PagedTableBody, null, ...rows)))
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }

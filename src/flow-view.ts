@@ -1,11 +1,12 @@
+import { LargeFlowView } from './large-flow-view.js'
 import { ThemeButton, ThemeCard, ThemeLoader } from './theme-components.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { createElement as h, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { BaseEdge, Controls, Handle, MarkerType, Position, ReactFlow, getViewportForBounds, type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
-import { FLOW_NODE_WIDTH as NODE_WIDTH, layoutFlow, roundedRoute, sourceFanGeometry, type FlowGeometry, type FlowViewPlan } from './flow-layout.js'
+import { FLOW_NODE_WIDTH as NODE_WIDTH, layoutFlow, roundedRoute, sourceFanGeometry, isLargeFlow, type FlowGeometry, type FlowViewPlan } from './flow-layout.js'
 export type { FlowViewPlan } from './flow-layout.js'
 
-type ReadingNode = Node<{ label: string, description?: string, related: boolean }, 'reading'>
+type ReadingNode = Node<{ label: string, description?: string, related: boolean, compact?: boolean }, 'reading'>
 type ReadingEdge = Edge<{ points?: { x: number, y: number }[], labelPoint?: { x: number, y: number } }>
 const MIN_READABLE_ZOOM = 0.8
 const USER_OVERVIEW_MIN_ZOOM = 0.15
@@ -13,7 +14,7 @@ const INITIAL_FIT_OPTIONS = { minZoom: MIN_READABLE_ZOOM, maxZoom: 1, padding: 0
 const OVERVIEW_FIT_OPTIONS = { minZoom: USER_OVERVIEW_MIN_ZOOM, maxZoom: 1, padding: 0.16 }
 
 /** Pure view adapter: positions and emphasis change; original labels and relationships do not. */
-export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, options: { selectedNodeId?: string, animate?: boolean } = {}): { nodes: ReadingNode[], edges: ReadingEdge[] } {
+export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, options: { selectedNodeId?: string, animate?: boolean, compact?: boolean, edgeIndexes?: number[] } = {}): { nodes: ReadingNode[], edges: ReadingEdge[] } {
   const positions = new Map(geometry.nodes.map(node => [node.id, node]))
   const routes = new Map(geometry.routes.map(route => [route.id, route]))
   const neighbors = new Set<string>(options.selectedNodeId ? [options.selectedNodeId] : [])
@@ -24,7 +25,7 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
   return {
     nodes: plan.nodes.map(node => ({
       id: node.id, type: 'reading', position: { x: positions.get(node.id)!.x, y: positions.get(node.id)!.y },
-      data: { label: node.label, ...(node.description === undefined ? {} : { description: node.description }), related: neighbors.has(node.id) },
+      data: { label: node.label, ...(node.description === undefined ? {} : { description: node.description }), related: neighbors.has(node.id), compact: options.compact },
       // Public SSR geometry makes the first frame readable before ResizeObserver runs.
       // React Flow replaces initialHeight/handle data with real DOM measurements when ready.
       width: NODE_WIDTH, initialWidth: NODE_WIDTH, initialHeight: positions.get(node.id)!.height,
@@ -40,9 +41,9 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
     edges: plan.edges.map((edge, i) => {
       const emphasized = !options.selectedNodeId || edge.source === options.selectedNodeId || edge.target === options.selectedNodeId
       return {
-        id: `relation-${i}`, source: edge.source, target: edge.target, label: edge.label,
-        type: geometry.kind === 'source' ? 'default' : 'routed',
-        data: { points: routes.get(`relation-${i}`)?.points, labelPoint: routes.get(`relation-${i}`)?.label }, animated: Boolean(options.animate && emphasized),
+        id: `relation-${options.edgeIndexes?.[i] ?? i}`, source: edge.source, target: edge.target, label: options.compact ? undefined : edge.label,
+        type: routes.has(`relation-${options.edgeIndexes?.[i] ?? i}`) ? 'routed' : 'default',
+        data: { points: routes.get(`relation-${options.edgeIndexes?.[i] ?? i}`)?.points, labelPoint: routes.get(`relation-${options.edgeIndexes?.[i] ?? i}`)?.label }, animated: Boolean(options.animate && emphasized),
         focusable: false, selectable: false, deletable: false, reconnectable: false,
         className: emphasized ? 'iexp-flow-edge-active' : 'iexp-flow-edge-muted',
         markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--iexp-accent)', width: 18, height: 18 },
@@ -55,12 +56,12 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
 }
 
 function ReadingFlowNode({ data }: NodeProps<ReadingNode>): ReactElement {
-  return h(ThemeCard, { renderRole: 'flow', className: 'iexp-flow-node', 'data-related': data.related || undefined },
+  return h(ThemeCard, { renderRole: 'flow', className: `iexp-flow-node${data.compact ? ' iexp-flow-node-compact' : ''}`, 'data-related': data.related || undefined },
     h(Handle, { type: 'target', position: Position.Left, isConnectable: false }),
-    h('strong', null, data.label), data.description !== undefined && h('p', null, data.description),
+    h('strong', null, data.label), !data.compact && data.description !== undefined && h('p', null, data.description),
     h(Handle, { type: 'source', position: Position.Right, isConnectable: false }))
 }
-const NODE_TYPES = { reading: ReadingFlowNode }
+export const FLOW_NODE_TYPES = { reading: ReadingFlowNode }
 function RoutedFlowEdge(props: EdgeProps<ReadingEdge>): ReactElement {
   const points = props.data?.points ?? []
   // Preserve ELK endpoints and bends. React Flow still supplies its public edge/label/marker surface.
@@ -70,7 +71,7 @@ function RoutedFlowEdge(props: EdgeProps<ReadingEdge>): ReactElement {
     labelBgPadding: props.labelBgPadding, labelBgBorderRadius: props.labelBgBorderRadius,
   })
 }
-const EDGE_TYPES = { routed: RoutedFlowEdge }
+export const FLOW_EDGE_TYPES = { routed: RoutedFlowEdge }
 
 
 function useReducedMotion(): boolean {
@@ -84,7 +85,7 @@ function useReducedMotion(): boolean {
   return reduced
 }
 
-export function FlowView({ plan, motion: allowMotion = true, onNodeActivate }: { plan: FlowViewPlan, motion?: boolean, onNodeActivate?: (id: string) => void }): ReactElement {
+function SmallFlowView({ plan, motion: allowMotion = true, onNodeActivate }: { plan: FlowViewPlan, motion?: boolean, onNodeActivate?: (id: string) => void }): ReactElement {
   const [selectedId, setSelectedId] = useState<string>(); const [motion, setMotion] = useState(true)
   const reduced = useReducedMotion()
   const instance = useRef<ReactFlowInstance<ReadingNode, ReadingEdge> | null>(null)
@@ -151,7 +152,7 @@ export function FlowView({ plan, motion: allowMotion = true, onNodeActivate }: {
       onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => { keyboardActivation.current = event.key === 'Enter' || event.key === ' ' },
       onPointerDownCapture: () => { keyboardActivation.current = false },
     }, h(ReactFlow<ReadingNode, ReadingEdge>, {
-      nodes: graph.nodes, edges: graph.edges, nodeTypes: NODE_TYPES, edgeTypes: EDGE_TYPES,
+      nodes: graph.nodes, edges: graph.edges, nodeTypes: FLOW_NODE_TYPES, edgeTypes: FLOW_EDGE_TYPES,
       onInit: value => { instance.current = value },
       onNodeClick: (_event, node) => { setSelectedId(node.id); onNodeActivate?.(node.id) },
       onNodesChange: changes => {
@@ -183,4 +184,8 @@ export function FlowView({ plan, motion: allowMotion = true, onNodeActivate }: {
       !plan.edges.some(edge => edge.source === selectedId || edge.target === selectedId) && h('p', null, '原文未提供该节点的连线。')),
     (plan.sourceText !== undefined || plan.reason !== undefined) && h('details', { className: 'iexp-flow-source' }, h('summary', null, '查看原文与关系说明'),
       plan.reason !== undefined && h('p', null, plan.reason), plan.sourceText !== undefined && h('pre', null, plan.sourceText))))
+}
+
+export function FlowView(props: { plan: FlowViewPlan, motion?: boolean, onNodeActivate?: (id: string) => void }): ReactElement {
+  return isLargeFlow(props.plan) ? h(LargeFlowView, props) : h(SmallFlowView, props)
 }

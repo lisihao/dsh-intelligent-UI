@@ -12,6 +12,12 @@ export interface AutoChartPlan {
   notes?: string[]
   sourceRows?: number[]
   sourceColumns?: number[]
+  sourceRowCount?: number
+  sourceColumnCount?: number
+  /** Exact omitted source positions, in zero-based half-open [start, end) ranges. */
+  omittedRowRanges?: Array<[number, number]>
+  /** Excludes the label column, which is always retained. */
+  omittedColumnRanges?: Array<[number, number]>
   reason: string
   icon: string
 }
@@ -30,7 +36,7 @@ export function selectIcon(text: string): string {
 }
 
 const units: Record<string, string> = {
-  '倍': '倍', '%': '%', '％': '%', ms: 'ms', '毫秒': 'ms', s: 's', sec: 's', seconds: 's', '秒': 's',
+  ppm: 'ppm', '倍': '倍', '%': '%', '％': '%', ms: 'ms', '毫秒': 'ms', s: 's', sec: 's', seconds: 's', '秒': 's',
   min: 'min', minutes: 'min', '分钟': 'min', h: 'h', hours: 'h', '小时': 'h',
   usd: 'USD', '美元': 'USD', '$': 'USD', cny: 'CNY', rmb: 'CNY', '人民币': 'CNY', '元': 'CNY',
   '亿元': '亿元', '万元': '万元', '亿美元': '亿美元', '万美元': '万美元',
@@ -77,6 +83,8 @@ function timeKey(text: string): { kind: string, order: number } | undefined {
   return undefined
 }
 
+export function chartLabelPosition(label: string): number | undefined { return timeKey(label)?.order }
+
 const identifierHeader = /(?:^|[\s_\-])(id|uuid|sku|version|year|month|day|date|index)(?:$|[\s_\-(])/i
 const identifierChinese = /编号|标识|版本|年份|月份|日期|序号|代码|邮编|电话/
 function isIdentifier(header: string): boolean { return identifierHeader.test(header) || identifierChinese.test(header) || /^\d{4}(?:年)?$/.test(header) }
@@ -111,25 +119,41 @@ const totalLabel = /^(?:合计|总计|总额|总数|汇总|total|sum)(?:\s*[（(
 const directComparisonBan = /不可比|不能直接比较|不宜直接比较|not comparable|do not compare/i
 const sourceWarning = /口径|假设|估算|测算|近似|不可|不能|不宜|假定|定义|未经审计|未审计|unaudited|definition|scenario|assum|estimat|different|not comparable/i
 
-/** Extract compatible subsets. Every omitted row/column is named; no totals or estimates are invented. */
+/** Complement sorted source indices without scanning every omitted row for every group. */
+function omittedRanges(included: number[], end: number, start = 0): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  for (const index of included) {
+    if (index > start) ranges.push([start, index])
+    start = index + 1
+  }
+  if (start < end) ranges.push([start, end])
+  return ranges
+}
+const NOTE_EXAMPLES = 6
+function examples(count: number, labels: string[]): string { return labels.join('、') + (count > labels.length ? `；另有 ${count - labels.length} 项，完整位置见原表` : '') }
+
+/** Extract compatible subsets. Omitted positions stay exact even when explanatory examples are summarized. */
 export function analyzeTableCharts(headers: string[], rows: string[][], context = '', unitContext = context): AutoChartPlan[] {
-  if (headers.length < 2 || headers.length > 30 || rows.length < 2 || rows.length > 200 || headers.some(header => !header.trim()) || new Set(headers).size !== headers.length || rows.some(row => row.length !== headers.length)) return []
+  if (headers.length < 2 || rows.length < 2 || headers.some(header => !header.trim()) || new Set(headers).size !== headers.length || rows.some(row => row.length !== headers.length)) return []
   const labels = rows.map(row => row[0]!.trim())
   if (labels.some(label => label.length > 120) || new Set(labels.filter(Boolean)).size !== labels.filter(Boolean).length) return []
   const times = labels.map(timeKey)
   const temporal = times.every((value): value is NonNullable<typeof value> => !!value)
   if (times.some(Boolean) && !temporal) return []
   if (temporal && (new Set(times.map(value => value.kind)).size !== 1 || times.some((value, index) => index > 0 && value.order <= times[index - 1]!.order))) return []
-  if (!temporal && (isIdentifier(headers[0]!) || /^(?:时间|日期|年月|月份|年份|季度|period|time|timestamp|date)$/i.test(headers[0]!.trim()) || rows.length > 30 || labels.some(label => numeric(label) !== undefined))) return []
+  if (!temporal && (isIdentifier(headers[0]!) || /^(?:时间|日期|年月|月份|年份|季度|period|time|timestamp|date)$/i.test(headers[0]!.trim()) || labels.some(label => numeric(label) !== undefined))) return []
   // An explicit ban on comparison still wins; warnings against summation do not prohibit non-aggregated views.
   if (directComparisonBan.test(context)) return []
   const inherited = declaredUnit(unitContext)
   if (inherited.invalid) return []
   const basePeriod = periodOf(unitContext)
   const sourceNotes = context.split(/\n|(?<=[。；;])/).filter(text => sourceWarning.test(text)).map(text => text.trim()).filter(Boolean)
-  type Candidate = { column: number, period: string, rowPeriod: string, rows: number[], cells: NumericCell[], omitted: number[] }
+  type Candidate = { column: number, period: string, rowPeriod: string, rows: number[], cells: NumericCell[] }
   const candidates: Candidate[] = []
   const totalRows = rows.flatMap((row, index) => totalLabel.test(row[0]!.trim()) ? [index] : [])
+  const totalRowSet = new Set(totalRows)
+  const nonTotalRows = rows.flatMap((_row, index) => totalRowSet.has(index) ? [] : [index])
+  const totalNote = totalRows.length ? `合计行未参与分项比较：${examples(totalRows.length, totalRows.slice(0, NOTE_EXAMPLES).map(index => labels[index]!))}；原表保留合计值。` : undefined
   for (let column = 1; column < headers.length; column++) {
     const header = headers[column]!
     const columnPeriod = periodOf(header)
@@ -139,7 +163,7 @@ export function analyzeTableCharts(headers: string[], rows: string[][], context 
     const groups = new Map<string, { rows: number[], cells: NumericCell[], rowPeriod: string }>()
     for (let row = 0; row < rows.length; row++) {
       const cell = parsed[row]
-      if (!cell || !labels[row] || totalRows.includes(row)) continue
+      if (!cell || !labels[row] || totalRowSet.has(row)) continue
       const rowPeriod = temporal ? '' : periodOf(labels[row]!)
       // Distinct qualifiers can denote distinct measurement definitions (cash PP&E vs finance leases).
       const key = JSON.stringify([cell.unit, rowPeriod, cell.qualification])
@@ -148,7 +172,7 @@ export function analyzeTableCharts(headers: string[], rows: string[][], context 
     }
     for (const group of groups.values()) {
       if (group.rows.length < 2) continue
-      candidates.push({ column, period: columnPeriod || group.rowPeriod || basePeriod || (/年度|annual/i.test(header) ? '年度' : ''), rowPeriod: group.rowPeriod, rows: group.rows, cells: group.cells, omitted: rows.flatMap((_row, index) => !group.rows.includes(index) ? [index] : []) })
+      candidates.push({ column, period: columnPeriod || group.rowPeriod || basePeriod || (/年度|annual/i.test(header) ? '年度' : ''), rowPeriod: group.rowPeriod, rows: group.rows, cells: group.cells })
     }
   }
   const compatible = new Map<string, Candidate[]>()
@@ -163,16 +187,35 @@ export function analyzeTableCharts(headers: string[], rows: string[][], context 
       const chosen = group.slice(start, start + 4), first = chosen[0]!
       const basis = [first.period, first.cells[0]!.unit && `单位：${first.cells[0]!.unit}`, first.cells[0]!.qualification].filter(Boolean).join('；')
       const notes = [...sourceNotes]
-      if (totalRows.length) notes.push(`合计行未参与分项比较：${totalRows.map(index => labels[index]).join('、')}；原表保留合计值。`)
-      const omitted = first.omitted.filter(index => !totalRows.includes(index))
-      if (omitted.length) notes.push(`本图未纳入：${omitted.map(index => `${labels[index] || `第${index + 1}行`}（${chosen.map(item => rows[index]![item.column]).join('；')}）`).join('、')}。原因：缺失、非数值、单位、期间或数据定义不同；完整数据见原表。`)
-      const columns = headers.filter((_name, index) => index > 0 && !chosen.some(item => item.column === index))
-      if (columns.length) notes.push(`本图未使用列：${columns.join('、')}；仍保留在原表。`)
-      const approximations = chosen.flatMap(item => item.cells.flatMap((cell, index) => cell.approximate ? [`${labels[item.rows[index]!]} / ${headers[item.column]}：${cell.original}`] : []))
-      if (approximations.length) notes.push(`含原文近似值（不是精确值）：${approximations.join('；')}。`)
+      if (totalNote) notes.push(totalNote)
+      const included = new Set(first.rows), omittedCount = rows.length - first.rows.length - totalRows.length
+      if (omittedCount) {
+        const sample: string[] = []
+        for (const index of nonTotalRows) {
+          if (!included.has(index)) sample.push(`${labels[index] || `第${index + 1}行`}（${chosen.map(item => rows[index]![item.column]).join('；')}）`)
+          if (sample.length === NOTE_EXAMPLES) break
+        }
+        notes.push(`${omittedCount <= NOTE_EXAMPLES ? '本图未纳入：' : `本图未纳入 ${omittedCount} 行：`}${examples(omittedCount, sample)}。原因：缺失、非数值、单位、期间或数据定义不同；完整数据见原表。`)
+      }
+      const sourceColumns = chosen.map(item => item.column)
+      const selectedColumns = new Set(sourceColumns), omittedColumnCount = headers.length - 1 - chosen.length
+      if (omittedColumnCount) {
+        const sample: string[] = []
+        for (let column = 1; column < headers.length && sample.length < NOTE_EXAMPLES; column++) if (!selectedColumns.has(column)) sample.push(headers[column]!)
+        notes.push(`${omittedColumnCount <= NOTE_EXAMPLES ? '本图未使用列：' : `本图未使用列（${omittedColumnCount} 列）：`}${examples(omittedColumnCount, sample)}；仍保留在原表。`)
+      }
+      let approximationCount = 0
+      const approximationSample: string[] = []
+      for (const item of chosen) for (let index = 0; index < item.cells.length; index++) {
+        const cell = item.cells[index]!
+        if (!cell.approximate) continue
+        approximationCount++
+        if (approximationSample.length < NOTE_EXAMPLES) approximationSample.push(`${labels[item.rows[index]!]} / ${headers[item.column]}：${cell.original}`)
+      }
+      if (approximationCount) notes.push(approximationCount <= NOTE_EXAMPLES ? `含原文近似值（不是精确值）：${approximationSample.join('；')}。` : `含原文近似值（不是精确值，共 ${approximationCount} 项）：${examples(approximationCount, approximationSample)}。`)
       const titlePeriod = chosen.every(item => periodOf(headers[item.column]!) === first.period) ? '' : first.period
-      const title = [titlePeriod, chosen.map(item => headers[item.column]).join(' / '), approximations.length ? '含近似值' : ''].filter(Boolean).join(' · ')
-      plans.push({ kind: temporal ? 'line' : 'bar', labels: first.rows.map(index => labels[index]!), series: chosen.map(item => ({ name: headers[item.column]!, values: item.cells.map(cell => cell.value), unit: item.cells[0]!.unit, originals: item.cells.map(cell => cell.original) })), title, basis, notes: [...new Set(notes)], sourceRows: first.rows, sourceColumns: chosen.map(item => item.column), reason: temporal ? '仅展示所列时间序列；未补值、换算或年化，完整口径见原表。' : '从原表提取可绘制的列与分组；不汇总、不年化，完整口径见原表。', icon: temporal ? 'trending-up' : 'chart-column' })
+      const title = [titlePeriod, chosen.map(item => headers[item.column]).join(' / '), approximationCount ? '含近似值' : ''].filter(Boolean).join(' · ')
+      plans.push({ kind: temporal ? 'line' : 'bar', labels: first.rows.map(index => labels[index]!), series: chosen.map(item => ({ name: headers[item.column]!, values: item.cells.map(cell => cell.value), unit: item.cells[0]!.unit, originals: item.cells.map(cell => cell.original) })), title, basis, notes: [...new Set(notes)], sourceRows: first.rows, sourceColumns, sourceRowCount: rows.length, sourceColumnCount: headers.length, omittedRowRanges: omittedRanges(first.rows, rows.length), omittedColumnRanges: omittedRanges(sourceColumns, headers.length, 1), reason: temporal ? '仅展示所列时间序列；未补值、换算或年化，完整口径见原表。' : '从原表提取可绘制的列与分组；不汇总、不年化，完整口径见原表。', icon: temporal ? 'trending-up' : 'chart-column' })
     }
   }
   return plans
@@ -223,7 +266,7 @@ export function parseMarkdownTables(markdown: string): MarkdownTable[] {
 
 /** Tables are inferred only from complete primitive records; nested or incomplete JSON stays as source. */
 export function rowsFromRecords(value: unknown): ContentTable | undefined {
-  if (!Array.isArray(value) || !value.length || value.length > 200 || value.some(row => !row || typeof row !== 'object' || Array.isArray(row))) return undefined
+  if (!Array.isArray(value) || !value.length || value.some(row => !row || typeof row !== 'object' || Array.isArray(row))) return undefined
   const records = value as Array<Record<string, unknown>>
   const headers = Object.keys(records[0]!)
   if (!headers.length || records.some(row => Object.keys(row).length !== headers.length || headers.some(key => !(key in row) || !['string', 'number', 'boolean'].includes(typeof row[key])))) return undefined

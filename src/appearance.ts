@@ -60,6 +60,9 @@ export function appearanceTokens(preference?: Appearance, theme: ThemePackage = 
     '--iexp-color-scheme': colorScheme,
     '--iexp-bg': rgba(base, alpha),
     '--iexp-card': rgba(card, alpha),
+    // Reading overlays need an opaque local surface without changing report transparency.
+    '--iexp-solid-bg': rgb(base),
+    '--iexp-solid-card': rgb(card),
     '--iexp-card-hover': rgba(hover, alpha),
     '--iexp-line': rgba(foreground, colorScheme === 'dark' ? 0.18 : 0.16),
     '--iexp-text': rgb(foreground),

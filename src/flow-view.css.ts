@@ -33,6 +33,19 @@ export const flowViewCss = `
 .dsh-experience .iexp-flow-source pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.75; background: var(--iexp-soft); border: 1px solid var(--iexp-line); padding: 12px; border-radius: var(--iexp-small-control-radius); }
 .dsh-experience .iexp-flow-source p { max-width: 74ch; }
 .dsh-experience .iexp-flow[data-motion='still'] .react-flow__edge-path { animation: none; }
+.dsh-experience .iexp-flow-overview { width: 100%; height: 360px; display: block; background: var(--iexp-soft); border: 1px solid var(--iexp-line); border-radius: var(--iexp-node-radius); }
+.dsh-experience .iexp-flow-search { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-block: 12px; }
+.dsh-experience .iexp-flow-search label { display: grid; gap: 8px; flex: 1; min-width: min(240px, 100%); }
+.dsh-experience .iexp-flow-source-pages { margin-block: 12px; border-top: 1px solid var(--iexp-line); font-size: 13px; }
+.dsh-experience .iexp-flow-source-pages > summary { cursor: pointer; min-height: 36px; padding-block: 8px; }
+.dsh-experience .iexp-flow-source-pages .iexp-flow-toolbar { align-items: center; }
+.dsh-experience .iexp-flow-source-pages input[type='number'] { width: 6em; }
+.dsh-experience .iexp-flow-source-pages li { padding-block: 8px; overflow-wrap: anywhere; }
+.dsh-experience .iexp-flow-source-pages li p { margin-block: 8px; white-space: pre-wrap; }
+.dsh-experience .iexp-flow-large .iexp-flow-node-compact { height: 72px; overflow: hidden; }
+.dsh-experience .iexp-flow-node-compact > strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dsh-experience .iexp-flow-large :is(summary, input, button):focus-visible { outline: 2px solid var(--iexp-accent); outline-offset: 3px; }
+
 @media (max-width: 560px) { .dsh-experience .iexp-flow-viewport { height: 400px; } }
 @media (prefers-reduced-motion: reduce) { .dsh-experience .iexp-flow .react-flow__edge-path { animation: none !important; } }
 `

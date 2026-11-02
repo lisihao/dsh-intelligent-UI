@@ -10,3 +10,19 @@ tools/mcp-fixture-*-compiled.mjs
 coverage/
 *.tsbuildinfo
 .DS_Store
+
+# Private visual acceptance and user captures must never be published.
+.impeccable/review/
+.screenshots/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.heic
+*.mov
+*.mp4
+*.webm
+
+tools/browser-research/fixture.js

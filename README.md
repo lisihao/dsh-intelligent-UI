@@ -2,7 +2,7 @@
 
 An independent open-source presentation plugin for the official DeepSeek Harness Desktop, with an offline UI component library built in. This repository contains the intelligent renderer, silent frontend-development tools and themes in one project and one installable plugin. It builds and tests on its own and uses the official application unchanged.
 
-The historical package name **`@lisihao/dsh-solar-intelligent-experience-platform`**, RPC/tool names and data directory are retained for installed-user compatibility. They do not introduce a dependency on another project. The current development version is not a claim of npm or plugin-market publication.
+The historical package name **`@lisihao/dsh-solar-intelligent-experience-platform`**, RPC/tool names and data directory are retained for installed-user compatibility. They do not introduce a dependency on another project. The public preview is distributed as a prebuilt GitHub Release archive. npm publication is not required; community-market listing depends on the catalog maintainers accepting its entry.
 
 **内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
 
@@ -49,7 +49,8 @@ The official DSH navigation and settings stay in place. Disabling takeover resto
 Compatibility target: **DSH 0.2.1-rc.2**, macOS arm64. Install a built archive through the official plugin manager. Back up affected profile configuration and quit the app before updating an existing installation:
 
 ```sh
-dsh plugin --profile desktop add --ignore-scripts /absolute/path/to/plugin.tgz
+dsh plugin --profile desktop add --ignore-scripts \
+  "https://github.com/lisihao/dsh-intelligent-UI/releases/download/%40lisihao%2Fdsh-solar-intelligent-experience-platform%400.1.0-preview.2/lisihao-dsh-solar-intelligent-experience-platform-0.1.0-preview.2.tgz"
 ```
 
 Use the official application's bundled `dsh` CLI for an installed Desktop profile. Lifecycle scripts are disabled; the published renderer does not need its optional install telemetry.
@@ -58,7 +59,7 @@ In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. 
 
 ### Updating an older two-package installation
 
-Earlier previews installed `@lisihao/dsh-solar-uiverse-components` separately. This feature now belongs to the intelligent UI package. Disable/remove that former companion through the normal plugin manager before installing the integrated build, then restart normally. Its occupied tool/skill/service names produce a clear `UIVERSE_REGISTRATION_CONFLICT` rather than replacing another owner. Preserve existing settings, sessions and other plugins. The current development package is supplied as a built archive; npm and marketplace publication are separate release steps.
+Earlier previews installed `@lisihao/dsh-solar-uiverse-components` separately. This feature now belongs to the intelligent UI package. Disable/remove that former companion through the normal plugin manager before installing the integrated build, then restart normally. Its occupied tool/skill/service names produce a clear `UIVERSE_REGISTRATION_CONFLICT` rather than replacing another owner. Preserve existing settings, sessions and other plugins. The preview is supplied as a built GitHub Release archive. Community-market catalog review is separate from downloading or installing it.
 
 ### Themes and content appearance
 
@@ -108,7 +109,7 @@ Open `http://127.0.0.1:4173/tools/browser-experience/`. This preview uses a loca
 
 The integrated source is checked through build, types, unit/integration tests and a disposable published-DSH Host with a deterministic keyless Agent. The integration checks the official skill loader, model visibility, original component source, previews, tool availability, runtime role selection, theme/state preservation and disposal. See [current integration evidence](docs/acceptance/2026-11-01-integrated-uiverse.md) for exact results and native acceptance limits.
 
-Earlier installed-app receipts cover their exact historical archives. The integrated single-package update still needs a new normal Desktop installation receipt. No paid model selection test, exhaustive foreign-plugin business-flow test, npm publication or market release is implied.
+The scalable-rendering candidate passed formal Desktop acceptance through normal file imports: 10,000 NOAA observations, a 1,000-node / 5,000-edge SNAP citation subset and 1,000 subset-derived counts. WebGL2 and ELK layout, exact range detail, original-data paging, zeros and retained raw hashes passed. The original 361 UI-owned files and other plugin sources were unchanged at the UI-stage boundary; no model call was made. The release gate includes 397 tests and a disposable published-DSH Host/Agent. Native GPU context loss, 388px native width and disable/re-enable were not rerun on this candidate; browser narrow-width checks and historical lifecycle checks have separate evidence. No real-model organization test, exhaustive foreign-plugin business-flow test or npm publication is implied. See [release evidence](docs/releases/0.1.0-preview.2.md). Community-market download-address updates follow the catalog maintainer workflow.
 
 The [Empryo reference analysis](docs/design/empryo-foundation.md), [token catalog](docs/design/empryo-tokens.json) and [local reference atlas](docs/design/empryo-atlas.html) document the visual foundation. They are analysis records, not copied Empryo application source or branding assets.
 
@@ -131,3 +132,15 @@ Short conversations align above the composer while takeover is enabled. Native c
 Compatible benchmark catalog/run cards and Mnemon status, storage and memory cards share the theme’s hover lift, accent border and elevated shadow. Nested cards lift at the hovered level only; reduced motion removes displacement. See the [card acceptance record](docs/acceptance/2026-10-31-page-card-hover.md).
 
 Theme source validation shows an inline explanation and disables save for malformed, unsupported or incomplete directory URLs. Restoring an unchanged default clears an invalid draft without rewriting saved settings.
+
+
+### Large source-backed charts and relationship maps
+
+Valid content is no longer refused at 200 table rows or 40 nodes / 100 edges. Long series get an explicit original-value extrema overview with continuous time spacing and exact range detail; categorical comparisons keep source order with page navigation. Full original chart data and tables are paginated rather than silently truncated. Unit, period and comparability safeguards still apply.
+
+Large relationship maps combine an ELK background Worker, a native WebGL2 overview, exact node search and viewport-limited React Flow detail. Complete nodes, edges, labels and source records remain available. Canvas2D and source-order fallback states are explicit; no experimental browser flag is required. This uses the existing pinned dependencies and a thin native drawing adapter, not a redistributed Canvas UI catalog. See [the capacity design and acceptance boundary](docs/design/scalable-content-rendering.md).
+
+These changes ship in **0.1.0-preview.2**. The runtime-equivalent candidate passed formal Desktop acceptance; release-only metadata and package checks are recorded in [the release evidence](docs/releases/0.1.0-preview.2.md). Desktop updates remain separately coordinated. The 3D terrain concept is not implemented in this preview.
+
+
+The **Generated content** tab accepts local JSON, Markdown and text files through its ordinary file picker and **Import and display** action. Original file text is retained in the UI-owned artifact namespace. Import does not submit a model request or edit session logs. Source units and sampling/subset notes should be included in the file; the configured artifact size/count limits still apply.
