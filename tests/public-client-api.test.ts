@@ -45,6 +45,7 @@ describe('public client document service', () => {
     expect(service.createCanvasHtmlTextureBridge).toBeTypeOf('function')
     expect(service.createCanvasParticleScrollBridge).toBeTypeOf('function')
     expect(service.createCanvasIsolatedEffect).toBeTypeOf('function')
+    expect(service.createCanvasHtmlEffect).toBeTypeOf('function')
     const observed = vi.fn(), unsubscribe = service.subscribe(observed)
     const unregister = service.register('public-service-test', {})
     expect(observed).toHaveBeenCalledTimes(1)

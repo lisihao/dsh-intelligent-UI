@@ -1,8 +1,9 @@
 // ai-design-check-ignore-file locale-aware-case -- MIME, format, and role values are protocol identifiers, not localized UI text.
-import { createElement as h, useContext, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { createElement as h, useContext, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { acquireCanvasSlot, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
 import { planCanvasEffect, type EffectDomain } from './effect-planner.js'
+import { classifyCanvasAutoDomain } from './canvas-auto-plan-domain.js'
 import { ThemeButton } from './theme-components.js'
 import { isEvidenceVisualLabel } from './visual-semantics.js'
 
@@ -23,11 +24,11 @@ const domainEffects: Readonly<Record<EffectDomain, string>> = Object.freeze({
   'project-management': 'glass-object', quantitative: 'ink-object', general: 'ink-object',
 })
 
-/** A domain is used only when the actual source supplies a recognized domain. */
+/** Use only declared or evidence-backed source context; uncertainty keeps Ink. */
 export function modelDomain(value: unknown): EffectDomain {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return 'general'
-  const domain = (value as { domain?: unknown }).domain
-  return typeof domain === 'string' && Object.hasOwn(domainEffects, domain) ? domain as EffectDomain : 'general'
+  const result = classifyCanvasAutoDomain(value)
+  return result.status === 'identified' ? result.domain : 'general'
 }
 
 /** Upstream object effects use different material/color controls. */
@@ -316,14 +317,16 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   const latest = useRef(value); latest.current = value
   const imageSource = source.kind === 'image' ? source : undefined
   const hasOriginalView = originalView !== undefined && originalView !== null
-  // Glass discards interior marks and ASCII can collapse low-contrast art into a dense silhouette.
-  const domain = modelDomain(value), component = imageSource ? 'ink-object' : domainEffects[domain]
   const [image, setImage] = useState<{ reference: string, mime: ImageSource['mime'], url: string } | undefined>()
   const [imageError, setImageError] = useState('')
   const [imageRetry, setImageRetry] = useState(0)
   const [visible, setVisible] = useState(false)
   const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible')
   const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+  // Images use the legible Ink effect. Infer a model's domain only while its
+  // effect can actually run, so streaming, hidden and reduced-motion views stay cheap.
+  const domain = useMemo(() => imageSource || isStreaming || !visible || !pageVisible || reduced ? 'general' : modelDomain(value), [value, !!imageSource, isStreaming, visible, pageVisible, reduced])
+  const component = imageSource ? 'ink-object' : domainEffects[domain]
   const [status, setStatus] = useState(imageSource ? '正在准备插画效果…' : '正在准备模型视图…')
   const [canRotate, setCanRotate] = useState(false)
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0)

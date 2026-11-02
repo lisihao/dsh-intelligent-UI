@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { createCanvasClientScope } from '../src/canvas-client-scope.js'
 import { CanvasHtmlTextureError, type CanvasHtmlTextureOptions } from '../src/canvas-html-texture.js'
 import type { CanvasParticleScrollOptions } from '../src/canvas-scroll-texture.js'
-import type { CanvasParticleScrollClientOptions } from '../src/canvas-client-scope.js'
+import type { CanvasHtmlEffectClientOptions, CanvasParticleScrollClientOptions } from '../src/canvas-client-scope.js'
 import type { CanvasIsolatedOptions } from '../src/canvas-isolated-client.js'
+import type { CanvasHtmlEffectAdapter } from '../src/canvas-html-effect-adapter.js'
 
 describe('Canvas UI public client lifetime', () => {
   it('disposes effects before visual bridges and rejects use after plugin shutdown', async () => {
@@ -219,5 +220,72 @@ describe('Canvas UI public client lifetime', () => {
     expect(notify).toHaveBeenCalledOnce()
     scope.dispose(); effect.destroy()
     expect(destroy).toHaveBeenCalledOnce()
+  })
+
+  it('owns an HTML visual effect and its texture until plugin shutdown', async () => {
+    const order: string[] = [], capture = {} as HTMLCanvasElement
+    const burst = vi.fn()
+    const load = vi.fn().mockResolvedValue(() => ({ destroy: () => order.push('effect') }))
+    const bridge = vi.fn(() => ({ refresh: async () => {}, dispose: () => order.push('texture') }))
+    const htmlEffect = vi.fn(options => {
+      const effect = options.factory({})!
+      const texture = options.createTextureBridge!({ source: capture, content: {} as HTMLElement, scope: 'visual-only', sourceRemainsVisible: true, onError: options.onError })
+      return Promise.resolve({ refresh: async () => {}, resize: () => {}, setOptions: () => {}, splash: () => {}, melt: () => {}, burst, dispose: () => { order.push('visual'); effect.destroy(); texture.dispose() } })
+    })
+    const scope = createCanvasClientScope({ load, bridge, htmlEffect })
+    const injected = vi.fn()
+    const effect = await scope.createCanvasHtmlEffect({ component: 'ripple', onError: vi.fn(), factory: injected, createTextureBridge: injected, acquireSlot: injected } as unknown as CanvasHtmlEffectClientOptions)
+    expect(load).toHaveBeenCalledWith('ripple')
+    expect(htmlEffect.mock.calls[0]![0].factory).not.toBe(injected)
+    expect(htmlEffect.mock.calls[0]![0].createTextureBridge).not.toBe(injected)
+    expect(htmlEffect.mock.calls[0]![0].acquireSlot).not.toBe(injected)
+    effect.burst(); expect(burst).toHaveBeenCalledOnce()
+    scope.dispose(); effect.dispose()
+    expect(order).toEqual(['visual', 'effect', 'texture'])
+  })
+
+  it.each(['grid', 'displacement', 'glitch'] as const)('loads the verified %s adapter through the owned client service', async component => {
+    const load = vi.fn().mockResolvedValue(() => null), dispose = vi.fn()
+    const scope = createCanvasClientScope({ load, htmlEffect: vi.fn().mockResolvedValue({ refresh: async () => {}, resize() {}, setOptions() {}, splash() {}, melt() {}, burst() {}, dispose }) })
+    await scope.createCanvasHtmlEffect({ component, onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
+    expect(load).toHaveBeenCalledWith(component)
+    scope.dispose()
+    expect(dispose).toHaveBeenCalledOnce()
+  })
+
+  it('cancels an HTML effect while its factory is still loading', async () => {
+    const load = vi.fn(() => new Promise(() => {})), htmlEffect = vi.fn()
+    const scope = createCanvasClientScope({ load: load as never, htmlEffect: htmlEffect as never })
+    const controller = new AbortController()
+    const pending = scope.createCanvasHtmlEffect({ component: 'ripple', signal: controller.signal, onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
+    controller.abort()
+    await expect(pending).rejects.toThrow('CANVAS_CLIENT_CANCELLED')
+    expect(htmlEffect).not.toHaveBeenCalled()
+    scope.dispose()
+  })
+
+  it('aborts an HTML adapter waiting for visibility when the plugin stops', async () => {
+    let adapterSignal!: AbortSignal
+    const scope = createCanvasClientScope({
+      load: vi.fn().mockResolvedValue(() => null),
+      htmlEffect: vi.fn(options => new Promise<CanvasHtmlEffectAdapter>((_resolve, reject) => {
+        adapterSignal = options.signal!
+        adapterSignal.addEventListener('abort', () => reject(new Error('adapter cancelled')), { once: true })
+      })),
+    })
+    const pending = scope.createCanvasHtmlEffect({ component: 'frost', onError: vi.fn() } as unknown as CanvasHtmlEffectClientOptions)
+    await vi.waitFor(() => expect(adapterSignal).toBeDefined())
+    scope.dispose()
+    await expect(pending).rejects.toThrow('adapter cancelled')
+    expect(adapterSignal.aborted).toBe(true)
+  })
+
+  it('does not download an unsupported or reduced-motion HTML effect', async () => {
+    const load = vi.fn(), scope = createCanvasClientScope({ load })
+    const content = { ownerDocument: { defaultView: { matchMedia: () => ({ matches: true }) } } } as unknown as HTMLElement
+    await expect(scope.createCanvasHtmlEffect({ component: 'ripple', content } as CanvasHtmlEffectClientOptions)).rejects.toMatchObject({ code: 'reduced-motion' })
+    await expect(scope.createCanvasHtmlEffect({ component: 'bend' } as unknown as CanvasHtmlEffectClientOptions)).rejects.toMatchObject({ code: 'unsupported' })
+    expect(load).not.toHaveBeenCalled()
+    scope.dispose()
   })
 })

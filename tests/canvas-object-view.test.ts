@@ -64,6 +64,8 @@ describe('source-bound Canvas object display', () => {
     expect(glbSource({ url: '/model.glb' })).toBeUndefined()
     expect(modelDomain({ domain: 'coding' })).toBe('coding')
     expect(modelDomain({ domain: 'invented' })).toBe('general')
+    expect(modelDomain({ text: '```ts\nconst x = 1\n```' })).toBe('coding')
+    expect(modelDomain({ text: '```ts\nconst x = 1\n```', domain: 'general' })).toBe('general')
     const bytes = fixtureGlb()
     expect(isGlb(bytes)).toBe(true)
     bytes[8] = 21
@@ -439,8 +441,11 @@ describe('source-bound Canvas object display', () => {
     } finally { await act(async () => root.unmount()); host.remove() }
   })
 
-  it('selects the ASCII object for a source that explicitly identifies a coding context', async () => {
-    const bytes = fixtureGlb(), value = { type: 'glb', src: '/fixture.glb', domain: 'coding' }
+  it.each([
+    { description: 'explicit coding context', context: { domain: 'coding' } },
+    { description: 'source code without a domain declaration', context: { text: '```ts\nconst x = 1\n```' } },
+  ])('selects the ASCII object for $description without changing the source', async ({ context }) => {
+    const bytes = fixtureGlb(), value = { type: 'glb', src: '/fixture.glb', ...context }, original = JSON.stringify(value)
     const factory = vi.fn((_elements: unknown, _options: Record<string, unknown>) => ({ destroy: runtime.destroy }))
     runtime.load.mockResolvedValue(factory)
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as WebGL2RenderingContext)
@@ -455,6 +460,7 @@ describe('source-bound Canvas object display', () => {
       expect(runtime.load).toHaveBeenCalledWith('ascii-object')
       expect(factory.mock.calls[0]![1]).toMatchObject({ colored: false, color: '#d5e2e9' })
       expect(factory.mock.calls[0]![1]).not.toHaveProperty('scale')
+      expect(JSON.stringify(value)).toBe(original)
     } finally { await act(async () => root.unmount()); host.remove() }
   })
 

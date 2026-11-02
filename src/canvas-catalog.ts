@@ -121,10 +121,16 @@ export function canvasFactoryContract(slug: string) {
     backend: 'webgl' as const,
     framework: 'vanilla' as const,
     elements,
-    assetOption: component.kind === 'object' ? 'src' : undefined,
+    ...(component.kind === 'object' ? { assetOption: 'src' } : {}),
     requiresScrollableContent: slug === 'bend' || slug === 'particle-scroll',
     methods: ['setOptions', 'resize', 'destroy', ...(specialMethods[slug] ?? [])],
     execution: slug === 'bend' || slug === 'hex-float' ? 'isolated-document-required' as const : 'caller-owned-surface' as const,
+    ...((slug === 'ascii-sweep' || slug === 'peel') ? {
+      inputOwnership: 'private-proxies-required' as const,
+      mutationWarning: slug === 'ascii-sweep'
+        ? 'Changes source-layer styles, pointer and accessibility state; do not pass the original or another plugin’s elements.'
+        : 'Changes upper and lower layer pointer/visibility state; do not pass the original or another plugin’s elements.',
+    } : {}),
     note: 'Factory can return null when required browser or GPU capabilities are absent. Destroy every created instance; preserve original content and interaction.',
   }
 }

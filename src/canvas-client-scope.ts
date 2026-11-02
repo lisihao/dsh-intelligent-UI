@@ -1,9 +1,12 @@
 import { CanvasHtmlTextureError, createCanvasHtmlTextureBridge, type CanvasHtmlTextureBridge, type CanvasHtmlTextureOptions } from './canvas-html-texture.js'
-import { loadCanvasEffect, type CanvasEffectFactory, type CanvasEffectInstance } from './canvas-runtime-client.js'
+import { acquireCanvasSlot, loadCanvasEffect, type CanvasEffectFactory, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { createCanvasParticleScrollBridge, type CanvasParticleScrollBridge, type CanvasParticleScrollOptions } from './canvas-scroll-texture.js'
 import { createCanvasIsolatedEffect, type CanvasIsolatedEffect, type CanvasIsolatedOptions } from './canvas-isolated-client.js'
+import { createCanvasHtmlEffectAdapter, type CanvasHtmlEffectAdapter, type CanvasHtmlEffectOptions } from './canvas-html-effect-adapter.js'
+import { isCanvasHtmlEffectName } from './canvas-html-names.js'
 
 export type CanvasParticleScrollClientOptions = Omit<CanvasParticleScrollOptions, 'factory' | 'createTextureBridge'>
+export type CanvasHtmlEffectClientOptions = Omit<CanvasHtmlEffectOptions, 'factory' | 'createTextureBridge' | 'acquireSlot'>
 
 /** Own public consumers' effects so disabling this plugin releases their resources. */
 export function createCanvasClientScope(dependencies: {
@@ -11,16 +14,20 @@ export function createCanvasClientScope(dependencies: {
   bridge?: typeof createCanvasHtmlTextureBridge
   particleScroll?: typeof createCanvasParticleScrollBridge
   isolated?: typeof createCanvasIsolatedEffect
+  htmlEffect?: typeof createCanvasHtmlEffectAdapter
 } = {}) {
   const load = dependencies.load ?? loadCanvasEffect
   const makeBridge = dependencies.bridge ?? createCanvasHtmlTextureBridge
   const makeParticleScroll = dependencies.particleScroll ?? createCanvasParticleScrollBridge
   const makeIsolated = dependencies.isolated ?? createCanvasIsolatedEffect
+  const makeHtmlEffect = dependencies.htmlEffect ?? createCanvasHtmlEffectAdapter
   const effects = new Set<CanvasEffectInstance>()
   const bridges = new Set<CanvasHtmlTextureBridge>()
   const scrollBridges = new Set<CanvasParticleScrollBridge>()
   const isolatedEffects = new Set<CanvasIsolatedEffect>()
   const isolatedLoads = new Set<AbortController>()
+  const htmlEffects = new Set<CanvasHtmlEffectAdapter>()
+  const htmlLoads = new Set<AbortController>()
   const pendingFactories = new Set<() => void>()
   const bridgesBySource = new Map<unknown, CanvasHtmlTextureBridge>()
   const effectsByBridge = new Map<CanvasHtmlTextureBridge, Set<CanvasEffectInstance>>()
@@ -30,15 +37,22 @@ export function createCanvasClientScope(dependencies: {
   const subscribe = (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) }
   const getSnapshot = () => active
 
-  async function loadEffect(slug: string): Promise<CanvasEffectFactory> {
+  async function loadEffect(slug: string, signal?: AbortSignal): Promise<CanvasEffectFactory> {
     assertActive()
+    if (signal?.aborted) throw new Error('CANVAS_CLIENT_CANCELLED: 效果已取消。')
     let cancel!: () => void
-    const stopped = new Promise<never>((_resolve, reject) => { cancel = () => reject(new Error('CANVAS_CLIENT_DISPOSED: 智能 UI 已停用。')) })
+    let cancelBySignal!: () => void
+    const stopped = new Promise<never>((_resolve, reject) => {
+      cancel = () => reject(new Error('CANVAS_CLIENT_DISPOSED: 智能 UI 已停用。'))
+      cancelBySignal = () => reject(new Error('CANVAS_CLIENT_CANCELLED: 效果已取消。'))
+    })
     pendingFactories.add(cancel)
+    signal?.addEventListener('abort', cancelBySignal, { once: true })
     let factory: CanvasEffectFactory
     try { factory = await Promise.race([load(slug), stopped]) }
-    finally { pendingFactories.delete(cancel) }
+    finally { pendingFactories.delete(cancel); signal?.removeEventListener('abort', cancelBySignal) }
     assertActive()
+    if (signal?.aborted) throw new Error('CANVAS_CLIENT_CANCELLED: 效果已取消。')
     return (elements, options) => {
       assertActive()
       const instance = factory(elements, options)
@@ -78,6 +92,7 @@ export function createCanvasClientScope(dependencies: {
     let closed = false
     wrapped = {
       refresh: () => bridge.refresh(),
+      ...(bridge.whenDisposed ? { whenDisposed: () => bridge.whenDisposed!() } : {}),
       dispose() {
         if (closed) return
         closed = true
@@ -165,6 +180,51 @@ export function createCanvasClientScope(dependencies: {
     } catch (error) { unlink(); throw error }
   }
 
+  async function createHtmlEffect(options: CanvasHtmlEffectClientOptions): Promise<CanvasHtmlEffectAdapter> {
+    assertActive()
+    if (!isCanvasHtmlEffectName(options.component)) throw new CanvasHtmlTextureError('unsupported', 'This visual effect has not been verified.')
+    if (options.content?.ownerDocument?.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      throw new CanvasHtmlTextureError('reduced-motion', 'Animation is disabled by the system preference.')
+    }
+    const controller = new AbortController()
+    htmlLoads.add(controller)
+    const forwardAbort = () => controller.abort()
+    if (options.signal?.aborted) controller.abort()
+    else options.signal?.addEventListener('abort', forwardAbort, { once: true })
+    const unlink = () => { htmlLoads.delete(controller); options.signal?.removeEventListener('abort', forwardAbort) }
+    let wrapped: CanvasHtmlEffectAdapter | undefined
+    let failure: CanvasHtmlTextureError | undefined
+    try {
+      const factory = await loadEffect(options.component, controller.signal)
+      const effect = await makeHtmlEffect({ ...options, factory, signal: controller.signal,
+        acquireSlot: acquireCanvasSlot, createTextureBridge: textureOptions => createBridge(textureOptions, true), onError: error => {
+          failure = error
+          if (wrapped) htmlEffects.delete(wrapped)
+          unlink()
+          options.onError(error)
+        },
+      })
+      if (!active || controller.signal.aborted || failure) {
+        effect.dispose()
+        throw failure ?? new Error('CANVAS_CLIENT_DISPOSED: 智能 UI 已停用或效果已取消。')
+      }
+      let closed = false
+      wrapped = {
+        refresh: () => effect.refresh(), resize: () => effect.resize(), setOptions: next => effect.setOptions(next),
+        splash: (x, y, strength) => effect.splash(x, y, strength), melt: (x, y) => effect.melt(x, y), burst: () => effect.burst(),
+        dispose() {
+          if (closed) return
+          closed = true
+          htmlEffects.delete(wrapped!)
+          unlink()
+          effect.dispose()
+        },
+      }
+      htmlEffects.add(wrapped)
+      return wrapped
+    } catch (error) { unlink(); throw error }
+  }
+
   function dispose() {
     if (!active) return
     active = false
@@ -173,6 +233,8 @@ export function createCanvasClientScope(dependencies: {
     pendingFactories.clear()
     for (const effect of [...isolatedEffects]) try { effect.destroy() } catch (error) { errors.push(error) }
     for (const controller of [...isolatedLoads]) controller.abort()
+    for (const effect of [...htmlEffects]) try { effect.dispose() } catch (error) { errors.push(error) }
+    for (const controller of [...htmlLoads]) controller.abort()
     // Scroll adapters own listeners in addition to their effects and textures.
     for (const bridge of [...scrollBridges]) try { bridge.dispose() } catch (error) { errors.push(error) }
     // Upstream effects must stop before their texture bridges are removed.
@@ -182,5 +244,5 @@ export function createCanvasClientScope(dependencies: {
     listeners.clear()
     if (errors.length) throw new AggregateError(errors, 'Canvas UI resources could not all be released.')
   }
-  return { loadCanvasEffect: loadEffect, createCanvasHtmlTextureBridge: (options: CanvasHtmlTextureOptions) => createBridge(options), createCanvasParticleScrollBridge: createParticleScroll, createCanvasIsolatedEffect: createIsolated, subscribe, getSnapshot, dispose }
+  return { loadCanvasEffect: (slug: string) => loadEffect(slug), createCanvasHtmlTextureBridge: (options: CanvasHtmlTextureOptions) => createBridge(options), createCanvasParticleScrollBridge: createParticleScroll, createCanvasIsolatedEffect: createIsolated, createCanvasHtmlEffect: createHtmlEffect, subscribe, getSnapshot, dispose }
 }

@@ -26,6 +26,7 @@ test('integrated silent capability reaches the official model catalog and lazy l
   try {
     const summary = (await skills.list()).find(item => item.name === 'uiverse-components')
     expect(summary).toBeDefined()
+    expect(summary!.description).toContain('Canvas UI')
     expect(isModelInvocable(summary!)).toBe(true)
     expect(isUserInvocable(summary!)).toBe(false)
     expect(summary!.description).toMatch(/frontend|front.end|UI|前端|界面/i)
@@ -39,6 +40,7 @@ test('integrated silent capability reaches the official model catalog and lazy l
     expect(catalogMessage.source.entries).toContainEqual({ name: 'uiverse-components', description: summary!.description })
     const catalogText = catalogMessage.content.map((block: { text: string }) => block.text).join('\n')
     expect(catalogText).toContain('call the `skill` tool')
+    expect(catalogText).toContain('Canvas UI')
     expect(catalogText).not.toContain('<skill_instructions>')
 
     const userMessage = { id: 'silent-probe-user', source: { kind: 'user' }, content: [{ type: 'text', text: '$uiverse-components' }] }
@@ -52,6 +54,9 @@ test('integrated silent capability reaches the official model catalog and lazy l
     expect(full).toContain('<skill_content name="uiverse-components">')
     expect(full).toContain(definition!.content)
     expect(full).toContain('solar_ui_source')
+    expect(full).toContain('createCanvasParticleScrollBridge')
+    expect(full).toContain('createCanvasIsolatedEffect')
+    expect(full).toContain('createCanvasHtmlEffect')
     expect(full).not.toContain('DSH sidebar')
 
     await target.dispose()

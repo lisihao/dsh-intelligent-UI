@@ -35,6 +35,8 @@ export interface CanvasHtmlTextureBridge {
   refresh(): Promise<void>
   /** Restores only this canvas instance and removes its sandbox and observers. */
   dispose(): void
+  /** Resolves after a disposed bridge's in-flight capture releases its quota. */
+  whenDisposed?(): Promise<void>
 }
 
 const ELEMENTS = new Set(['DIV', 'SECTION', 'ARTICLE', 'P', 'SPAN', 'STRONG', 'EM', 'B', 'I', 'SMALL', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BR', 'PRE', 'CODE'])
@@ -225,6 +227,8 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
   activeBridges++
   let alive = true
   let released = false
+  let resolveDisposed!: () => void
+  const disposed = new Promise<void>(resolve => { resolveDisposed = resolve })
   let dirty = false
   let revision = 0
   let current: HTMLCanvasElement | undefined
@@ -251,7 +255,7 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
   }
 
   const release = () => {
-    if (!released && !alive && !inFlight) { released = true; activeBridges-- }
+    if (!released && !alive && !inFlight) { released = true; activeBridges--; resolveDisposed() }
   }
   const clearTexture = () => {
     clearBitmap(current)
@@ -426,5 +430,5 @@ export function createCanvasHtmlTextureBridge(options: CanvasHtmlTextureOptions)
     dispose()
     throw normalizeError(error)
   }
-  return { refresh, dispose }
+  return { refresh, dispose, whenDisposed: () => disposed }
 }

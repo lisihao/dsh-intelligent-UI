@@ -6,6 +6,8 @@ import type { CanvasHtmlTextureBridge, CanvasHtmlTextureOptions } from './canvas
 import type { CanvasParticleScrollClientOptions } from './canvas-client-scope.js'
 import type { CanvasParticleScrollBridge } from './canvas-scroll-texture.js'
 import type { CanvasIsolatedEffect, CanvasIsolatedOptions } from './canvas-isolated-client.js'
+import type { CanvasHtmlEffectAdapter } from './canvas-html-effect-adapter.js'
+import type { CanvasHtmlEffectClientOptions } from './canvas-client-scope.js'
 
 /** Client service types only. Obtain the live service from the DSH context. */
 export type IntelligentUiClient = OpenUiWidgets & {
@@ -18,6 +20,8 @@ export type IntelligentUiClient = OpenUiWidgets & {
   readonly createCanvasParticleScrollBridge: (options: CanvasParticleScrollClientOptions) => Promise<CanvasParticleScrollBridge>
   /** Isolated visual-only Bend/Hex fallback; browser CSP compatibility is runtime-dependent. */
   readonly createCanvasIsolatedEffect: (options: CanvasIsolatedOptions) => Promise<CanvasIsolatedEffect>
+  /** Experimental visual-only single-source effects; source stays separately visible. */
+  readonly createCanvasHtmlEffect: (options: CanvasHtmlEffectClientOptions) => Promise<CanvasHtmlEffectAdapter>
 }
 export type { DocumentViewProps } from './document-view.js'
 export type { CanvasEffectFactory, CanvasEffectInstance } from './canvas-runtime-client.js'
@@ -25,6 +29,8 @@ export type { CanvasHtmlTextureBridge, CanvasHtmlTextureOptions, CanvasHtmlTextu
 export type { CanvasParticleScrollClientOptions } from './canvas-client-scope.js'
 export type { CanvasParticleScrollBridge } from './canvas-scroll-texture.js'
 export type { CanvasIsolatedOptions, CanvasIsolatedEffect } from './canvas-isolated-client.js'
+export type { CanvasHtmlEffectClientOptions } from './canvas-client-scope.js'
+export type { CanvasHtmlEffectAdapter, CanvasHtmlEffectName } from './canvas-html-effect-adapter.js'
 
 declare module '@deepseek-ai/cordis' {
   interface Context { solarExperienceUi: IntelligentUiClient }

@@ -284,6 +284,27 @@ describe('visual-only canvas HTML texture', () => {
     third.bridge.dispose()
   })
 
+  it('signals disposal only after an in-flight capture releases its capacity', async () => {
+    let finish!: (canvas: HTMLCanvasElement) => void
+    vi.mocked(domToCanvas).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const first = fixture(), second = fixture()
+    const pending = first.bridge.refresh()
+    loadSnapshotFrame(document.querySelector('iframe')!)
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+    let drained = false
+    const disposed = first.bridge.whenDisposed!().then(() => { drained = true })
+    first.bridge.dispose()
+    await Promise.resolve()
+    expect(drained).toBe(false)
+    expect(() => fixture()).toThrowError(expect.objectContaining({ code: 'busy' }))
+    const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 160
+    finish(canvas)
+    await pending; await disposed
+    expect(drained).toBe(true)
+    const third = fixture()
+    second.bridge.dispose(); third.bridge.dispose()
+  })
+
   it('stops and restores its canvas when reduced motion becomes active', () => {
     const { source, bridge } = fixture()
     reducedMotion = true

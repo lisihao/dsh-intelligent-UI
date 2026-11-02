@@ -1,6 +1,7 @@
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
+import { classifyCanvasAutoDomain } from './canvas-auto-plan-domain.js'
 import {
   findCanvasComponent,
   type CanvasBrowserCapability,
@@ -201,6 +202,23 @@ function markdownTableEvidence(source: string): 'market-series' | 'tasks' | unde
 
 function classifyDomain(source: unknown, explicit?: EffectDomain): { domain: EffectDomain, basis: string } {
   if (explicit) return { domain: explicit, basis: 'explicit' }
+  if (source && typeof source === 'object' && !Array.isArray(source)) {
+    const descriptor = Object.getOwnPropertyDescriptor(source, 'domain')
+    if (descriptor && 'value' in descriptor && descriptor.value !== undefined && descriptor.value !== null) {
+      const declaration = classifyCanvasAutoDomain({ domain: descriptor.value })
+      return declaration.status === 'identified'
+        ? { domain: declaration.domain, basis: 'source:explicit' }
+        : { domain: 'general', basis: 'source:invalid-domain' }
+    }
+  }
+  // Recognize a complete report before using a local table or code snippet as
+  // the domain of the entire document. The decision only orders providers.
+  const hasReport = walkSource(source, value => {
+    if (typeof value !== 'string' || !value.includes('#') || !/https?:\/\//iu.test(value)) return false
+    const decision = classifyCanvasAutoDomain(value)
+    return decision.status === 'identified' && decision.domain === 'technical-insight'
+  })
+  if (hasReport) return { domain: 'technical-insight', basis: 'source:report' }
   let tableEvidence: 'market-series' | 'tasks' | undefined
   walkSource(source, value => {
     if (typeof value !== 'string') return false
@@ -224,12 +242,12 @@ function classifyDomain(source: unknown, explicit?: EffectDomain): { domain: Eff
       && ['task', 'taskTitle', 'issue', '任务', '工单'].some(key => typeof row[key] === 'string')
   })
   if (hasTask || tableEvidence === 'tasks') return { domain: 'project-management', basis: 'source:tasks' }
-  const hasCode = walkSource(source, value => typeof value === 'string' && /(?:^|\n)\s*(```|~~~)[^\n]*\n[\s\S]*?\n\s*\1/mu.test(value))
+  const hasCode = walkSource(source, value => {
+    if (typeof value !== 'string' || !/(?:^|\n)\s*(```|~~~)[^\n]*\n[\s\S]*?\n\s*\1/mu.test(value)) return false
+    const decision = classifyCanvasAutoDomain(value)
+    return decision.status === 'identified' && decision.domain === 'coding'
+  })
   if (hasCode) return { domain: 'coding', basis: 'source:code' }
-  const hasReport = walkSource(source, value => typeof value === 'string'
-    && /(?:^|\n)#{1,3}\s+[^\n]*(?:研究|洞察|research|analysis)/iu.test(value)
-    && /\[[^\]]+\]\(https?:\/\//iu.test(value))
-  if (hasReport) return { domain: 'technical-insight', basis: 'source:report' }
   return { domain: 'general', basis: 'source:general' }
 }
 
@@ -268,7 +286,12 @@ function rankedProviders(input: EffectPlannerInput, domain: EffectDomain): Effec
 
 /** Plan only. A selected provider still has to be executed by the host with the original content. */
 export function planCanvasEffect(input: EffectPlannerInput): EffectPlan {
-  const classification = classifyDomain(input.source, input.domain)
+  // These cases always keep the original. Avoid expensive whole-document
+  // inference while content streams or effects are disabled.
+  const skipped = input.streaming ? 'source:streaming' : input.reducedMotion ? 'source:reduced-motion' : input.theme?.style === 'none' ? 'source:theme-disabled' : undefined
+  const classification = skipped && !input.domain
+    ? { domain: 'general' as const, basis: skipped }
+    : classifyDomain(input.source, input.domain)
   const domain = classification.domain
   const domainBasis = classification.basis
   const fallback = (code: Extract<EffectPlan, { status: 'fallback' }>['code'], reason: string, attempts: readonly EffectAttempt[] = []): EffectPlan =>

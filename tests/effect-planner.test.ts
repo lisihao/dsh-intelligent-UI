@@ -10,7 +10,23 @@ const htmlProvider = (component: string, overrides: Partial<EffectProvider> = {}
 })
 const reference = 'https://example.test/chip.svg'
 const asset = { kind: 'svg', sourceRef: reference, resolved: true } as const
-const report = `# 芯片研究\n来源：[供应商](https://example.test/source)\n![芯片架构](${reference})`
+const report = `# 模型服务运行分析
+
+## 商业背景
+人工智能应用正在扩张，模型服务的实际运行需要对需求、成本与可持续性分别检验。[来源甲](https://alpha.example/research)
+
+## 算力测量
+机器学习推理所需算力具有不同阶段的交付约束，本次记录列出了同口径的测量结果。[来源乙](https://beta.example/measurements)
+
+| 方案 | 延迟（ms） |
+| --- | ---: |
+| A | 12 |
+| B | 15 |
+
+## 限定条件
+这些数据只反映所列配置下的测量表现，不能用来推断其他服务环境中的性能和成本。
+
+![芯片架构](${reference})`
 const visualInput = (provider: EffectProvider): EffectPlannerInput => ({
   source: '真实正文。第二个真实画面。',
   target: { kind: 'html', scope: 'visual', sourceText: '真实正文。', alternateText: '第二个真实画面。', scrollable: true },
@@ -77,6 +93,28 @@ describe('effect planner', () => {
       providers: [objectProvider('ink-object'), objectProvider('ascii-object')], capabilities: { webgl2: true }, theme: { id: 'code', style: 'ascii' },
     }
     expect(planCanvasEffect(input)).toMatchObject({ status: 'selected', component: 'ascii-object', domain: 'coding', domainBasis: 'source:code' })
+  })
+
+  it('recognizes a structured research report with a short code example, without classifying a guide as research', () => {
+    const base: EffectPlannerInput = { source: report, target: { kind: 'asset' }, assets: [asset], providers: [objectProvider('ink-object')], capabilities: { webgl2: true } }
+    const mixed = `${report}\n\n\`\`\`ts\nconst sample = 1\n\`\`\`\n`
+    expect(planCanvasEffect({ ...base, source: mixed })).toMatchObject({ status: 'selected', domain: 'technical-insight', domainBasis: 'source:report' })
+    const withTask = `${mixed}\n\n| task | status |\n|---|---|\n| Fix | open |\n`
+    expect(planCanvasEffect({ ...base, source: withTask })).toMatchObject({ domain: 'technical-insight', domainBasis: 'source:report' })
+    const guide = `# 项目研究使用指南\n\n访问 [官网](https://example.com) 查看安装说明。\n\n![芯片架构](${reference})`
+    expect(planCanvasEffect({ ...base, source: guide })).toMatchObject({ status: 'selected', domain: 'general', domainBasis: 'source:general' })
+    const overview = `# 技术概览\n\n## 目标\n系统服务于多个团队，需要清晰描述架构与依赖边界，避免对各项结果做没有根据的推断。\n\n## 机制\n方案将模型推理任务拆分到不同的执行资源，并记录每个阶段采用的参数与处理条件。\n\n## 局限\n该概览不包含经核验的数据或来源，因此还无法作为有证据的研究报告来归类。\n\n\`\`\`python\nprint(1)\n\`\`\`\n\n![芯片架构](${reference})`
+    expect(planCanvasEffect({ ...base, source: overview })).toMatchObject({ domain: 'general', domainBasis: 'source:general' })
+    expect(planCanvasEffect({ ...base, source: mixed, domain: 'coding' })).toMatchObject({ domain: 'coding', domainBasis: 'explicit' })
+    expect(planCanvasEffect({ ...base, source: mixed, streaming: true })).toMatchObject({ status: 'fallback', code: 'streaming', domainBasis: 'source:streaming' })
+  })
+
+  it.each(['general', 'coding', 'quantitative'] as const)('honors source-owned domain %s over inferred report content', domain => {
+    const source = { domain, text: report, image: { src: reference } }
+    const base: EffectPlannerInput = { source, target: { kind: 'asset' }, assets: [asset], providers: [objectProvider('ink-object')], capabilities: { webgl2: true } }
+    expect(planCanvasEffect(base)).toMatchObject({ status: 'selected', domain, domainBasis: 'source:explicit' })
+    expect(planCanvasEffect({ ...base, domain: 'project-management' })).toMatchObject({ domain: 'project-management', domainBasis: 'explicit' })
+    expect(planCanvasEffect({ ...base, source: { ...source, domain: 'invalid' } })).toMatchObject({ domain: 'general', domainBasis: 'source:invalid-domain' })
   })
 
   it('never treats catalog metadata as a registered provider or mismatched inputs as supported', () => {
