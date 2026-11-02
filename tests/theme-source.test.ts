@@ -9,14 +9,18 @@ import { ExperienceStore, RevisionConflictError } from '../src/store.js'
 import { ExperienceControl } from '../src/control.js'
 import type { McpHost } from '../src/mcp-host.js'
 import { RPC_REMOTE } from '../src/remote.js'
-import { builtInThemes, MAX_THEME_BYTES, themePackageSchema, type ThemePackage } from '../src/theme-contracts.js'
+import { builtInThemes, MAX_THEME_BYTES, resolveTheme, themePackageSchema, type ThemePackage } from '../src/theme-contracts.js'
 import { DEFAULT_THEME_SOURCE, DEFAULT_THEME_REPOSITORY, themeCatalogSchema, themeSourceDirectory, themeSourceSchema } from '../src/theme-source.js'
 import { downloadSourceTheme, listSourceThemes } from '../src/theme-download.js'
 
 const roots: string[] = [], servers: Server[] = []
 const flags = { takeover: true, openui: false, mcpApps: false }
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex')
-const custom = (): ThemePackage => ({ ...structuredClone(builtInThemes[1]!), id: 'local-library', name: 'Local library' })
+const custom = (): ThemePackage => {
+  const plain = resolveTheme({ activeId: 'plain', installed: [] })
+  if (plain.formatVersion !== 1) throw new Error('The Plain fixture must remain V1.')
+  return { ...structuredClone(plain), id: 'local-library', name: 'Local library' }
+}
 const file = 'local-library.dsh-theme.json'
 const catalogFor = (theme: ThemePackage, bytes = JSON.stringify(theme)) => ({ formatVersion: 1, themes: [{ id: theme.id, name: theme.name, version: theme.version, file, sha256: hash(bytes) }] })
 type Reply = { body: string | Buffer; status?: number; chunked?: boolean }

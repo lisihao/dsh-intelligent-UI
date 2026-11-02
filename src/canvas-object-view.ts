@@ -1,5 +1,7 @@
 // ai-design-check-ignore-file locale-aware-case -- MIME, format, and role values are protocol identifiers, not localized UI text.
-import { createElement as h, useContext, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { createElement as h, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from 'react'
+import { themePreferences } from './theme-runtime.js'
+import { isAsciiTheme } from './theme-contracts.js'
 import { acquireCanvasSlot, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
 import { planCanvasEffect, type EffectDomain } from './effect-planner.js'
@@ -312,6 +314,7 @@ function safeAssetUrl(reference: string, mime?: ImageSource['mime']): string {
 /** Render a derived view only beside the intact structured source. */
 export function CanvasObjectView({ value, source, dark, isStreaming = false, originalView }: { value: unknown, source: ObjectSource, dark: boolean, isStreaming?: boolean, originalView?: ReactNode }): ReactElement {
   const loadEffect = useContext(CanvasRuntimeContext)
+  const selectedTheme = useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)
   const container = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null)
   const currentEffect = useRef<CanvasEffectInstance | null>(null), rotateTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const latest = useRef(value); latest.current = value
@@ -326,7 +329,7 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   // Images use the legible Ink effect. Infer a model's domain only while its
   // effect can actually run, so streaming, hidden and reduced-motion views stay cheap.
   const domain = useMemo(() => imageSource || isStreaming || !visible || !pageVisible || reduced ? 'general' : modelDomain(value), [value, !!imageSource, isStreaming, visible, pageVisible, reduced])
-  const component = imageSource ? 'ink-object' : domainEffects[domain]
+  const component = imageSource ? 'ink-object' : isAsciiTheme(selectedTheme) ? 'ascii-object' : domainEffects[domain]
   const [status, setStatus] = useState(imageSource ? '正在准备插画效果…' : '正在准备模型视图…')
   const [canRotate, setCanRotate] = useState(false)
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0)

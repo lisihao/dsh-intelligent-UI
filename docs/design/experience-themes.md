@@ -15,7 +15,7 @@ flowchart LR
   Output[Original output and data] --> Recognition[Existing content analysis]
   Recognition --> Renderer[Existing renderers and interactions]
   Package[Downloaded theme JSON] --> Validation[Zod package validation]
-  Builtins[Empryo and Plain] --> Resolver[Theme resolver]
+  Builtins[Empryo, ASCII and other built-ins] --> Resolver[Theme resolver]
   Validation --> Settings[Revision-checked plugin settings]
   Settings --> Resolver
   Resolver --> Tokens[Scoped appearance and component tokens]
@@ -33,6 +33,14 @@ Tokens include separate light/dark accents and chart palettes; semantic success/
 
 Built-in manifests are ordinary JSON data consumed by the same schema and resolver as imported packages. They can be downloaded from Settings as portable packages. Theme ids are storage identifiers, not UI labels. Theme storage is bounded to 32 imported packages, with a 32 KiB import-file limit and bounded metadata/palette fields.
 
+## Package v2 and v3
+
+V2 retains the V1 fields and adds a required `componentSet` chosen from the plugin's compiled `soft-relief`, `clear-glass` and `mechanical-outline` adapters. It cannot supply markup or CSS. V3 retains the bounded V1 fields, requires `presentation: "ascii"` and requires `tokens.font: "mono"`. Unknown fields, presentation values and non-monospace V3 fonts are rejected. V1 and V2 keep their existing font vocabulary and validation.
+
+The built-in ASCII V3 package uses a translucent graphite ground and pale green accents. Its source-derived categorical bar presentation requires matching series units and finite values; discrete character marks share a zero-inclusive scale across pages while exact source values and disclosures remain available. Other chart types use the existing renderer. V3 uses native controls by default; its declarative choice does not supply executable rendering code. Eligible explicit GLB models use the existing ASCII Object adapter, while source illustrations and report text retain their own paths.
+
+V3 and the adjacent conversation-header theme selector are development-candidate behavior. Existing Empryo remains the default. Formal official DSH installation and acceptance of this candidate are pending.
+
 ## Persistence and lifecycle
 
 Add an optional `theme` preference to the existing versioned settings document: `{ activeId, installed }`. Missing preference resolves to Empryo with no imported packages. Existing appearance values remain unchanged on upgrade. Selecting a different theme saves its defaults together with the selection in the same revision-checked atomic settings write; later color/transparency changes remain user overrides. Omitting theme selection in an older settings call preserves the current selection/catalog.
@@ -40,6 +48,8 @@ Add an optional `theme` preference to the existing versioned settings document: 
 Owner-only `installTheme({expectedRevision, theme})` and `removeTheme({expectedRevision, id})` use the same settings queue and return the complete next settings snapshot. Installation does not silently activate a package. Duplicate/reserved ids are rejected. Removing the active imported theme atomically selects Empryo and its default appearance; built-ins cannot be removed. Stale revisions fail without overwriting concurrent preferences.
 
 The existing settings subscription and disposable stylesheet apply theme changes immediately, without replacing original page components or remounting output content. Equal refreshes keep the stylesheet stable. Takeover off removes external-page rules; plugin unload removes its owned styles and resets client theme state. Disabling/uninstalling does not rewrite any other plugin's theme preferences. Existing installation backups remain the downgrade path for older binaries that reject newer optional settings fields.
+
+In addition to Settings, the conversation header can select built-in or installed themes using the same revision-checked settings save. The control exposes a pending state and reports failures; the display-mode and transparency controls remain separate. Selection applies the selected theme's appearance defaults, and later color/transparency adjustments remain user overrides.
 
 ## Named page coverage
 

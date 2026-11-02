@@ -55,7 +55,9 @@ describe('appearanceTokens', () => {
   })
 
   it('protects contrast for custom accents and status colors on the chosen appearance override', () => {
-    const selected = resolveTheme(), theme = { ...selected, id: 'custom-low-contrast', tokens: { ...selected.tokens, accentDark: '#272727', accentLight: '#eeeeee', success: '#242424', warning: '#222222', error: '#333333', translucentAlpha: 0.3, blur: 24 } }
+    const selected = resolveTheme()
+    if (selected.formatVersion !== 1) throw new Error('The default Empryo fixture must remain V1.')
+    const theme = { ...selected, id: 'custom-low-contrast', tokens: { ...selected.tokens, accentDark: '#272727', accentLight: '#eeeeee', success: '#242424', warning: '#222222', error: '#333333', translucentAlpha: 0.3, blur: 24 } }
     for (const backgroundColor of ['#24262b', '#fafafa', '#777777', '#fe0000']) {
       const { variables } = appearanceTokens({ backgroundColor, translucent: true }, theme)
       for (const role of ['--iexp-text','--iexp-muted','--iexp-accent','--iexp-success','--iexp-warning','--iexp-error','--iexp-series-1','--iexp-series-2','--iexp-series-3','--iexp-series-4']) for (const surface of ['--iexp-bg','--iexp-card','--iexp-card-hover','--iexp-soft']) for (const underlay of [0,255]) expect(contrast(channels(variables[role]!), channels(variables[surface]!),underlay)).toBeGreaterThanOrEqual(4.5)

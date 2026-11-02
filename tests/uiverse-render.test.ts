@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ContentView } from '../src/presentation.js'
 import { themePreferences } from '../src/theme-runtime.js'
 import { builtInThemes, resolveTheme } from '../src/theme-contracts.js'
-import { ThemeButton } from '../src/theme-components.js'
+import { ThemeButton, themeComponentSet } from '../src/theme-components.js'
+import { resolveUiverseAdapter } from '../src/uiverse-render.js'
 import { themeComponentsCss } from '../src/theme-components-style.js'
 import sources from '../src/uiverse-sources.json' with { type: 'json' }
 
@@ -41,6 +42,24 @@ function sourceMatches(element: Element, set: 'soft-relief' | 'clear-glass' | 'm
 }
 
 describe('Uiverse adapters chosen by actual ContentView semantics', () => {
+  it('keeps V3 ASCII controls and task cards native by default without changing their source', async () => {
+    const ascii = resolveTheme({ activeId: 'ascii', installed: [] })
+    expect(ascii.formatVersion).toBe(3)
+    expect(themeComponentSet(ascii)).toBe('native')
+    expect(resolveUiverseAdapter(ascii, 'input', 'task')).toBeUndefined()
+    expect(resolveUiverseAdapter(ascii, 'card', 'task')).toBeUndefined()
+    await act(async () => themePreferences.set({ activeId: 'ascii', installed: [] }))
+    const before = JSON.stringify(tasks), element = await mount(tasks)
+    const input = element.querySelector<HTMLInputElement>('[aria-label="搜索任务"]')!
+    expect(input.classList.contains('iexp-uiv-input')).toBe(false)
+    expect(element.querySelectorAll('[data-iexp-uiverse-source]')).toHaveLength(0)
+    expect(element.querySelector('.iexp-task')?.classList.contains('iexp-uiv-card')).toBe(false)
+    expect(JSON.parse(element.querySelector('.iexp-layout-source pre')!.textContent!)).toEqual(tasks)
+    expect(JSON.stringify(tasks)).toBe(before)
+    await type(input, '23.80')
+    expect(element.querySelectorAll('.iexp-task')).toHaveLength(1)
+  })
+
   it('automatically renders a v1 chart card from ordinary Markdown and preserves every exact source cell', async () => {
     const text = '# 已披露费用\n\n来源口径保持不变。\n\n| 项目 | 金额（亿元） |\n|---|---:|\n| 训练 | 23.80 |\n| 推理 | 97.41 |'
     const element = await mount(text)

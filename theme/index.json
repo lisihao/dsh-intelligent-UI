@@ -9,6 +9,13 @@
       "sha256": "1665075d26b5ea40ecb7532de7fba24316c83014c9eb91f0725ed461d411fb27"
     },
     {
+      "id": "ascii",
+      "name": "ASCII",
+      "version": "1.0.0",
+      "file": "ascii.dsh-theme.json",
+      "sha256": "d2eb9dd377dda1bb6b624bffa1b2dac1410ea88a8c75204cf4790544e4477eac"
+    },
+    {
       "id": "unslop-carbon",
       "name": "炭墨 · Carbon",
       "version": "1.0.0",

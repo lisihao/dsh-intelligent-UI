@@ -3,6 +3,15 @@ name: DSH Intelligent Experience Platform
 description: Source-led Undertow presentation inside the official DSH conversation.
 colors:
   content-default: "#24262b"
+  ascii-ground: "#191c19"
+  ascii-primary-dark: "#b9d985"
+  ascii-primary-light: "#405d25"
+  ascii-cyan-dark: "#89cdd1"
+  ascii-sand-dark: "#d8bf91"
+  ascii-rose-dark: "#cfafc6"
+  ascii-cyan-light: "#275c61"
+  ascii-sand-light: "#6f511f"
+  ascii-rose-light: "#704b66"
   host-border-fallback: "#b9bdc4"
   content-bg-light: "#f4f6f8"
   content-card-light: "#fbfcfd"
@@ -27,6 +36,20 @@ colors:
   host-label: "var(--dsw-alias-label-primary, #202124)"
   host-border: "var(--dsw-alias-border-l2, #b9bdc4)"
 typography:
+  ascii-body:
+    fontFamily: "'DSH Recursive', 'SFMono-Regular', Menlo, Consolas, monospace"
+    fontSize: "15px"
+    lineHeight: 1.7
+    fontVariation: "'MONO' 1, 'CASL' 0"
+  ascii-headline:
+    fontSize: "clamp(23px, 3vw, 32px)"
+    fontWeight: 550
+    lineHeight: 1.5
+    letterSpacing: "0"
+  ascii-section:
+    fontSize: "22px"
+  ascii-section-narrow:
+    fontSize: "20px"
   paper-display:
     fontFamily: "'DSH Paper Sans', 'PingFang SC', system-ui, sans-serif"
     fontSize: "56px"
@@ -86,6 +109,10 @@ typography:
   raw-content:
     fontSize: "12px"
 rounded:
+  ascii-panel: "12px"
+  ascii-card: "8px"
+  ascii-node: "8px"
+  ascii-control: "6px"
   settings-preview: "12px"
   reading-narrow: "24px"
   flow-node: "20px"
@@ -149,12 +176,15 @@ The user-pinned Empryo reference now informs distinct compositions rather than a
 
 The official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.
 
+ASCII is a separate selectable presentation alongside the default Empryo. Its character plots and fixed-width type organize eligible source-derived comparisons without changing the source. Its current implementation is a development candidate; official DSH installation and acceptance are pending.
+
 **Key Characteristics:**
 
 - Continuous prose and compact comparisons share the configurable quiet gray content surface; data cards use rounded elevation.
 - Composition follows explicit source structure rather than decorative tiles.
 - Complete tables, records and relationship sources remain inspectable.
 - One host-header selector controls presentation, original and comparison modes.
+- A separate compact theme selector switches the active presentation for the conversation.
 
 Browser finish review on 2026-10-31 accepted the expanded candidate across ten report, flow, board and record captures, including narrow, desktop and the user's wide viewport. Installed official DSH acceptance passed on 2026-10-31 for the actual source graph, task board, record selection and chapter fan; a subsequent refresh-state correction preserved disclosures across polling without changing visual tokens.
 
@@ -165,6 +195,7 @@ Frontmatter retains the measured Empryo reference and chart-series palette. Acti
 ### Primary
 
 - **Slate blue / ice blue:** links, outline icons, selection, focus, comparison strokes and the first chart series.
+- **ASCII leaf green:** the light/dark accent pair for the optional ASCII presentation, with a graphite ground. The other three ASCII chart colors distinguish series; appearance contrast adjustment still applies.
 
 ### Secondary
 
@@ -187,6 +218,10 @@ OpenUI's OS-preference fallback root selectors are removed during CSS bundling s
 
 **Content Font:** bundled unmodified Recursive Latin variable font, registered as DSH Recursive, with platform CJK sans fallbacks. Its WOFF2 and OFL travel together without a remote font request. The body uses CASL 0 and MONO 0; code switches to MONO 1. Shell controls retain platform sans.
 
+The ASCII theme switches the owned reading surface to Recursive's MONO 1 axis with a monospace fallback, tabular numerals and zero letter spacing. Its headings use the ASCII headline/section roles; source text remains ordinary readable text.
+
+**The Fixed-Width Plot Rule.** Character bars use the monospace axis; labels and exact source values remain readable and are not converted into decoration.
+
 ### Hierarchy
 
 - **Headline and title:** light Recursive report headings use the frontmatter roles; the main heading is limited to 29ch. Third-level headings use 17px, lower headings 15px, all at the same heading weight and tracking.
@@ -203,6 +238,8 @@ The 28px rounded reading surface (24px at narrow widths) is centered with a 1240
 
 Figures use an auto-fit grid with `minmax(min(100%, 310px), 1fr)`, the chart-gap token and a 1160px maximum width. A solitary figure caps at 760px. Eligible comparisons retain direct endpoint labels inside the same rounded data-card material as other charts. Supported charts retain a separated header, plot and disclosure footer.
 
+ASCII bars measure available width and the actual glyph advance; category labels and exact values wrap independently from the character marks. The full source-wide scale stays shared across pages.
+
 At 560px and below, content insets and figure padding tighten, full-table summaries wrap and helper text hides. Tables scroll inside focusable labeled regions. Comparison mode uses `repeat(auto-fit, minmax(min(100%, 280px), 1fr))` with a 16px gap; raw strings wrap anywhere.
 
 Boards use horizontally scrollable columns of at least 220px, with independently scrollable columns capped at 640px. Master/detail uses a 26% list with a 180px minimum, a flexible detail pane sized to its own content and a 20px gap; at the narrow breakpoint the list becomes horizontal above the detail. The chapter index uses two intrinsic 240px text columns. Its optional SVG fan hides at 760px and below; the complete text index remains.
@@ -211,11 +248,15 @@ Boards use horizontally scrollable columns of at least 220px, with independently
 
 The content surface has diffuse depth; data cards, tasks and record detail use 22px corners and a soft 0 10px 28px -14px shadow. Fine-pointer hover raises them 3px, changes the surface tone and accent boundary, and deepens the shadow over 180ms. Focus-within retains tonal/depth emphasis with visible keyboard outlines. The flow canvas lifts 2px as a whole so nodes and edge ports stay aligned; individual 20px nodes change tone and boundary. Reduced motion removes lift/transitions and stops relationship-edge animation.
 
+ASCII data surfaces start flat with dashed separators; chart, task and detail cards acquire the theme's soft shadow on fine-pointer hover. The shared theme token sets a restrained 2px lift where the existing surface supports it.
+
 **The Source Stays Reachable Rule.** Visualizations supplement source content. Keep qualifications, exact selected cells, complete tables, original records and raw/comparison access available.
 
 ## Shapes
 
 Reading surfaces use 28px corners (24px narrow); charts, tasks and record details use 22px; flow viewport/columns use 24px, nodes 20px and source tables/heading index 18px. Prose remains continuous rather than one card per paragraph. Existing code blocks retain their compact radius. Fields and flow buttons use the field radius; native output actions retain the control radius. The single mode control is a pill. One-pixel rules define data boundaries. Lucide outline SVGs remain semantic icons; no reference screenshots or brand assets ship.
+
+ASCII uses its own smaller panel, card, node and control radii from the frontmatter. Dashed rules divide headings, figures and table rows without changing the source or foreign component structure.
 
 ## Components
 
@@ -223,11 +264,15 @@ Reading surfaces use 28px corners (24px narrow); charts, tasks and record detail
 
 One labeled native select in the conversation header offers 展示, 原文 and 对照 with the accessible name 输出显示方式. It starts in 展示, stays transient per conversation and clears on unload. Raw mode keeps the rendered region mounted. Explicit actions remain separate from display selection; native settings retain their ordinary controls and errors.
 
+The adjacent **主题** select offers built-in and installed themes without leaving the conversation. It uses the existing revision-checked settings save, shows pending and failure states, and keeps the display-mode and transparency controls separate.
+
 ### Comparisons and maintained charts
 
 A local thin meter adapter handles one nonnegative finite series with two to six nonempty category labels. Each original value sits beside a shared-scale organic stroke; a zero remains zero. Complex categorical and time-series plots continue through unmodified OpenUI. This is one compact benchmark grammar, not every Empryo benchmark variant.
 
 OpenUI categorical bars retain full labels and source values. Their height follows `max(230, labels × (30 + series × 26) + 56 + (series > 1 ? 50 : 0))`; line charts use 280px. Animation is disabled. Approximation/exclusion notices remain visible; native disclosures expose selection reasons and exact source strings. Chart failure retains the complete table and reports an error.
+
+Under ASCII, eligible categorical bar plans with one shared unit render discrete `#` marks on a zero-anchored track. Zero can be left, right or centered as the source-wide extent requires; nonzero magnitudes get at least one mark. The displayed source values, units and disclosure remain authoritative. Other chart kinds retain their existing renderer.
 
 ### Complete source tables
 
@@ -261,6 +306,7 @@ MCP Apps retain their separate application surface and explicit open action. Thi
 - **Do** scope configurable surface appearance to plugin content and keep the single conversation-header selector.
 - **Do** retain exact source strings, units, exclusions, qualifications and complete sources.
 - **Do** keep the local Recursive font and OFL together.
+- **Do** keep ASCII chart marks approximate and the exact source values and qualifications visible.
 - **Do** distinguish browser review from installed official DSH acceptance.
 
 ### Don't:

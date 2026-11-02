@@ -49,7 +49,7 @@ function thoughtDagCss(variables: Record<string, string>): string {
   --xy-minimap-background-color:var(--iexp-card);--xy-controls-button-background-color:var(--iexp-card);
   --xy-controls-button-background-color-hover:var(--iexp-card-hover);--xy-controls-button-color:var(--iexp-text);
 }
-html,body,#root { font-family:var(--iexp-font,system-ui,sans-serif);caret-color:var(--iexp-accent);scrollbar-color:var(--iexp-line) var(--iexp-bg); }
+html,body,#root { font-family:var(--iexp-font,system-ui,sans-serif);font-variation-settings:'MONO' var(--iexp-font-mono,0),'CASL' 0;caret-color:var(--iexp-accent);scrollbar-color:var(--iexp-line) var(--iexp-bg); }
 /* Bounded logo exception: the installed SPA has no brand-font token. Its landing
    SVG + h1 lockup shares a row with the owner's absolute toolbar. Retain the
    original Inter metrics here; body/card typography continues to use the theme. */

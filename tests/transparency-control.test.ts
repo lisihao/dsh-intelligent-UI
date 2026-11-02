@@ -143,22 +143,24 @@ describe('transparent background persistence', () => {
     const path = await mkdtemp(join(tmpdir(), 'iexp-opacity-persist-')); temporary.push(path)
     const host = new HostStore(path)
     const acknowledged = await host.saveSettings({ expectedRevision: 0, ...flags, appearance: { backgroundColor: '#809090', translucent: false } })
-    const pending: Promise<unknown>[] = []
-    const save = vi.fn((value: SaveSettingsInput) => { const result = host.saveSettings(value); pending.push(result); return result })
+    const save = vi.fn((value: SaveSettingsInput) => host.saveSettings(value))
     const store = client(acknowledged, save, () => host.settings()), view = await mount(store)
-    const flush = async () => { while (pending.length) await Promise.all(pending.splice(0)) }
-    await input(view.range, 70)
-    await act(async () => { pointerUp(view.range); await flush() })
+    const confirmed = async (appearance: Appearance, revision: number) => vi.waitFor(async () => {
+      expect((await new HostStore(path).settings()).appearance).toEqual(appearance)
+      expect(store.snapshot().settings).toMatchObject({ revision, appearance })
+    }, { interval: 10, timeout: 5000 })
     const expected: Appearance = { backgroundColor: '#809090', translucent: true, backgroundOpacity: 0.3 }
+    await input(view.range, 70)
+    await act(async () => { pointerUp(view.range); await confirmed(expected, 2) })
     expect((await new HostStore(path).settings()).appearance).toEqual(expected)
     expect(appearanceTokens(expected).backgroundOpacity).toBe(0.3)
     const settingToggle = view.element.querySelector<HTMLInputElement>('.iexp-appearance-controls input[type="checkbox"]')!
-    await act(async () => { settingToggle.click(); await flush() })
+    await act(async () => { settingToggle.click(); await confirmed({ ...expected, translucent: false }, 3) })
     const opaque = await new HostStore(path).settings()
     expect(opaque.appearance).toEqual({ ...expected, translucent: false })
     expect(appearanceTokens(opaque.appearance).backgroundOpacity).toBe(1)
     expect(view.sheet()).toContain('--iexp-bg:rgba(128, 144, 144, 1)')
-    await act(async () => { settingToggle.click(); await flush() })
+    await act(async () => { settingToggle.click(); await confirmed(expected, 4) })
     const restarted = await new HostStore(path).settings()
     expect(restarted.appearance).toEqual(expected)
     expect(restarted).toMatchObject(flags)

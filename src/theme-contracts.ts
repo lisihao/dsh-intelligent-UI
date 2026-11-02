@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import empryo from './themes/empryo.dsh-theme.json' with { type: 'json' }
+import ascii from './themes/ascii.dsh-theme.json' with { type: 'json' }
 import plain from './themes/plain.dsh-theme.json' with { type: 'json' }
 import relief from './themes/uiverse-soft-relief.dsh-theme.json' with { type: 'json' }
 import glass from './themes/uiverse-clear-glass.dsh-theme.json' with { type: 'json' }
@@ -33,11 +34,21 @@ const themeV1Schema = z.strictObject({
 export const componentSetSchema = z.enum(['soft-relief', 'clear-glass', 'mechanical-outline'])
 export type ComponentSet = z.infer<typeof componentSetSchema>
 const themeV2Schema = themeV1Schema.extend({ formatVersion: z.literal(2), componentSet: componentSetSchema })
-export const themePackageSchema = z.discriminatedUnion('formatVersion', [themeV1Schema, themeV2Schema]).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= MAX_THEME_BYTES, { message: 'THEME_PACKAGE_TOO_LARGE: Theme package exceeds 32 KiB.' })
+// ASCII geometry depends on fixed-width glyphs. V1 and V2 keep their original
+// font vocabulary; V3 is data-only and explicitly opts into the mono renderer.
+const themeV3Schema = themeV1Schema.extend({
+  formatVersion: z.literal(3), presentation: z.literal('ascii'),
+  tokens: themeV1Schema.shape.tokens.extend({ font: z.literal('mono') }),
+})
+export const themePackageSchema = z.discriminatedUnion('formatVersion', [themeV1Schema, themeV2Schema, themeV3Schema]).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= MAX_THEME_BYTES, { message: 'THEME_PACKAGE_TOO_LARGE: Theme package exceeds 32 KiB.' })
 export type ThemePackage = z.infer<typeof themePackageSchema>
 
+export function isAsciiTheme(theme: ThemePackage): boolean {
+  return theme.formatVersion === 3 && theme.presentation === 'ascii'
+}
+
 export const builtInThemes: readonly ThemePackage[] = Object.freeze([
-  themePackageSchema.parse(empryo), themePackageSchema.parse(plain),
+  themePackageSchema.parse(empryo), themePackageSchema.parse(ascii), themePackageSchema.parse(plain),
   themePackageSchema.parse(relief), themePackageSchema.parse(glass), themePackageSchema.parse(outline),
 ])
 

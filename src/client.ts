@@ -21,6 +21,7 @@ import type { ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateA
 import { resolveTheme, type ThemePackage } from './theme-contracts.js'
 import { type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
 import { TransparencyControl } from './transparency-control.js'
+import { ThemeQuickSwitch } from './theme-quick-switch.js'
 import { ThemeSettings } from './theme-settings.js'
 import { RPC_REMOTE } from './remote.js'
 import { ArtifactView, ContentView, DisplayModeControl, OutputView, displayModes, rawText, openUiWidgets, experienceTheme, type McpUiApi } from './presentation.js'
@@ -60,10 +61,36 @@ const openSchema = z.object({ instanceId: z.uuid(), proxyUrl: z.url(), html: z.s
 function mcpApi(api?: ClientApi): McpUiApi | undefined { return api?.mcpOpen && api.mcpAction && api.mcpClose ? api as McpUiApi : undefined }
 function stateApi(api?: ClientApi): WidgetStateApi | undefined { return api?.widgetState && api.saveWidgetState ? api as WidgetStateApi : undefined }
 
+function sameSettings(a: ExperienceSettings, b: ExperienceSettings): boolean { return JSON.stringify(a) === JSON.stringify(b) }
+function copySettings(value: ExperienceSettings): ExperienceSettings { return JSON.parse(JSON.stringify(value)) as ExperienceSettings }
+/** Preserve only the caller's edits when an earlier local save completed first. */
+function rebaseSettings(input: SaveSettingsInput, baseline: ExperienceSettings, current: ExperienceSettings): SaveSettingsInput {
+  const next: SaveSettingsInput = {
+    ...input, expectedRevision: current.revision,
+    takeover: input.takeover === baseline.takeover ? current.takeover : input.takeover,
+    openui: input.openui === baseline.openui ? current.openui : input.openui,
+    mcpApps: input.mcpApps === baseline.mcpApps ? current.mcpApps : input.mcpApps,
+  }
+  if (input.appearance && input.themeId === undefined) {
+    const before = baseline.appearance ?? defaultAppearance(), after = current.appearance ?? defaultAppearance()
+    const appearance = { ...after }
+    if (input.appearance.backgroundColor !== before.backgroundColor) appearance.backgroundColor = input.appearance.backgroundColor
+    if (input.appearance.translucent !== before.translucent) appearance.translucent = input.appearance.translucent
+    if (input.appearance.backgroundOpacity !== before.backgroundOpacity) {
+      if (input.appearance.backgroundOpacity === undefined) delete appearance.backgroundOpacity
+      else appearance.backgroundOpacity = input.appearance.backgroundOpacity
+    }
+    next.appearance = appearance
+  }
+  return next
+}
+
 export class ExperienceStore {
   private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
   private listeners = new Set<() => void>()
   private generation = 0
+  private saves: Promise<void> = Promise.resolve()
+  private transitions = new Map<number, { api: ClientApi, before: ExperienceSettings, after: ExperienceSettings }>()
   private previewOwner?: object
   previewAppearance(owner: object, appearance?: ReturnType<typeof defaultAppearance>) {
     if (!appearance && this.previewOwner !== owner) return
@@ -72,10 +99,51 @@ export class ExperienceStore {
   }
   snapshot = () => this.value
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
-  update(value: typeof this.value) { this.value = value; this.listeners.forEach(listener => listener()) }
+  update(value: typeof this.value) { if (this.value.api !== value.api) this.transitions.clear(); this.value = value; this.listeners.forEach(listener => listener()) }
   setTakeoverError(error?: string) { if (this.value.takeoverError !== error) this.update({ ...this.value, takeoverError: error }) }
   async refresh() { const api = this.value.api; if (!api) return; const generation = this.generation; try { const settings = await api.settings(); if (this.value.api === api && generation === this.generation) this.update({ ...this.value, api, settings }) } catch (e) { if (this.value.api === api) this.update({ ...this.value, error: message(e) }) } }
-  async save(input: SaveSettingsInput) { this.generation++; const api = this.value.api; if (!api) throw new Error('设置服务不可用'); const settings = await api.saveSettings(input); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
+  async save(input: SaveSettingsInput) {
+    this.generation++
+    const api = this.value.api
+    if (!api) throw new Error('设置服务不可用')
+    const request = JSON.parse(JSON.stringify(input)) as SaveSettingsInput
+    const observed = this.value.settings
+    const baseline = observed?.revision === request.expectedRevision ? copySettings(observed) : undefined
+    const work = this.saves.then(async () => {
+      if (this.value.api !== api) throw new Error('设置服务已变化，请重试。')
+      const current = this.value.settings
+      let next = request
+      if (current && current.revision !== request.expectedRevision) {
+        let cursor = baseline
+        while (cursor && cursor.revision < current.revision) {
+          const step = this.transitions.get(cursor.revision)
+          if (!step || step.api !== api || !sameSettings(cursor, step.before) || step.after.revision !== cursor.revision + 1) { cursor = undefined; break }
+          cursor = step.after
+        }
+        if (!baseline || !cursor || !sameSettings(cursor, current)) throw new Error('设置已在其他位置更改，请重新选择。')
+        next = rebaseSettings(request, baseline, current)
+      }
+      this.generation++
+      try {
+        const saved = await api.saveSettings(next)
+        this.generation++
+        if (this.value.api === api) {
+          if (current && current.revision === next.expectedRevision && saved.revision === current.revision + 1) {
+            this.transitions.set(current.revision, { api, before: copySettings(current), after: copySettings(saved) })
+            if (this.transitions.size > 128) this.transitions.delete(this.transitions.keys().next().value!)
+          }
+          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved })
+        }
+        return saved
+      } catch (error) {
+        this.generation++
+        if (this.value.api === api) await this.refresh()
+        throw error
+      }
+    })
+    this.saves = work.then(() => undefined, () => undefined)
+    return work
+  }
   async installTheme(theme: ThemePackage) { this.generation++; const { api, settings: current } = this.value; if (!api?.installTheme || !current) throw new Error('主题管理服务不可用，请重新加载插件。'); const settings = await api.installTheme({ expectedRevision: current.revision, theme }); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
   async themeCatalog(): Promise<ThemeCatalog> { const api = this.value.api; if (!api?.themeCatalog) throw new Error('主题来源服务不可用，请重新加载插件。'); return api.themeCatalog() }
   async downloadTheme(input: Omit<DownloadThemeInput, 'expectedRevision'>) { this.generation++; const { api, settings: current } = this.value; if (!api?.downloadTheme || !current) throw new Error('主题来源服务不可用，请重新加载插件。'); const settings = await api.downloadTheme({ ...input, expectedRevision: current.revision }); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
@@ -84,7 +152,7 @@ export class ExperienceStore {
 function useStore(store: ExperienceStore) { return useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot) }
 /** One global appearance shortcut beside the existing conversation display control. */
 export function HeaderControls({ store, sessionId }: { store: ExperienceStore, sessionId: string }): ReactElement {
-  return h('div', { className: 'dsh-experience iexp-header-controls' }, h(DisplayModeControl, { sessionId }), store.snapshot().settings?.takeover && h(ResearchModeControl, { sessionId }), h(TransparencyControl, { store }))
+  return h('div', { className: 'dsh-experience iexp-header-controls' }, h(DisplayModeControl, { sessionId }), store.snapshot().settings?.takeover && h(ResearchModeControl, { sessionId }), h(ThemeQuickSwitch, { store }), h(TransparencyControl, { store }))
 }
 export function Settings({ store }: { store: ExperienceStore }): ReactElement {
   const { api, settings, error, takeoverError } = useStore(store)

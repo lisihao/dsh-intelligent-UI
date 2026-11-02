@@ -46,7 +46,9 @@ describe('reversible appearance of original conversation pages', () => {
       const first = document.querySelector('[data-solar-experience-appearance]')!.firstChild
       store.update({ settings: { ...settings } })
       expect(document.querySelector('[data-solar-experience-appearance]')!.firstChild).toBe(first)
-      const theme = { ...resolveTheme(), id: 'compact-purple', name: 'Purple', tokens: { ...resolveTheme().tokens, panelRadius: 16, font: 'serif' as const } }
+      const base = resolveTheme()
+      if (base.formatVersion !== 1) throw new Error('The default Empryo fixture must remain V1.')
+      const theme = { ...base, id: 'compact-purple', name: 'Purple', tokens: { ...base.tokens, panelRadius: 16, font: 'serif' as const } }
       store.update({settings:{...settings, theme:{activeId:theme.id, installed:[theme]}}})
       expect(css()).toContain('--iexp-panel-radius:16px')
       expect(css()).toContain('.wsp-card-panel')

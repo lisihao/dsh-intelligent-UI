@@ -8,7 +8,11 @@ import { ExperienceStore } from '../src/client.js'
 import { initialSettings } from '../src/contracts.js'
 
 afterEach(() => themePreferences.reset())
-const custom = (): ThemePackage => ({ ...resolveTheme(), id: 'custom-forest', name: 'Forest', tokens: { ...resolveTheme().tokens, accentDark: '#80f2a1', paletteDark: ['#80f2a1','#e8c282','#ed9bae','#a4d5ea'], panelRadius: 18, cardRadius: 14, nodeRadius: 10, controlRadius: 8, font: 'serif', density: 'comfortable', hoverLift: 5, translucentAlpha: .9, blur: 12, comparison: 'standard', shadow: 'none' } })
+const custom = (): Extract<ThemePackage, { formatVersion: 1 }> => {
+  const base = resolveTheme()
+  if (base.formatVersion !== 1) throw new Error('The default theme must remain a V1 package.')
+  return { ...base, id: 'custom-forest', name: 'Forest', tokens: { ...base.tokens, accentDark: '#80f2a1', paletteDark: ['#80f2a1','#e8c282','#ed9bae','#a4d5ea'], panelRadius: 18, cardRadius: 14, nodeRadius: 10, controlRadius: 8, font: 'serif', density: 'comfortable', hoverLift: 5, translucentAlpha: .9, blur: 12, comparison: 'standard', shadow: 'none' } }
+}
 
 describe('selected theme runtime', () => {
   it('keeps equal refreshes stable and notifies palette/font changes with unchanged appearance', () => {
@@ -38,6 +42,47 @@ describe('selected theme runtime', () => {
     for (const role of ['panel','card','focus','node','flow']) expect(tokens[`--iexp-shadow-${role}`]).toBe('none')
     const plain = builtInThemes.find(t=>t.id==='plain')!, quiet = themeStyleTokens(plain,appearanceTokens(undefined,plain))
     expect(quiet['--iexp-hover-lift']).toBe('0px'); expect(quiet['--iexp-backdrop']).toBe('none')
+  })
+  it('switches ASCII tokens on and restores every presentation/font token when switching back', () => {
+    themePreferences.set({ activeId: 'ascii', installed: [] })
+    const ascii = themePreferences.getSnapshot(), tokens = themeStyleTokens(ascii, appearanceTokens(undefined, ascii))
+    expect(tokens['--iexp-presentation']).toBe('ascii')
+    expect(tokens['--iexp-font-mono']).toBe('1')
+    expect(tokens['--iexp-font']).toContain('"DSH Recursive"')
+    expect(tokens['--iexp-font']).toContain('monospace')
+    expect(tokens['--iexp-code-font']).toContain('"DSH Recursive"')
+    expect(tokens['--iexp-bg']).toBe('rgba(25, 28, 25, 0.85)')
+    expect(tokens['--iexp-panel-radius']).toBe('12px')
+    expect(tokens['--iexp-hover-lift']).toBe('-2px')
+    themePreferences.set({ activeId: 'empryo', installed: [] })
+    const restored = themePreferences.getSnapshot(), other = themeStyleTokens(restored, appearanceTokens(undefined, restored))
+    expect(other['--iexp-presentation']).toBe('standard')
+    expect(other['--iexp-font-mono']).toBe('0')
+    expect(other['--iexp-font']).not.toContain('monospace')
+    expect(other['--iexp-bg']).toBe('rgba(36, 38, 43, 0.72)')
+    expect(other['--iexp-panel-radius']).toBe('28px')
+    expect(other['--iexp-hover-lift']).toBe('-3px')
+  })
+  it('keeps the four ASCII chart colors distinct and readable in dark and light appearances', () => {
+    const ascii = resolveTheme({ activeId: 'ascii', installed: [] })
+    const channels = (value: string) => value.match(/[\d.]+/g)!.map(Number)
+    const luminance = (color: number[]) => color.slice(0, 3).reduce((sum, c, index) => {
+      const channel = c / 255
+      return sum + (channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][index]!
+    }, 0)
+    for (const preference of [undefined, { backgroundColor: '#f5f7f1', translucent: false }]) {
+      const variables = appearanceTokens(preference, ascii).variables
+      const colors = [1, 2, 3, 4].map(index => variables[`--iexp-series-${index}`]!)
+      expect(new Set(colors).size).toBe(4)
+      for (const color of colors) for (const surface of ['--iexp-bg', '--iexp-card', '--iexp-card-hover', '--iexp-soft']) {
+        const bg = channels(variables[surface]!), fg = luminance(channels(color)), opacity = bg[3]!
+        for (const underlay of [0, 255]) {
+          const blended = bg.slice(0, 3).map(channel => channel * opacity + underlay * (1 - opacity))
+          const back = luminance(blended)
+          expect((Math.max(fg, back) + .05) / (Math.min(fg, back) + .05)).toBeGreaterThanOrEqual(4.5)
+        }
+      }
+    }
   })
   it('updates the same stylesheet for theme-only changes and restores all state on disposal', () => {
     const store = new ExperienceStore(), settings = { ...initialSettings(), takeover: true }

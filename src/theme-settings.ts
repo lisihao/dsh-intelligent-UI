@@ -16,7 +16,8 @@ export function parseThemeFile(text: string): ThemePackage {
   const parsed = themePackageSchema.safeParse(value)
   if (!parsed.success) {
     const version = value && typeof value === 'object' && 'formatVersion' in value ? value.formatVersion : undefined
-    if (version !== 1 && version !== 2) throw new Error('不支持这个主题包版本；当前支持 formatVersion 为 1 或 2 的主题包。')
+    if (version !== 1 && version !== 2 && version !== 3) throw new Error('不支持这个主题包版本；当前支持 formatVersion 为 1、2 或 3 的主题包。')
+    if (version === 3) throw new Error('ASCII 主题的展示方式或等宽字体无效，请检查主题包或更新智能 UI。')
     if (version === 2) throw new Error('主题组件方案不受支持或字段无效，请更新智能体验插件并检查主题包。')
     throw new Error('主题包字段或数值不符合格式，请检查主题名称、配色和样式参数。')
   }

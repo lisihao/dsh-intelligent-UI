@@ -10,6 +10,7 @@ vi.mock('../src/canvas-runtime-client.js', () => ({
 }))
 import { CanvasObjectView, glbSource, inspectGlb, isGlb, isSafeRaster, modelDomain, readGlbResponse } from '../src/canvas-object-view.js'
 import { ContentView, OutputView } from '../src/presentation.js'
+import { themePreferences } from '../src/theme-runtime.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -33,7 +34,7 @@ function fixtureJpeg(): Uint8Array {
 }
 
 describe('source-bound Canvas object display', () => {
-  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks() })
+  afterEach(() => { themePreferences.reset(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.clearAllMocks() })
 
   it.each([false, true])('renders a validated Markdown data PNG as the original image with reduced motion %s', async reduced => {
     const bytes = fixturePng()
@@ -412,6 +413,123 @@ describe('source-bound Canvas object display', () => {
     expect(runtime.destroy).toHaveBeenCalledTimes(1)
     expect(runtime.release).toHaveBeenCalled()
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/fixture')
+  })
+
+  it('switches a mounted source model Ink → ASCII → Ink, disposing each previous effect and retaining the source', async () => {
+    const bytes = fixtureGlb(), value = { type: 'glb', url: '/source.glb', caption: '原始模型' }, original = JSON.stringify(value)
+    const destroys: Array<ReturnType<typeof vi.fn>> = []
+    runtime.load.mockImplementation(async () => (_elements: unknown, options: { onLoad(): void }) => {
+      const destroy = vi.fn(); destroys.push(destroy); options.onLoad(); return { destroy }
+    })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as WebGL2RenderingContext)
+    vi.stubGlobal('IntersectionObserver', class { constructor(private callback: IntersectionObserverCallback) {} observe(target: Element) { this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver) } disconnect() {} })
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer })
+    vi.stubGlobal('fetch', fetchMock)
+    let objectId = 0
+    URL.createObjectURL = vi.fn().mockImplementation(() => `blob:http://localhost/theme-${++objectId}`)
+    URL.revokeObjectURL = vi.fn()
+    themePreferences.reset()
+    const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
+    try {
+      await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 10)) })
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+      const sourceText = host.querySelector('pre')!.textContent
+      const sourceLink = host.querySelector<HTMLAnchorElement>('a.iexp-model-source-link')!
+      expect(sourceText).toBe(JSON.stringify(value, null, 2))
+      expect(sourceLink.getAttribute('href')).toBe(new URL('/source.glb', location.href).href)
+      expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ink-object'])
+
+      await act(async () => { themePreferences.set({ activeId: 'ascii', installed: [] }); await new Promise(resolve => setTimeout(resolve, 10)) })
+      expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ink-object', 'ascii-object'])
+      expect(destroys[0]).toHaveBeenCalledTimes(1)
+      expect(runtime.release).toHaveBeenCalledTimes(1)
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/theme-1')
+      expect(destroys[0]!.mock.invocationCallOrder[0]).toBeLessThan(runtime.load.mock.invocationCallOrder[1]!)
+      expect(runtime.release.mock.invocationCallOrder[0]).toBeLessThan(runtime.load.mock.invocationCallOrder[1]!)
+      expect(host.querySelector('pre')!.textContent).toBe(sourceText)
+      expect(host.querySelector<HTMLAnchorElement>('a.iexp-model-source-link')!.getAttribute('href')).toBe(sourceLink.getAttribute('href'))
+
+      await act(async () => { themePreferences.set({ activeId: 'empryo', installed: [] }); await new Promise(resolve => setTimeout(resolve, 10)) })
+      expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ink-object', 'ascii-object', 'ink-object'])
+      expect(destroys[1]).toHaveBeenCalledTimes(1)
+      expect(runtime.release).toHaveBeenCalledTimes(2)
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/theme-2')
+      expect(destroys[1]!.mock.invocationCallOrder[0]).toBeLessThan(runtime.load.mock.invocationCallOrder[2]!)
+      expect(host.querySelector('pre')!.textContent).toBe(sourceText)
+      expect(host.querySelector<HTMLAnchorElement>('a.iexp-model-source-link')!.getAttribute('href')).toBe(sourceLink.getAttribute('href'))
+      expect(JSON.stringify(value)).toBe(original)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+    } finally { await act(async () => root.unmount()); host.remove() }
+    expect(destroys[2]).toHaveBeenCalledTimes(1)
+    expect(runtime.release).toHaveBeenCalledTimes(3)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/theme-3')
+  })
+
+  it.each(['reduced-motion', 'hidden-page', 'offscreen'] as const)('does not fetch or create an ASCII model while %s, then starts when allowed', async blocked => {
+    const bytes = fixtureGlb(), value = { type: 'glb', src: '/paused.glb' }
+    let reduced = blocked === 'reduced-motion', pageVisible = blocked !== 'hidden-page', inView = blocked !== 'offscreen'
+    let changeMotion = () => {}, changeIntersection = () => {}
+    const media = { get matches() { return reduced }, addEventListener(_type: string, callback: () => void) { changeMotion = callback }, removeEventListener() {} }
+    vi.stubGlobal('matchMedia', () => media)
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => pageVisible ? 'visible' : 'hidden')
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe(target: Element) {
+        changeIntersection = () => this.callback([{ isIntersecting: inView, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver)
+        changeIntersection()
+      }
+      disconnect() {}
+    })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as WebGL2RenderingContext)
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }); vi.stubGlobal('fetch', fetchMock)
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/paused'); URL.revokeObjectURL = vi.fn()
+    runtime.load.mockResolvedValue((_elements: unknown, options: { onLoad(): void }) => { options.onLoad(); return { destroy: runtime.destroy } })
+    themePreferences.set({ activeId: 'ascii', installed: [] })
+    const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
+    try {
+      await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 0)) })
+      await act(async () => { themePreferences.set({ activeId: 'empryo', installed: [] }); themePreferences.set({ activeId: 'ascii', installed: [] }); await new Promise(resolve => setTimeout(resolve, 0)) })
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(runtime.load).not.toHaveBeenCalled()
+      expect(runtime.release).not.toHaveBeenCalled()
+      expect(host.querySelector('pre')!.textContent).toBe(JSON.stringify(value, null, 2))
+      expect(host.querySelector<HTMLAnchorElement>('a.iexp-model-source-link')!.getAttribute('href')).toBe(new URL('/paused.glb', location.href).href)
+
+      await act(async () => {
+        if (blocked === 'reduced-motion') { reduced = false; changeMotion() }
+        if (blocked === 'hidden-page') { pageVisible = true; document.dispatchEvent(new Event('visibilitychange')) }
+        if (blocked === 'offscreen') { inView = true; changeIntersection() }
+        await new Promise(resolve => setTimeout(resolve, 10))
+      })
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(runtime.load).toHaveBeenCalledOnce()
+      expect(runtime.load).toHaveBeenCalledWith('ascii-object')
+      expect(host.querySelector('pre')!.textContent).toBe(JSON.stringify(value, null, 2))
+    } finally { await act(async () => root.unmount()); host.remove() }
+    expect(runtime.destroy).toHaveBeenCalledTimes(1)
+    expect(runtime.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps an eligible image on Ink when the ASCII theme is selected', async () => {
+    const bytes = fixturePng(), value = { type: 'image/png', role: 'illustration', url: '/art.png', alt: '原始插画' }
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('IntersectionObserver', class { constructor(private callback: IntersectionObserverCallback) {} observe(target: Element) { this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver) } disconnect() {} })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as WebGL2RenderingContext)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }))
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/art'); URL.revokeObjectURL = vi.fn()
+    runtime.load.mockResolvedValue((_elements: unknown, options: { onLoad(): void }) => { options.onLoad(); return { destroy: runtime.destroy } })
+    themePreferences.set({ activeId: 'ascii', installed: [] })
+    const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
+    try {
+      await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 10)) })
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+      expect(runtime.load).toHaveBeenCalledWith('ink-object')
+      expect(runtime.load).not.toHaveBeenCalledWith('ascii-object')
+      expect(host.querySelector('img')?.getAttribute('alt')).toBe('原始插画')
+      expect(host.querySelector('pre')!.textContent).toBe(JSON.stringify(value, null, 2))
+    } finally { await act(async () => root.unmount()); host.remove() }
   })
 
   it('recognizes an explicit model in the normal content path while retaining the source text', async () => {

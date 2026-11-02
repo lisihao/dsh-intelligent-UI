@@ -46,7 +46,7 @@ export function installExperienceStyles(): () => void {
 .dsh-experience.iexp-content {
   color: var(--iexp-text); background: var(--iexp-bg); padding: clamp(16px, 2.5vw, calc(24px * var(--iexp-density))); border-radius: 0; max-width: 1240px; box-sizing: border-box; margin-inline: auto;
   font-family: var(--iexp-font);
-  font-size: 15px; line-height: calc(1.7 * var(--iexp-density)); font-variation-settings: 'CASL' 0, 'MONO' 0, 'slnt' 0, 'CRSV' 0; min-width: 0;
+  font-size: 15px; line-height: calc(1.7 * var(--iexp-density)); font-variation-settings: 'CASL' 0, 'MONO' var(--iexp-font-mono,0), 'slnt' 0, 'CRSV' 0; min-width: 0;
   scrollbar-color: var(--iexp-line) var(--iexp-bg); caret-color: var(--iexp-accent);
 }
 .iexp-content ::selection { background: var(--iexp-accent); color: var(--iexp-bg); }

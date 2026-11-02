@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-31T13:20:13.963583+00:00",
+  "generatedAt": "2026-11-02T22:59:33.342811+00:00",
   "title": "Design System: DSH Intelligent Experience Platform",
   "extensions": {
     "typographyMeta": {
@@ -11,6 +11,10 @@
       "code": {
         "displayName": "Recursive mono axis",
         "purpose": "Code blocks use MONO 1 and CASL 0."
+      },
+      "ascii-body": {
+        "displayName": "ASCII Recursive monospace axis",
+        "purpose": "Source-preserving ASCII presentation; use the bundled font with a monospace fallback."
       }
     },
     "shadows": [
@@ -114,15 +118,165 @@
     },
     "themePackages": {
       "contract": "docs/design/experience-themes.md",
-      "format": "Data-only .dsh-theme.json v1; no CSS, JavaScript or remote assets",
+      "format": "Data-only .dsh-theme.json v1, v2 and v3; v2 selects a bundled component set; v3 selects ASCII with a mono font; no CSS, JavaScript or remote assets",
       "builtIns": [
         "empryo",
-        "plain"
+        "ascii",
+        "plain",
+        "uiverse-soft-relief",
+        "uiverse-clear-glass",
+        "uiverse-mechanical-outline"
       ],
       "downloadableExample": "linen",
       "persistence": "Existing owner settings CAS; import does not activate",
       "restoration": "Remove owned styles on takeover off or plugin disposal; no other plugin modifications",
       "knownFrameException": "Same-origin ThoughtDAG only; original logo font metrics retained"
+    },
+    "colorMeta": {
+      "ascii-ground": {
+        "role": "neutral",
+        "displayName": "Graphite ground",
+        "canonical": "#191c19",
+        "tonalRamp": [
+          "oklch(15% 0.0018 145.32)",
+          "oklch(26% 0.0038 145.32)",
+          "oklch(37% 0.0058 145.32)",
+          "oklch(48% 0.0073 145.32)",
+          "oklch(60% 0.0073 145.32)",
+          "oklch(72% 0.0056 145.32)",
+          "oklch(84% 0.0031 145.32)",
+          "oklch(95% 0.0008 145.32)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-primary-dark": {
+        "role": "primary",
+        "displayName": "Pale leaf green",
+        "canonical": "#b9d985",
+        "tonalRamp": [
+          "oklch(15% 0.0287 125.76)",
+          "oklch(26% 0.0603 125.76)",
+          "oklch(37% 0.0918 125.76)",
+          "oklch(48% 0.1148 125.76)",
+          "oklch(60% 0.1148 125.76)",
+          "oklch(72% 0.0885 125.76)",
+          "oklch(84% 0.0492 125.76)",
+          "oklch(95% 0.0131 125.76)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-primary-light": {
+        "role": "primary",
+        "displayName": "Deep leaf green",
+        "canonical": "#405d25",
+        "tonalRamp": [
+          "oklch(15% 0.0224 131.93)",
+          "oklch(26% 0.0470 131.93)",
+          "oklch(37% 0.0717 131.93)",
+          "oklch(48% 0.0896 131.93)",
+          "oklch(60% 0.0896 131.93)",
+          "oklch(72% 0.0691 131.93)",
+          "oklch(84% 0.0384 131.93)",
+          "oklch(95% 0.0102 131.93)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-cyan-dark": {
+        "role": "secondary",
+        "displayName": "Pale cyan series",
+        "canonical": "#89cdd1",
+        "tonalRamp": [
+          "oklch(15% 0.0172 200.57)",
+          "oklch(26% 0.0361 200.57)",
+          "oklch(37% 0.0549 200.57)",
+          "oklch(48% 0.0687 200.57)",
+          "oklch(60% 0.0687 200.57)",
+          "oklch(72% 0.0530 200.57)",
+          "oklch(84% 0.0294 200.57)",
+          "oklch(95% 0.0078 200.57)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-sand-dark": {
+        "role": "secondary",
+        "displayName": "Pale sand series",
+        "canonical": "#d8bf91",
+        "tonalRamp": [
+          "oklch(15% 0.0168 82.54)",
+          "oklch(26% 0.0352 82.54)",
+          "oklch(37% 0.0537 82.54)",
+          "oklch(48% 0.0671 82.54)",
+          "oklch(60% 0.0671 82.54)",
+          "oklch(72% 0.0518 82.54)",
+          "oklch(84% 0.0288 82.54)",
+          "oklch(95% 0.0077 82.54)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-rose-dark": {
+        "role": "secondary",
+        "displayName": "Pale rose series",
+        "canonical": "#cfafc6",
+        "tonalRamp": [
+          "oklch(15% 0.0120 336.17)",
+          "oklch(26% 0.0253 336.17)",
+          "oklch(37% 0.0385 336.17)",
+          "oklch(48% 0.0481 336.17)",
+          "oklch(60% 0.0481 336.17)",
+          "oklch(72% 0.0371 336.17)",
+          "oklch(84% 0.0206 336.17)",
+          "oklch(95% 0.0055 336.17)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-cyan-light": {
+        "role": "secondary",
+        "displayName": "Deep cyan series",
+        "canonical": "#275c61",
+        "tonalRamp": [
+          "oklch(15% 0.0141 203.68)",
+          "oklch(26% 0.0296 203.68)",
+          "oklch(37% 0.0451 203.68)",
+          "oklch(48% 0.0564 203.68)",
+          "oklch(60% 0.0564 203.68)",
+          "oklch(72% 0.0435 203.68)",
+          "oklch(84% 0.0242 203.68)",
+          "oklch(95% 0.0064 203.68)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-sand-light": {
+        "role": "secondary",
+        "displayName": "Deep sand series",
+        "canonical": "#6f511f",
+        "tonalRamp": [
+          "oklch(15% 0.0193 77.26)",
+          "oklch(26% 0.0405 77.26)",
+          "oklch(37% 0.0618 77.26)",
+          "oklch(48% 0.0772 77.26)",
+          "oklch(60% 0.0772 77.26)",
+          "oklch(72% 0.0595 77.26)",
+          "oklch(84% 0.0331 77.26)",
+          "oklch(95% 0.0088 77.26)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-rose-light": {
+        "role": "secondary",
+        "displayName": "Deep rose series",
+        "canonical": "#704b66",
+        "tonalRamp": [
+          "oklch(15% 0.0159 336.94)",
+          "oklch(26% 0.0334 336.94)",
+          "oklch(37% 0.0510 336.94)",
+          "oklch(48% 0.0637 336.94)",
+          "oklch(60% 0.0637 336.94)",
+          "oklch(72% 0.0491 336.94)",
+          "oklch(84% 0.0273 336.94)",
+          "oklch(95% 0.0073 336.94)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      }
     }
   },
   "components": [
@@ -200,22 +354,35 @@
       "description": "Unboxed direct-label meter; shared-scale CSS width preserves the original numeric value. Illustrative value only.",
       "html": "<div class=\"ds-comparison-row\"><span class=\"ds-comparison-label\">示例项目</span><div class=\"ds-comparison-measure\"><div class=\"ds-comparison-meter\" role=\"meter\" aria-label=\"示例项目\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-valuetext=\"50\"><span class=\"ds-comparison-stroke\"></span></div><span class=\"ds-comparison-value\" aria-hidden=\"true\">50</span></div></div>",
       "css": ".ds-comparison-row{color:var(--iexp-text,#1a2028);font-variant-numeric:tabular-nums}.ds-comparison-label{display:block;margin-block-end:5px;font:13px/1.55 \"DSH Recursive\",sans-serif}.ds-comparison-measure{position:relative;width:calc(100% - 11ch);min-height:29px}.ds-comparison-meter{position:absolute;top:0;width:100%;height:17px;padding-block:3px}.ds-comparison-meter::before{content:\"\";position:absolute;inset-inline:0;top:8px;height:1px;background:var(--iexp-line,#cdd5dc)}.ds-comparison-stroke{position:relative;display:block;width:50%;height:11px;background:var(--iexp-accent,#4a6a80);border-radius:4% 3% 5% 2% / 42% 56% 38% 58%}.ds-comparison-value{position:relative;display:block;top:-3px;inset-inline-start:50%;margin-inline-start:9px;width:10ch;font:13px/1.55 \"DSH Recursive\",sans-serif}@media(forced-colors:active){.ds-comparison-stroke{background:CanvasText;forced-color-adjust:none}.ds-comparison-meter::before{background:GrayText;forced-color-adjust:none}}"
+    },
+    {
+      "name": "ASCII source comparison",
+      "kind": "custom",
+      "description": "Illustrative source-backed categorical comparison; the original value stays readable and the character marks are approximate.",
+      "html": "<div class=\"ds-ascii\"><p class=\"ds-ascii-guide\">字符条为近似；精确数值见原文和数据表。</p><ol class=\"ds-ascii-list\"><li><div>示例项目</div><div class=\"ds-ascii-measure\"><span>示例单位</span><span>42</span><span class=\"ds-ascii-marks\" aria-hidden=\"true\">|########----</span></div></li></ol></div>",
+      "css": ".ds-ascii{color:var(--iexp-text,#e8ebee);font:13px/1.55 \"DSH Recursive\",monospace;font-variation-settings:\"MONO\" 1,\"CASL\" 0}.ds-ascii-guide{margin:0 0 12px;color:var(--iexp-muted,#adb5bf)}.ds-ascii-list{display:grid;gap:12px;margin:0;padding:0;list-style:none}.ds-ascii-measure{display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:8px}.ds-ascii-marks{grid-column:1/-1;white-space:pre;color:var(--iexp-accent,#b9d985)}"
     }
   ],
   "narrative": {
     "northStar": "Source-led reading in Undertow",
-    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation, settings and appearance. Plugin content uses the measured Undertow light/dark palette, local Recursive typography and Lucide outlines. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.",
+    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.\n\nASCII is a separate selectable presentation alongside the default Empryo. Its character plots and fixed-width type organize eligible source-derived comparisons without changing the source. Its current implementation is a development candidate; official DSH installation and acceptance are pending.",
     "keyCharacteristics": [
-      "Unboxed prose and compact comparisons share quiet Undertow surfaces.",
+      "Continuous prose and compact comparisons share the configurable quiet gray content surface; data cards use rounded elevation.",
       "Composition follows explicit source structure rather than decorative tiles.",
       "Complete tables, records and relationship sources remain inspectable.",
-      "One host-header selector controls presentation, original and comparison modes."
+      "One host-header selector controls presentation, original and comparison modes.",
+      "A separate compact theme selector switches the active presentation for the conversation."
     ],
     "rules": [
       {
-        "name": "Scoped Theme Preference",
-        "body": "User-selected data-only theme controls IEP and compatible scoped surfaces; official application preferences remain owned by DSH.",
+        "name": "The Content Preference Rule",
+        "body": "Plugin Settings → 内容外观 offers 半透明背景, a native color well, editable #RRGGBB and 恢复默认外观. The user explicitly requested this content preference; it does not change official navigation, host theme or credentials. Legacy settings without appearance use the default without an implicit file migration.",
         "section": "colors"
+      },
+      {
+        "name": "The Fixed-Width Plot Rule",
+        "body": "Character bars use the monospace axis; labels and exact source values remain readable and are not converted into decoration.",
+        "section": "typography"
       },
       {
         "name": "The Source Stays Reachable Rule",
@@ -225,15 +392,16 @@
     ],
     "dos": [
       "Do choose composition from explicit source structure while keeping prose in document order.",
-      "Do use the host's resolved scheme and the single conversation-header selector.",
+      "Do scope configurable surface appearance to plugin content and keep the single conversation-header selector.",
       "Do retain exact source strings, units, exclusions, qualifications and complete sources.",
       "Do keep the local Recursive font and OFL together.",
+      "Do keep ASCII chart marks approximate and the exact source values and qualifications visible.",
       "Do distinguish browser review from installed official DSH acceptance."
     ],
     "donts": [
-      "Don't wrap every paragraph or compact comparison in a card.",
+      "Don't wrap every paragraph in a card.",
       "Don't invent data, graph edges, task status or execution success for visual effect.",
-      "Don't add per-output theme or display selectors; use shared Settings and conversation controls.",
+      "Don't alter host theme or introduce per-output appearance/display controls.",
       "Don't promote fixture controls, private report content or detector preferences into product rules.",
       "Don't ship reference screenshots or infer app acceptance from browser captures."
     ]
