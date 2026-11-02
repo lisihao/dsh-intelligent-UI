@@ -20,6 +20,7 @@ await copyFile(join(root, 'assets/Recursive-OFL.txt'), join(root, 'lib/Recursive
 await copyFile(join(root, 'assets/DM-Sans-OFL.txt'), join(root, 'lib/DM-Sans-OFL.txt'))
 await copyFile(join(root, 'assets/Uiverse-MIT.txt'), join(root, 'lib/Uiverse-MIT.txt'))
 await copyFile(join(root, 'assets/Canvas-UI-LICENSE.md'), join(root, 'lib/Canvas-UI-LICENSE.md'))
+await copyFile(join(root, 'assets/modern-screenshot-MIT.txt'), join(root, 'lib/modern-screenshot-MIT.txt'))
 await mkdir(join(root, 'lib/themes'), { recursive: true })
 await copyFile(join(root, 'src/themes/linen-example.dsh-theme.json'), join(root, 'lib/themes/linen.dsh-theme.json'))
 await mkdir(join(root, 'lib/uiverse/assets'), { recursive: true })

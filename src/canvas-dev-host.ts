@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { z } from 'zod'
-import { CANVAS_UI_COMMIT, CANVAS_UI_LICENSE, canvasRegistryName, canvasRegistryUrl, searchCanvasComponents } from './canvas-catalog.js'
+import { CANVAS_UI_COMMIT, CANVAS_UI_LICENSE, canvasFactoryContract, canvasRegistryName, canvasRegistryUrl, searchCanvasComponents } from './canvas-catalog.js'
 
 export const CANVAS_DEVELOPMENT_TOOL = 'solar_ui_canvas_search'
 
@@ -28,6 +28,7 @@ export function searchCanvasDevelopment(input: unknown) {
       registryName: canvasRegistryName(component.slug, args.framework, args.renderer),
       registryUrl: canvasRegistryUrl(component.slug, args.framework, args.renderer),
       framework: args.framework, renderer: args.renderer,
+      webglVanillaContract: canvasFactoryContract(component.slug),
     })),
   }
 }

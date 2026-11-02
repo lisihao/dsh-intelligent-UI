@@ -41,6 +41,9 @@ importers:
       esbuild-wasm:
         specifier: 0.25.0
         version: 0.25.0
+      modern-screenshot:
+        specifier: 4.7.0
+        version: 4.7.0
       parse5:
         specifier: 7.3.0
         version: 7.3.0
@@ -5457,6 +5460,9 @@ packages:
 
   minisearch@7.2.0:
     resolution: {integrity: sha512-dqT2XBYUOZOiC5t2HRnwADjhNS2cecp9u+TJRiJ1Qp/f5qjkeT5APcGPjHw+bz89Ms8Jp+cG4AlE+QZ/QnDglg==}
+
+  modern-screenshot@4.7.0:
+    resolution: {integrity: sha512-9YxN+ddPSMMlhylOv25VHzXrl9u67QRxoh7+SEewGtgUw7t6hHTrjptSDJUSne9oG4Xk/h2cwG15nIt4Hc9ujg==}
 
   ms@2.0.0:
     resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
@@ -12669,6 +12675,8 @@ snapshots:
   mimic-response@4.0.0: {}
 
   minisearch@7.2.0: {}
+
+  modern-screenshot@4.7.0: {}
 
   ms@2.0.0: {}
 

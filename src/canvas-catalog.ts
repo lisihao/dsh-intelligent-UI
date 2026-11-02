@@ -93,6 +93,42 @@ export function findCanvasComponent(slug: string): CanvasComponent | undefined {
   return componentsBySlug.get(slug)
 }
 
+/** Name of the WebGL vanilla factory at the pinned upstream revision. */
+export function canvasFactoryName(slug: string): string | undefined {
+  if (!findCanvasComponent(slug)) return undefined
+  return `create${slug === 'vhs' ? 'VHS' : slug.split('-').map(part => part[0]!.toUpperCase() + part.slice(1)).join('')}`
+}
+
+/**
+ * Developer-facing shape of the vanilla WebGL integration. These are interface
+ * facts, not component code or a claim that a browser can run the effect.
+ */
+export function canvasFactoryContract(slug: string) {
+  const component = findCanvasComponent(slug)
+  const factory = canvasFactoryName(slug)
+  if (!component || !factory) return undefined
+  const elements = component.kind === 'object'
+    ? ['canvas: HTMLCanvasElement']
+    : slug === 'ascii-sweep'
+      ? ['slots: [{ source: HTMLCanvasElement, content: HTMLElement }, { source: HTMLCanvasElement, content: HTMLElement }]', 'output: HTMLCanvasElement']
+      : ['source: HTMLCanvasElement', 'content: HTMLElement', 'output: HTMLCanvasElement', ...(slug === 'peel' ? ['under?: HTMLElement'] : [])]
+  const specialMethods: Record<string, readonly string[]> = {
+    'ascii-sweep': ['sweep', 'current', 'capture'], 'force-field': ['impact'], frost: ['melt'],
+    glitch: ['burst'], liquid: ['splat'], ripple: ['splash'],
+  }
+  return {
+    factory,
+    backend: 'webgl' as const,
+    framework: 'vanilla' as const,
+    elements,
+    assetOption: component.kind === 'object' ? 'src' : undefined,
+    requiresScrollableContent: slug === 'bend' || slug === 'particle-scroll',
+    methods: ['setOptions', 'resize', 'destroy', ...(specialMethods[slug] ?? [])],
+    execution: slug === 'bend' || slug === 'hex-float' ? 'isolated-document-required' as const : 'caller-owned-surface' as const,
+    note: 'Factory can return null when required browser or GPU capabilities are absent. Destroy every created instance; preserve original content and interaction.',
+  }
+}
+
 export function searchCanvasComponents(input: { query?: string, kind?: CanvasComponentKind } = {}): readonly CanvasComponent[] {
   const tokens = (input.query ?? '').normalize('NFKC').trim().toLowerCase().split(/\s+/u).filter(Boolean)
   return CANVAS_UI_COMPONENTS.filter(component => {

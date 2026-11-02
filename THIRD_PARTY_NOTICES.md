@@ -3384,6 +3384,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## modern-screenshot 4.7.0
+
+Source: <https://github.com/qq15725/modern-screenshot>. MIT license and copyright notice are included in `lib/modern-screenshot-MIT.txt` in the package and `assets/modern-screenshot-MIT.txt` in source.
+
 ## zod 4.6.7
 
 Source: <https://github.com/colinhacks/zod>

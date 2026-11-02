@@ -23,6 +23,14 @@ describe('local Canvas UI runtime', () => {
     await expect(load('vhs')).resolves.toBeTypeOf('function')
   })
 
+  it.each([['bend', 'createBend'], ['hex-float', 'createHexFloat']])('refuses %s in the shared document even if the factory loads', async (slug, name) => {
+    const factory = vi.fn(() => ({ destroy() {} }))
+    const load = createCanvasEffectLoader(vi.fn().mockResolvedValue({ [name]: factory }))
+    const effect = await load(slug)
+    expect(() => effect({ source: {}, content: {}, output: {} })).toThrow('CANVAS_EFFECT_ISOLATION_REQUIRED')
+    expect(factory).not.toHaveBeenCalled()
+  })
+
   it('limits concurrent effects and releases waiting surfaces in order', () => {
     const acquire = createCanvasSlotPool(2), calls: number[] = []
     const releaseA = acquire(() => calls.push(1))

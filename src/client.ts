@@ -25,7 +25,9 @@ import { ThemeSettings } from './theme-settings.js'
 import { RPC_REMOTE } from './remote.js'
 import { ArtifactView, ContentView, DisplayModeControl, OutputView, displayModes, rawText, openUiWidgets, experienceTheme, type McpUiApi } from './presentation.js'
 import { DocumentView } from './document-view.js'
-import { loadCanvasEffect } from './canvas-runtime-client.js'
+import { createCanvasClientScope } from './canvas-client-scope.js'
+import { CanvasRuntimeContext } from './canvas-runtime-context.js'
+import { safeResearchUrl } from './research-content.js'
 import type { IntelligentUiClient } from './public-api.js'
 import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
@@ -35,8 +37,6 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' { interface Sess
 
 export const name = 'intelligent-experience-platform'
 export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
-// Retain the existing registry instance and method identities for current consumers.
-const uiClient: IntelligentUiClient = Object.assign(openUiWidgets, { DocumentView, loadCanvasEffect })
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
 type ClientApi = ExperienceApi & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
 type Wire = { [K in keyof ExperienceApi]: (...args: Parameters<ExperienceApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ExperienceApi[K]>>>> } & { [K in keyof ThemeApi]?: (...args: Parameters<ThemeApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ThemeApi[K]>>>> } & { [K in keyof WidgetStateApi]?: (...args: Parameters<WidgetStateApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<WidgetStateApi[K]>>>> } & { mcpStatus?: () => Promise<RemoteResult<unknown>> } & { [K in keyof McpUiApi]?: (...args: Parameters<McpUiApi[K]>) => Promise<RemoteResult<unknown>> }
@@ -182,6 +182,20 @@ export function Workspace({ store, sessionId, onContinue, onOrganize }: { store:
   }))
 }
 export function apply(ctx: Context): void {
+  const canvasScope = createCanvasClientScope()
+  const ScopedDocumentView: typeof DocumentView = props => {
+    const active = useSyncExternalStore(canvasScope.subscribe, canvasScope.getSnapshot, canvasScope.getSnapshot)
+    if (!active) {
+      const sourceUrl = props.source?.url && safeResearchUrl(props.source.url)
+      const sourceLabel = props.source?.label?.trim() ? props.source.label : props.source?.url
+      return h('article', { 'data-iexp-document-id': props.documentId },
+        sourceLabel && h('p', null, '来源：', sourceUrl ? h('a', { href: sourceUrl, target: '_blank', rel: 'noopener noreferrer' }, sourceLabel) : h('span', null, sourceLabel, props.source?.url && props.source.url !== sourceLabel ? ` · ${props.source.url}` : '')),
+        h('pre', { style: styles.raw }, rawText(props.raw === undefined ? props.value : props.raw)))
+    }
+    return h(CanvasRuntimeContext.Provider, { value: canvasScope.loadCanvasEffect }, h(DocumentView, props))
+  }
+  // Retain the existing registry instance and method identities for current consumers.
+  const uiClient: IntelligentUiClient = Object.assign(openUiWidgets, { DocumentView: ScopedDocumentView, loadCanvasEffect: canvasScope.loadCanvasEffect, createCanvasHtmlTextureBridge: canvasScope.createCanvasHtmlTextureBridge })
   // Host and browser both contribute Context.sessions in the shared type graph.
   // This entry is browser-only and consumes the published client service face.
   const sessionContext = {sessions: ctx.get('sessions') as unknown as ISessions}
@@ -194,6 +208,7 @@ export function apply(ctx: Context): void {
   }, 'intelligent-experience: theme')
   ctx.effect(() => () => { displayModes.clear(); researchModes.clear() }, 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
+  ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
   const store = new ExperienceStore()
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')

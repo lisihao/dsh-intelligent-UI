@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CANVAS_UI_COMMIT, CANVAS_UI_COMPONENTS, CANVAS_UI_LICENSE, CANVAS_UI_LICENSE_URL,
-  canvasRegistryName, canvasRegistryUrl, findCanvasComponent, searchCanvasComponents,
+  canvasFactoryContract, canvasFactoryName, canvasRegistryName, canvasRegistryUrl, findCanvasComponent, searchCanvasComponents,
   type CanvasFramework, type CanvasRenderer,
 } from '../src/canvas-catalog.js'
 
@@ -60,5 +60,16 @@ describe('Canvas UI metadata catalog', () => {
     expect(names).toHaveLength(420)
     expect(new Set(names).size).toBe(420)
     expect(names.every(Boolean)).toBe(true)
+  })
+
+  it('describes the pinned WebGL factory inputs and isolates global hover rewrites', () => {
+    const contracts = CANVAS_UI_COMPONENTS.map(item => canvasFactoryContract(item.slug)!)
+    expect(new Set(contracts.map(contract => contract.factory)).size).toBe(35)
+    expect(canvasFactoryName('vhs')).toBe('createVHS')
+    expect(canvasFactoryName('not-in-catalog')).toBeUndefined()
+    expect(canvasFactoryContract('ascii-sweep')?.elements[0]).toContain('slots:')
+    expect(canvasFactoryContract('peel')?.elements).toContain('under?: HTMLElement')
+    expect(canvasFactoryContract('particle-scroll')?.requiresScrollableContent).toBe(true)
+    expect(CANVAS_UI_COMPONENTS.filter(item => canvasFactoryContract(item.slug)?.execution === 'isolated-document-required').map(item => item.slug).sort()).toEqual(['bend', 'hex-float'])
   })
 })

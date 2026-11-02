@@ -1,6 +1,6 @@
-import { CANVAS_UI_COMMIT, findCanvasComponent } from './canvas-catalog.js'
+import { CANVAS_UI_COMMIT, canvasFactoryContract, canvasFactoryName, findCanvasComponent } from './canvas-catalog.js'
 
-export interface CanvasEffectInstance { destroy(): void; setOptions?(options: Record<string, unknown>): void }
+export interface CanvasEffectInstance { destroy(): void; resize?(): void; setOptions?(options: Record<string, unknown>): void }
 export type CanvasEffectFactory = (elements: Record<string, unknown>, options?: Record<string, unknown>) => CanvasEffectInstance | null
 type EffectImporter = (url: string) => Promise<Record<string, unknown>>
 
@@ -9,10 +9,6 @@ export function canvasEffectUrl(slug: string, attempt: number): string {
   if (!findCanvasComponent(slug) || !Number.isSafeInteger(attempt) || attempt < 0) throw new Error('CANVAS_EFFECT_INVALID: Unknown effect or attempt.')
   const query = new URLSearchParams({ slug, revision: CANVAS_UI_COMMIT, attempt: String(attempt) })
   return `/api/intelligent-ui-canvas-effect?${query}`
-}
-
-function factoryName(slug: string): string {
-  return `create${slug === 'vhs' ? 'VHS' : slug.split('-').map(part => part[0]!.toUpperCase() + part.slice(1)).join('')}`
 }
 
 export function createCanvasEffectLoader(importer: EffectImporter = url => import(/* @vite-ignore */ url)): (slug: string) => Promise<CanvasEffectFactory> {
@@ -25,8 +21,14 @@ export function createCanvasEffectLoader(importer: EffectImporter = url => impor
     const attempt = attempts.get(slug) ?? 0
     attempts.set(slug, attempt + 1)
     const pending = importer(canvasEffectUrl(slug, attempt)).then(module => {
-      const factory = module[factoryName(slug)]
+      const factory = module[canvasFactoryName(slug)!]
       if (typeof factory !== 'function') throw new Error('CANVAS_EFFECT_EXPORT_MISSING: The upstream effect did not provide its expected factory.')
+      if (canvasFactoryContract(slug)?.execution === 'isolated-document-required') {
+        // These upstream factories can permanently rewrite the executing document's
+        // hover rules. Passing an iframe-owned canvas alone does not change their
+        // JavaScript realm, so refuse until an actual isolated runner is available.
+        return () => { throw new Error('CANVAS_EFFECT_ISOLATION_REQUIRED: 此效果需要独立页面，暂不能在共享页面中运行。') }
+      }
       return factory as CanvasEffectFactory
     }).catch(error => { if (loaded.get(slug) === pending) loaded.delete(slug); throw error })
     loaded.set(slug, pending)

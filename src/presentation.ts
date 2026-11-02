@@ -1,5 +1,6 @@
 import { DenseLinePlot, requiresDenseLinePlot } from './dense-line-plot.js'
 import { CanvasObjectView, glbSource } from './canvas-object-view.js'
+import { markdownIllustrations } from './markdown-illustrations.js'
 import { ChartViewport, ChartDataTable, PagedTableBody } from './chart-viewport.js'
 import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
@@ -138,6 +139,8 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
   const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
+  const colorScheme = useExperienceTheme()
+  const illustrations = useMemo(() => isStreaming ? [] : markdownIllustrations(text), [text, isStreaming])
   const sections = useMemo(() => !isStreaming && selectedTheme.tokens.composition === 'continuous' ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition])
   const prefix = useId().replaceAll(':', '')
   // Stable renderer types retain native disclosures and nested layout state during polling.
@@ -152,7 +155,16 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
       tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
-        return flow ? h(SafeFlow, { plan: flow }) : h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
+        if (flow) return h(SafeFlow, { plan: flow })
+        const illustration = illustrations.find(item => item.start === node?.position?.start.offset)
+        if (illustration) {
+          // The Markdown node itself provides the URL, alt text and image kind;
+          // retain the original child even if verification or the effect fails.
+          const record = { type: illustration.mime, role: 'illustration', url: illustration.url, alt: illustration.alt }
+          const source = glbSource(record)
+          if (source) return h('div', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: h('div', { className: 'iexp-markdown-illustration-original' }, children) }))
+        }
+        return h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
       },
       a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
       td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
@@ -168,7 +180,7 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
-  }, [layout, prefix, tables, sections])
+  }, [layout, prefix, tables, sections, illustrations, colorScheme])
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
 function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {

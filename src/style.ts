@@ -126,6 +126,8 @@ export function installExperienceStyles(): () => void {
 @media (prefers-reduced-motion: reduce) { .iexp-chart-card { transition: none; } }
 .dsh-experience .openui-markdown-renderer { overflow-wrap: anywhere; }
 .dsh-experience .openui-markdown-renderer-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.iexp-content .iexp-markdown-illustration-original { display:flex; align-items:center; justify-content:center; width:100%; height:auto; max-height:260px; min-height:0; }
+.iexp-content .iexp-markdown-illustration-original img { display:block; max-width:100%; max-height:260px; width:auto; height:auto; object-fit:contain; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 ` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
   document.head.append(element)
