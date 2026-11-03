@@ -59,6 +59,10 @@ effect.burst() // Glitch only; optional
 
 This section describes development work beyond the published `0.1.0-preview.2` archive below. A later Desktop candidate passed scoped GLB and structured JPEG checks; a following candidate fixed its broken Markdown `data:` PNG original, and the original and Ink were observed after uninstall/reinstall. The new HTML adapters and subsequent automatic-domain changes still require Desktop acceptance. See [integration design](docs/integrations/canvas-ui.md).
 
+## Local data browser
+
+**生成内容 → 导入并展示** accepts UTF-8 JSON, Markdown and TXT using the existing source-preserving renderer. The import is stored only in this plugin’s current-session artifacts; it does not submit the document to a model. Original tables in the current development candidate automatically fit their available container and show the resulting scale. **原尺寸** restores a keyboard-focusable horizontal viewport for detail; **适应宽度** restores the full overview. The existing cells, columns, source strings and anchors remain intact. Prose and toolbar controls keep their normal size. Research technical comparisons and chart source tables share this adapter. Very narrow, dense overviews can be small; use native size to read them. Formal Desktop acceptance of this update remains pending.
+
 ## Research workspace (preview)
 
 The conversation-level **研究工作区** control adds report, judgments, sources and technical-comparison views inside the current UI-owned output. Reading remains source-preserving. Citation links and table cells open the report-local evidence inspector; returning to a source block retains the report. The inspector distinguishes a reference recorded in the report from an independently checked external source.

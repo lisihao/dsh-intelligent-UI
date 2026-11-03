@@ -1,6 +1,7 @@
 import { createElement as h, Children, isValidElement, useMemo, useState, type ReactElement, type ReactNode, type FormEvent, type SyntheticEvent } from 'react'
 import type { AutoChartPlan } from './content-analysis.js'
 import { ThemeButton, ThemeInput } from './theme-components.js'
+import { TableViewport } from './table-viewport.js'
 import { SOURCE_PAGE_SIZE, chartAtRows, chartRowIndexes } from './chart-scaling.js'
 const count = new Intl.NumberFormat()
 
@@ -41,8 +42,8 @@ export function ChartDataTable({ plan, inline = false }: { plan: AutoChartPlan, 
       h(ThemeButton, { type: 'button', disabled: current + 1 >= pages, onClick: () => { setPage(current + 1); setTarget(String(current + 2)) } }, '下一页数据'),
       h('label', null, '数据页 ', h(ThemeInput, { type: 'number', min: 1, max: pages, value: target, onChange: event => setTarget(event.currentTarget.value) })), h(ThemeButton, { type: 'submit' }, '跳转数据页')),
     error && h('p', { role: 'alert' }, error),
-    h('table', null, h('thead', null, h('tr', null, h('th', { scope: 'col' }, '原表项目'), ...plan.series.map((series, i) => h('th', { key: i, scope: 'col' }, series.name, series.unit && `（${series.unit}）`)))),
-      h('tbody', null, ...plan.labels.slice(start, start + SOURCE_PAGE_SIZE).map((label, index) => { const row = start + index; return h('tr', { key: row, 'data-source-row': plan.sourceRows?.[row] ?? row }, h('th', { scope: 'row' }, label), ...plan.series.map((series, column) => h('td', { key: column }, series.originals?.[row] ?? String(series.values[row])))) }))))
+    h(TableViewport, {label:'图表数据表格'},h('table', null, h('thead', null, h('tr', null, h('th', { scope: 'col' }, '原表项目'), ...plan.series.map((series, i) => h('th', { key: i, scope: 'col' }, series.name, series.unit && `（${series.unit}）`)))),
+      h('tbody', null, ...plan.labels.slice(start, start + SOURCE_PAGE_SIZE).map((label, index) => { const row = start + index; return h('tr', { key: row, 'data-source-row': plan.sourceRows?.[row] ?? row }, h('th', { scope: 'row' }, label), ...plan.series.map((series, column) => h('td', { key: column }, series.originals?.[row] ?? String(series.values[row])))) })))))
   return inline ? h('div', null, table) : h('details', { className: 'iexp-disclosure', onToggle: (event: SyntheticEvent<HTMLDetailsElement>) => setOpen(event.currentTarget.open) }, h('summary', null, '图表所用原始数据'), table)
 }
 

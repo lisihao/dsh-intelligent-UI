@@ -113,7 +113,7 @@ describe('research workspace', () => {
   })
   it('uses content width rather than viewport width to select the inline inspector', async () => {
     let notify: ResizeObserverCallback | undefined
-    vi.stubGlobal('ResizeObserver', class { constructor(callback: ResizeObserverCallback) { notify = callback } observe() {} disconnect() {} })
+    vi.stubGlobal('ResizeObserver', class { constructor(private callback: ResizeObserverCallback) {} observe(target: Element) { if (target.classList.contains('iexp-research')) notify = this.callback } disconnect() {} })
     const { host } = await mount(); await act(async () => notify?.([{ contentRect: { width: 1200 } } as ResizeObserverEntry], {} as ResizeObserver))
     await click(host, '来源'); await click(host, '测试说明')
     expect(host.querySelector('[role=complementary]')).not.toBeNull(); expect(host.querySelector('[role=dialog]')).toBeNull()

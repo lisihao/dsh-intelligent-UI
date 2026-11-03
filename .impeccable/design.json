@@ -436,5 +436,16 @@
       "Don't promote fixture controls, private report content or detector preferences into product rules.",
       "Don't ship reference screenshots or infer app acceptance from browser captures."
     ]
+  },
+  "sourceTableViewport": {
+    "owner": "src/table-viewport.ts",
+    "default": "fit to available container; table DOM only",
+    "detail": "native size in a focusable local horizontal scrollport",
+    "preserved": [
+      "original cells and anchors",
+      "full rows and columns",
+      "normal-size toolbar and prose"
+    ],
+    "lifecycle": "ResizeObserver disconnects; hidden source measures defer; fit resets horizontal offset"
   }
 }

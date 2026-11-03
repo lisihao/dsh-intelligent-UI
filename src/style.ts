@@ -1,4 +1,5 @@
 import { executionFlowCss } from './execution-flow-style.js'
+import { tableViewportCss } from './table-viewport.js'
 import { chartViewportCss } from './chart-viewport.js'
 import { researchCss } from './research-style.js'
 import { themeComponentsCss } from './theme-components-style.js'
@@ -16,7 +17,7 @@ import recursiveFont from '../assets/recursive-latin-full-normal.woff2'
 import paperFont from '../assets/dm-sans-latin-wght-normal.woff2'
 import type { CSSProperties } from 'react'
 export const styles: Record<string, CSSProperties> = {
-  panel: { display: 'grid', gap: 12, padding: 12, color: 'var(--dsw-alias-label-primary, #202124)', fontFamily: 'system-ui, sans-serif', minWidth: 0 },
+  panel: { display: 'grid', gridTemplateColumns:'minmax(0,1fr)', gap: 12, padding: 12, color: 'var(--dsw-alias-label-primary, #202124)', fontFamily: 'system-ui, sans-serif', minWidth: 0 },
   section: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 8, padding: '8px 0', minWidth: 0 },
   toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   button: { padding: '4px 9px', marginInlineEnd: 4, border: '1px solid var(--dsw-alias-border-l2, #b9bdc4)', borderRadius: 5, color: 'inherit', background: 'transparent', cursor: 'pointer' },
@@ -41,7 +42,7 @@ export function installExperienceStyles(): () => void {
   const element = document.createElement('style')
   element.dataset.solarExperience = 'true'
   const defaults = Object.entries(themeStyleTokens(resolveTheme(), appearanceTokens())).map(([key, value]) => `${key}:${value}`).join(';')
-  element.textContent = researchCss + openuiCss + flowCss + `
+  element.textContent = researchCss + openuiCss + flowCss + tableViewportCss + `
 @font-face { font-family: 'DSH Paper Sans'; src: url('${paperFont}') format('woff2'); font-weight: 100 1000; font-style: normal; font-display: swap; }
 @font-face { font-family: 'DSH Recursive'; src: url('${recursiveFont}') format('woff2'); font-weight: 300 1000; font-style: normal; font-display: swap; }
 .dsh-experience.iexp-content {

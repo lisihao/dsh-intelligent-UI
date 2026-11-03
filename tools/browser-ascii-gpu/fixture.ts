@@ -1,7 +1,7 @@
 import { createElement as h, useEffect, useRef, useState, type ReactElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BarChart, IconWrapper, LineChart, PieChart, RadarChart, ScatterChart, ThemeProvider } from '@openuidev/react-ui'
-import { ExperienceStore, HeaderControls } from '../../src/client.js'
+import { ExperienceStore, HeaderControls, Workspace } from '../../src/client.js'
 import { initialSettings, type ExperienceArtifact, type ExperienceSettings } from '../../src/contracts.js'
 import { ArtifactView, ContentView, OutputView, displayModes, experienceTheme } from '../../src/presentation.js'
 import { FlowView } from '../../src/flow-view.js'
@@ -20,11 +20,13 @@ const params = new URLSearchParams(location.search)
 const executionOnly = params.get('execution') === '1'
 const showcaseOnly = params.get('showcase') === '1'
 const typographyOnly = params.get('typography') === '1'
+const importOnly = params.get('import') === '1'
 const requestedTheme = params.get('theme')
 const themeId = requestedTheme && ['empryo','ascii','ascii-gpu','uiverse-soft-relief'].includes(requestedTheme) ? requestedTheme : 'ascii-gpu'
 const preference = { activeId: themeId, installed: [] }
 let settings: ExperienceSettings = { ...initialSettings(), takeover: true, openui: true, theme: preference, appearance: resolveTheme(preference).appearance }
 const store = new ExperienceStore()
+const importedArtifacts: ExperienceArtifact[] = []
 store.update({ settings, api: {
   settings: async () => settings,
   saveSettings: async input => {
@@ -35,8 +37,13 @@ store.update({ settings, api: {
     settings = { ...settings, ...values, theme, revision: settings.revision + 1 }
     return settings
   },
-  artifacts: async () => [],
-  publish: async () => { throw new Error('本地验收不会发布内容。') },
+  artifacts: async () => importedArtifacts,
+  publish: async input => {
+    if (!importOnly) throw new Error('本地验收不会发布内容。')
+    const artifact: ExperienceArtifact = {...input,formatVersion:1,id:`local-import-${importedArtifacts.length+1}`,createdAt:new Date().toISOString()}
+    importedArtifacts.push(artifact)
+    return artifact
+  },
 } })
 const removeStyles = installExperienceStyles(), removeAppearance = installAppearanceStyles(store)
 const removeAsciiEffect = installAsciiVisualTheme(store)
@@ -297,6 +304,14 @@ function TypographyFixture(): ReactElement {
       h(OutputView,{sessionId,raw:terminalMarkdown},h(ContentView,{value:terminalMarkdown}))))
 }
 
+function ImportFixture(): ReactElement {
+  return h('main',{className:'fixture-main'},
+    h('header',{className:'fixture-header'},
+      h('div',null,h('h1',null,'导入内容 · 本地验收'),h('p',null,'文件仅保存在此预览页内存，不写会话、不调用模型。')),
+      h(HeaderControls,{store,sessionId})),
+    h('div',{'data-slot':'conversation.view','data-fixture-import':true,style:{minWidth:0}},h(Workspace,{store,sessionId})))
+}
+
 // These immutable snapshots are illustrative local input, not DSH task state.
 function freezeDeep<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -438,5 +453,5 @@ function Fixture(): ReactElement {
 }
 
 const root = createRoot(document.getElementById('root')!)
-root.render(h(typographyOnly ? TypographyFixture : executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
+root.render(h(importOnly ? ImportFixture : typographyOnly ? TypographyFixture : executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
 window.addEventListener('pagehide', () => { root.unmount(); removeAsciiEffect(); removeAppearance(); removeStyles(); displayModes.clear() }, { once: true })

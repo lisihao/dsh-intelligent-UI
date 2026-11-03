@@ -6,6 +6,7 @@ import { DenseLinePlot, requiresDenseLinePlot } from './dense-line-plot.js'
 import { CanvasObjectView, glbSource } from './canvas-object-view.js'
 import { markdownIllustrations } from './markdown-illustrations.js'
 import { ChartViewport, ChartDataTable, PagedTableBody } from './chart-viewport.js'
+import { TableViewport } from './table-viewport.js'
 import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
@@ -125,7 +126,7 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
 }
 
 function SourceTable({ plans, children, supplemented = false }: { plans: AutoChartPlan[], children?: ReactNode, supplemented?: boolean }): ReactElement {
-  const table = h('div', { className: 'iexp-source-table', style: styles.overflow, tabIndex: 0, role: 'region', 'aria-label': '原始数据表格' }, h(Table, null, children))
+  const table = h(TableViewport, {className:'iexp-source-table',label:'原始数据表格'}, h(Table, {containerStyle:{overflow:'visible'}}, children))
   return plans.length || supplemented ? h('details', { className: 'iexp-full-table' }, h('summary', null, h(IconWrapper, { name: 'database', size: 16 }), '完整原表', h('span', null, '保留全部行列与原文口径')), table) : table
 }
 function headingText(value: ReactNode): string {

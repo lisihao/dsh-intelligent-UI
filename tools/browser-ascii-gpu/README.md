@@ -24,3 +24,5 @@ The fixture contains OpenUI Bar, Line, Pie, Radar and Scatter charts; small and 
 Building or opening this fixture is not evidence of native DSH acceptance or hardware acceleration. Verify the real rendered pixels, input behavior, resizing, lifecycle and source preservation separately.
 
 The optional query `?typography=1` renders a normal `ContentView` report with explicitly synthetic mixed Chinese/English prose, compact headings, numeric comparisons, source table and code. Use the existing header to compare classic ASCII, GPU ASCII and restored Empryo at desktop, narrow and zoomed sizes. No official DSH or model call is involved.
+
+The optional query `?import=1` opens the actual Generated content `Workspace` and normal `LocalDataImport` controls with an in-memory fixture API. A selected local file is retained only in that Page's memory; reloading clears it. It never writes a Host artifact/session, submits a model request, or embeds the selected file in a built module. Use it to verify table fitting/native-size scrolling, source equality and research tabs. Keep selected documents and screenshots out of Git.
