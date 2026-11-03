@@ -47,8 +47,8 @@
       },
       {
         "name": "source-relationships",
-        "value": "React Flow animated edges; disabled by pause or prefers-reduced-motion",
-        "purpose": "Source relationship emphasis; never execution evidence."
+        "value": "WebGL2 moving points on source paths, with Canvas2D fallback; disabled by pause or prefers-reduced-motion",
+        "purpose": "Ordinary graphs emphasize supplied relationships. Execution snapshots animate only reported active edges; motion does not advance or infer task state."
       }
     ],
     "breakpoints": [

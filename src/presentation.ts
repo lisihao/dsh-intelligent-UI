@@ -1,3 +1,5 @@
+import { analyzeExecutionFlow } from './execution-flow.js'
+import { ExecutionFlowView } from './execution-flow-view.js'
 import { DenseLinePlot, requiresDenseLinePlot } from './dense-line-plot.js'
 import { CanvasObjectView, glbSource } from './canvas-object-view.js'
 import { markdownIllustrations } from './markdown-illustrations.js'
@@ -184,6 +186,9 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
 function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {
+  const execution = isStreaming ? { status: 'unrecognized' as const } : analyzeExecutionFlow(value)
+  if (execution.status === 'valid') return h(ChartBoundary, { fallback: h('pre', { style: styles.raw }, rawText(value)) }, h(ExecutionFlowView, { plan: execution.plan, sourceText: rawText(value) }))
+  if (execution.status === 'invalid') return h('div', null, h('p', { role: 'alert' }, `执行流程数据无法显示：${execution.error.message}`), h('pre', { style: styles.raw }, rawText(value)))
   const model = !isStreaming && glbSource(value)
   if (model) return h('div', null, h(CanvasObjectView, { value, source: model, dark }), h('pre', { style: styles.raw }, rawText(value)))
   const graph = isStreaming ? { status: 'unrecognized' as const } : analyzeGraph(value)

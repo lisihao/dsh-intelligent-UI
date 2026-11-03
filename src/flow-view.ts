@@ -1,3 +1,5 @@
+import { installFlowParticles, type FlowParticles } from './flow-particles.js'
+import type { ExecutionNode } from './execution-flow.js'
 import { LargeFlowView } from './large-flow-view.js'
 import { ThemeButton, ThemeCard, ThemeLoader } from './theme-components.js'
 import { UiverseRenderScope } from './uiverse-render.js'
@@ -6,7 +8,7 @@ import { BaseEdge, Controls, Handle, MarkerType, Position, ReactFlow, getViewpor
 import { FLOW_NODE_WIDTH as NODE_WIDTH, layoutFlow, roundedRoute, sourceFanGeometry, isLargeFlow, type FlowGeometry, type FlowViewPlan } from './flow-layout.js'
 export type { FlowViewPlan } from './flow-layout.js'
 
-type ReadingNode = Node<{ label: string, description?: string, related: boolean, compact?: boolean }, 'reading'>
+type ReadingNode = Node<{ label: string, description?: string, related: boolean, compact?: boolean, vertical?: boolean, execution?: ExecutionNode }, 'reading'>
 type ReadingEdge = Edge<{ points?: { x: number, y: number }[], labelPoint?: { x: number, y: number } }>
 const MIN_READABLE_ZOOM = 0.8
 const USER_OVERVIEW_MIN_ZOOM = 0.15
@@ -25,13 +27,13 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
   return {
     nodes: plan.nodes.map(node => ({
       id: node.id, type: 'reading', position: { x: positions.get(node.id)!.x, y: positions.get(node.id)!.y },
-      data: { label: node.label, ...(node.description === undefined ? {} : { description: node.description }), related: neighbors.has(node.id), compact: options.compact },
+      data: { label: node.label, ...(node.description === undefined ? {} : { description: node.description }), related: neighbors.has(node.id), compact: options.compact, vertical: plan.direction === 'DOWN', execution: node.execution },
       // Public SSR geometry makes the first frame readable before ResizeObserver runs.
       // React Flow replaces initialHeight/handle data with real DOM measurements when ready.
       width: NODE_WIDTH, initialWidth: NODE_WIDTH, initialHeight: positions.get(node.id)!.height,
       handles: [
-        { type: 'target', position: Position.Left, x: -3, y: positions.get(node.id)!.height / 2 - 3, width: 6, height: 6 },
-        { type: 'source', position: Position.Right, x: NODE_WIDTH - 3, y: positions.get(node.id)!.height / 2 - 3, width: 6, height: 6 },
+        { type: 'target', position: plan.direction === 'DOWN' ? Position.Top : Position.Left, x: plan.direction === 'DOWN' ? NODE_WIDTH / 2 - 3 : -3, y: plan.direction === 'DOWN' ? -3 : positions.get(node.id)!.height / 2 - 3, width: 6, height: 6 },
+        { type: 'source', position: plan.direction === 'DOWN' ? Position.Bottom : Position.Right, x: plan.direction === 'DOWN' ? NODE_WIDTH / 2 - 3 : NODE_WIDTH - 3, y: plan.direction === 'DOWN' ? positions.get(node.id)!.height - 3 : positions.get(node.id)!.height / 2 - 3, width: 6, height: 6 },
       ],
       style: { width: NODE_WIDTH, minHeight: positions.get(node.id)!.height },
       selected: node.id === options.selectedNodeId, draggable: false, connectable: false, deletable: false,
@@ -43,9 +45,9 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
       return {
         id: `relation-${options.edgeIndexes?.[i] ?? i}`, source: edge.source, target: edge.target, label: options.compact ? undefined : edge.label,
         type: routes.has(`relation-${options.edgeIndexes?.[i] ?? i}`) ? 'routed' : 'default',
-        data: { points: routes.get(`relation-${options.edgeIndexes?.[i] ?? i}`)?.points, labelPoint: routes.get(`relation-${options.edgeIndexes?.[i] ?? i}`)?.label }, animated: Boolean(options.animate && emphasized),
+        data: { points: routes.get(`relation-${options.edgeIndexes?.[i] ?? i}`)?.points, labelPoint: routes.get(`relation-${options.edgeIndexes?.[i] ?? i}`)?.label }, animated: false,
         focusable: false, selectable: false, deletable: false, reconnectable: false,
-        className: emphasized ? 'iexp-flow-edge-active' : 'iexp-flow-edge-muted',
+        className: `${emphasized ? 'iexp-flow-edge-active' : 'iexp-flow-edge-muted'}${edge.executionStatus ? ` iexp-flow-execution-edge-${edge.executionStatus}` : ''}`,
         markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--iexp-accent)', width: 18, height: 18 },
         style: { stroke: 'var(--iexp-accent)', strokeWidth: emphasized ? 1.8 : 1 },
         labelStyle: { fill: 'var(--iexp-text)', fontSize: 13 },
@@ -55,11 +57,26 @@ export function buildFlowGraph(plan: FlowViewPlan, geometry: FlowGeometry, optio
   }
 }
 
+const executionStatus = { queued: '等待中', running: '运行中', succeeded: '已完成', failed: '失败', blocked: '受阻', cancelled: '已取消', skipped: '已跳过' }
+const executionRole = { lead: '主控', advisor: '审阅', worker: '工作节点', tool: '工具' }
+const numeric = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 21 })
+const percentage = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 })
 function ReadingFlowNode({ data }: NodeProps<ReadingNode>): ReactElement {
-  return h(ThemeCard, { renderRole: 'flow', className: `iexp-flow-node${data.compact ? ' iexp-flow-node-compact' : ''}`, 'data-related': data.related || undefined },
-    h(Handle, { type: 'target', position: Position.Left, isConnectable: false }),
+  const execution = data.execution, progress = execution?.progress
+  const ratio = progress && progress.total > 0 ? progress.current / progress.total : undefined
+  return h(ThemeCard, { renderRole: 'flow', className: `iexp-flow-node${data.compact ? ' iexp-flow-node-compact' : ''}`, 'data-related': data.related || undefined,
+    'data-execution-role': execution?.role, 'data-execution-status': execution?.status },
+    h(Handle, { type: 'target', position: data.vertical ? Position.Top : Position.Left, isConnectable: false }),
     h('strong', null, data.label), !data.compact && data.description !== undefined && h('p', null, data.description),
-    h(Handle, { type: 'source', position: Position.Right, isConnectable: false }))
+    execution && data.compact && h('span', {className: 'iexp-execution-compact-status'}, execution.status ? executionStatus[execution.status] : '状态未上报'),
+    execution && !data.compact && h('div', { className: 'iexp-execution-node-data' },
+      h('div', { className: 'iexp-execution-node-meta' }, execution.role && h('span', null, executionRole[execution.role]), execution.model && h('span', {title: execution.model}, execution.model)),
+      h('span', { className: 'iexp-execution-node-status' }, execution.status ? executionStatus[execution.status] : '状态未上报'),
+      progress ? h('div', { className: 'iexp-execution-progress' },
+        h('div', { className: 'iexp-execution-progress-label' }, h('span', null, `${numeric.format(progress.current)} / ${numeric.format(progress.total)}${progress.unit ? ` ${progress.unit}` : ''}`), h('strong', null, ratio === undefined ? '总量为 0' : percentage.format(ratio))),
+        ratio !== undefined && h('div', { className: 'iexp-execution-progress-track', role: 'progressbar', 'aria-label': `${data.label}的来源进度`, 'aria-valuemin': 0, 'aria-valuemax': progress.total, 'aria-valuenow': progress.current }, h('span', { style: { transform: `scaleX(${ratio})` } }))) : h('span', { className: 'iexp-execution-progress-unknown' }, '进度未上报'),
+      !!execution.metrics?.length && h('dl', { className: 'iexp-execution-metrics' }, ...execution.metrics.flatMap((metric, index) => [h('dt', { key: `label-${index}`, title: metric.label }, metric.label), h('dd', { key: `value-${index}` }, typeof metric.value === 'number' ? numeric.format(metric.value) : metric.value, metric.unit ? ` ${metric.unit}` : '')]))),
+    h(Handle, { type: 'source', position: data.vertical ? Position.Bottom : Position.Right, isConnectable: false }))
 }
 export const FLOW_NODE_TYPES = { reading: ReadingFlowNode }
 function RoutedFlowEdge(props: EdgeProps<ReadingEdge>): ReactElement {
@@ -87,13 +104,15 @@ function useReducedMotion(): boolean {
 
 function SmallFlowView({ plan, motion: allowMotion = true, onNodeActivate }: { plan: FlowViewPlan, motion?: boolean, onNodeActivate?: (id: string) => void }): ReactElement {
   const [selectedId, setSelectedId] = useState<string>(); const [motion, setMotion] = useState(true)
+  const [particleError, setParticleError] = useState<string>()
+  const particleLayer = useRef<FlowParticles>()
   const reduced = useReducedMotion()
   const instance = useRef<ReactFlowInstance<ReadingNode, ReadingEdge> | null>(null)
   const keyboardActivation = useRef(false)
   const viewport = useRef<HTMLDivElement>(null)
   const [viewportWidth, setViewportWidth] = useState(0)
-  const layoutKey = JSON.stringify({ nodes: plan.nodes, edges: plan.edges })
-  const supplied = useMemo(() => sourceFanGeometry(plan), [layoutKey])
+  const layoutKey = JSON.stringify({ nodes: plan.nodes.map(({execution, ...node}) => ({...node, ...(execution ? {execution: {metrics: execution.metrics?.map(metric => metric.label)}} : {})})), edges: plan.edges.map(({executionStatus: _status, ...edge}) => edge), direction: plan.direction })
+  const supplied = useMemo(() => plan.direction === 'DOWN' ? undefined : sourceFanGeometry(plan), [layoutKey])
   const [layout, setLayout] = useState<{ key: string, geometry?: FlowGeometry, error?: string }>(() => ({ key: layoutKey, geometry: supplied }))
   useEffect(() => {
     if (supplied) { setLayout({ key: layoutKey, geometry: supplied }); return }
@@ -106,6 +125,17 @@ function SmallFlowView({ plan, motion: allowMotion = true, onNodeActivate }: { p
   }, [layoutKey, supplied])
   const geometry = supplied ?? (layout.key === layoutKey ? layout.geometry : undefined)
   const graph = useMemo(() => geometry ? buildFlowGraph(plan, geometry, { selectedNodeId: selectedId, animate: allowMotion && motion && !reduced }) : { nodes: [], edges: [] }, [plan, geometry, selectedId, allowMotion, motion, reduced])
+  const activeEdges = plan.execution ? new Set(plan.edges.flatMap((edge, index) => edge.executionStatus === 'active' ? [`relation-${index}`] : [])) : selectedId ? new Set(plan.edges.flatMap((edge, index) => edge.source === selectedId || edge.target === selectedId ? [`relation-${index}`] : [])) : null
+  const activeKey = activeEdges ? [...activeEdges].join(',') : '*'
+  useEffect(() => {
+    const element = viewport.current
+    if (!element || !geometry) return
+    setParticleError(undefined)
+    const layer = installFlowParticles({ viewport: element, activeEdgeIds: activeEdges, onRecovery: () => setParticleError(undefined), onError: error => setParticleError(`连线动效暂不可用：${error.message}`) })
+    particleLayer.current = layer; layer.setMotion(allowMotion && motion && !reduced)
+    return () => { particleLayer.current = undefined; layer.dispose() }
+  }, [!!geometry, layoutKey])
+  useEffect(() => { particleLayer.current?.setActiveEdges(activeEdges); particleLayer.current?.setMotion(allowMotion && motion && !reduced) }, [activeKey, allowMotion, motion, reduced])
   const selected = plan.nodes.find(node => node.id === selectedId)
   const labels = new Map(plan.nodes.map(node => [node.id, node.label]))
   useEffect(() => { if (selectedId && !plan.nodes.some(node => node.id === selectedId)) setSelectedId(undefined) }, [plan, selectedId])
@@ -122,7 +152,17 @@ function SmallFlowView({ plan, motion: allowMotion = true, onNodeActivate }: { p
   const right = Math.max(...graph.nodes.map(node => node.position.x + NODE_WIDTH))
   const top = Math.min(...graph.nodes.map(node => node.position.y))
   const bottom = Math.max(...graph.nodes.map(node => node.position.y + Number(node.style?.minHeight ?? 80)))
-  const readableFit = viewportWidth > (right - left) * MIN_READABLE_ZOOM + 64 && bottom - top < 400 / MIN_READABLE_ZOOM
+  const stageHeight = plan.execution && geometry ? Math.max(420, Math.min(920, Math.ceil(bottom - top + 80))) : 420
+  const readableFit = viewportWidth > (right - left) * MIN_READABLE_ZOOM + 64 && bottom - top < (stageHeight - 20) / MIN_READABLE_ZOOM
+  // Execution starts with its structure visible on desktop; narrow views retain
+  // readable native-size nodes and can pan/zoom. Source-only updates keep this view.
+  useEffect(() => {
+    if (!plan.execution || !geometry || !viewportWidth || !instance.current) return
+    const next = viewportWidth >= 680
+      ? getViewportForBounds({x:left,y:top,width:right-left,height:bottom-top}, viewportWidth, stageHeight, 0.5, 1, 0.12)
+      : (() => {const zoom=Math.min(1,(viewportWidth-24)/NODE_WIDTH); return {x:(viewportWidth-NODE_WIDTH*zoom)/2-(graph.nodes[0]?.position.x??0)*zoom,y:28-(graph.nodes[0]?.position.y??0)*zoom,zoom}})()
+    void instance.current.setViewport(next)
+  }, [geometry, viewportWidth, stageHeight])
   const returnToStart = () => {
     setSelectedId(undefined)
     const first = graph.nodes[0]
@@ -141,14 +181,14 @@ function SmallFlowView({ plan, motion: allowMotion = true, onNodeActivate }: { p
     h('ul', null, ...plan.nodes.map(node => h('li', { key: node.id }, h('strong', null, node.label), node.description !== undefined && h('span', null, `：${node.description}`)))),
     h('ul', null, ...plan.edges.map((edge, i) => h('li', { key: i }, `${labels.get(edge.source)} → ${labels.get(edge.target)}${edge.label === undefined ? '' : `：${edge.label}`}`))),
     (plan.sourceText !== undefined || plan.reason !== undefined) && h('details', { className: 'iexp-flow-source' }, h('summary', null, '查看原文与关系说明'), plan.reason !== undefined && h('p', null, plan.reason), plan.sourceText !== undefined && h('pre', null, plan.sourceText)))
-  return h(UiverseRenderScope, { role: 'flow' }, h('figure', { className: 'iexp-flow', 'data-motion': allowMotion && motion && !reduced ? 'flowing' : 'still' },
+  return h(UiverseRenderScope, { role: 'flow' }, h('figure', { className: 'iexp-flow', 'data-execution': plan.execution || undefined, 'data-motion': allowMotion && motion && !reduced ? 'flowing' : 'still' },
     h('figcaption', { className: 'iexp-flow-caption' }, h('strong', null, plan.title ?? '原文关系'),
-      h('span', null, '连线表示原文顺序或关系，不表示执行状态。')),
+      h('span', null, plan.execution ? '状态与进度来自来源快照，仅活动连线显示流动光点。' : '连线表示原文顺序或关系，不表示执行状态。')),
     h('div', { className: 'iexp-flow-toolbar' },
       allowMotion && h(ThemeButton, { type: 'button', onClick: () => setMotion(value => !value), disabled: reduced, 'aria-pressed': !motion || reduced }, reduced ? '系统已关闭动效' : motion ? '暂停连线动效' : '恢复连线动效'),
-      h(ThemeButton, { type: 'button', onClick: returnToStart }, '回到起点'),
+      h(ThemeButton, { type: 'button', onClick: returnToStart }, plan.execution ? '按原尺寸阅读' : '回到起点'),
       selected && h(ThemeButton, { type: 'button', onClick: () => setSelectedId(undefined) }, '取消节点选择')),
-    h('div', { className: 'iexp-flow-viewport', ref: viewport,
+    h('div', { className: 'iexp-flow-viewport', ref: viewport, style: plan.execution ? { height: stageHeight } : undefined,
       onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => { keyboardActivation.current = event.key === 'Enter' || event.key === ' ' },
       onPointerDownCapture: () => { keyboardActivation.current = false },
     }, h(ReactFlow<ReadingNode, ReadingEdge>, {
@@ -177,6 +217,7 @@ function SmallFlowView({ plan, motion: allowMotion = true, onNodeActivate }: { p
         'controls.zoomOut.ariaLabel': '缩小关系图', 'controls.fitView.ariaLabel': '查看全图',
       },
     }, h(Controls, { showInteractive: false, fitViewOptions: OVERVIEW_FIT_OPTIONS, onFitView: showWholeGraph, position: 'bottom-left' }))),
+    particleError && h('p', { className: 'iexp-flow-help', role: 'status' }, particleError),
     h('p', { className: 'iexp-flow-help' }, '拖动画布平移；可缩放查看。Tab 移到节点后按 Enter 或空格选择，显示直接相连的关系。'),
     selected && h('div', { className: 'iexp-flow-selection', role: 'status' }, h('strong', null, selected.label),
       selected.description !== undefined && h('p', null, selected.description),

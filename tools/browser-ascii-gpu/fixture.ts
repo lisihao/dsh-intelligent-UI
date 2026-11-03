@@ -9,12 +9,15 @@ import { installExperienceStyles } from '../../src/style.js'
 import { installAppearanceStyles } from '../../src/appearance-style.js'
 import { installAsciiVisualTheme } from '../../src/ascii-visual-theme.js'
 import { publishAsciiVisualFrame, releaseAsciiVisualFrame } from '../../src/ascii-visual-frames.js'
+import type { ExecutionEdge, ExecutionEvent, ExecutionNode, ExecutionPlan } from '../../src/execution-flow.js'
+import { ThemeButton } from '../../src/theme-components.js'
 import { resolveTheme } from '../../src/theme-contracts.js'
 import { OPENUI_VISUAL_SAMPLE } from '../fixtures/intelligent-experience-canary/visual-sample.mjs'
 
 declare const LOCAL_REPORT: string | null
 const sessionId = 'local-ascii-gpu-fixture'
 const params = new URLSearchParams(location.search)
+const executionOnly = params.get('execution') === '1'
 const themeId = params.get('theme') === 'empryo' ? 'empryo' : 'ascii'
 const preference = { activeId: themeId, installed: [] }
 let settings: ExperienceSettings = { ...initialSettings(), takeover: true, openui: true, theme: preference, appearance: resolveTheme(preference).appearance }
@@ -99,7 +102,7 @@ function NetworkScene(): ReactElement {
     { x: 207, y: 147, label: '输出', radius: 15 }, { x: 71, y: 207, label: '验证', radius: 15 },
     { x: 168, y: 207, label: '洞察', radius: 15 },
   ]
-  const edges = [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[1,2],[2,3],[1,4],[3,5],[4,6],[5,7],[6,7]]
+  const edges = [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[1,2],[2,3],[1,4],[3,5],[4,6],[5,7],[6,7]] as const
   return h('svg', { viewBox: '0 0 240 240', width: 240, height: 240, role: 'img', 'aria-label': '合成网络图，展示核心与七个节点的关系', 'data-fixture-icon': 'scene' },
     h('circle', { cx: 120, cy: 120, r: 103, fill: 'none', stroke: '#52677a', strokeWidth: 0.7, strokeDasharray: '3 6' }),
     h('circle', { cx: 120, cy: 120, r: 74, fill: 'none', stroke: '#384c5b', strokeWidth: 0.6 }),
@@ -160,6 +163,107 @@ function SyntheticObjectImage(): ReactElement {
     error ? h('p', { role: 'status' }, error) : url ? h(ContentView, { value: record }) : h('p', { role: 'status' }, '正在生成本地合成图标…'))
 }
 
+// These immutable snapshots are illustrative local input, not DSH task state.
+function freezeDeep<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.values(value).forEach(freezeDeep)
+    Object.freeze(value)
+  }
+  return value
+}
+const replayNodes: Array<Omit<ExecutionNode, 'status' | 'progress' | 'metrics'> & { total: number }> = [
+  { id: 'lead', label: '主控 Agent', role: 'lead', model: '演示模型 A', description: '整理目标与范围', total: 2 },
+  { id: 'advisor', label: '顾问 Agent', role: 'advisor', model: '演示模型 B', description: '检查计划与约束', total: 3 },
+  { id: 'router', label: '任务路由', role: 'tool', description: '分派三项并行工作', total: 1 },
+  { id: 'worker-a', label: '资料收集', role: 'worker', model: '演示模型 C', description: '整理示例材料', total: 4 },
+  { id: 'worker-b', label: '方案分析', role: 'worker', model: '演示模型 D', description: '梳理示例方案', total: 3 },
+  { id: 'worker-c', label: '结果验证', role: 'worker', model: '演示模型 E', description: '检查示例结果', total: 5 },
+  { id: 'review', label: '汇总审阅', role: 'advisor', model: '演示模型 B', description: '合并与审阅示例结果', total: 2 },
+]
+const replayLinks = [
+  ['lead', 'router'], ['advisor', 'router'], ['router', 'worker-a'], ['router', 'worker-b'], ['router', 'worker-c'],
+  ['worker-a', 'review'], ['worker-b', 'review'], ['worker-c', 'review'],
+] as const
+type ReplayStage = { at: number, statuses: NonNullable<ExecutionNode['status']>[], completed: number[] }
+const replayStages: ReplayStage[] = [
+  { at: 0, statuses: ['running', 'queued', 'queued', 'queued', 'queued', 'queued', 'queued'], completed: [0, 0, 0, 0, 0, 0, 0] },
+  { at: 3, statuses: ['succeeded', 'running', 'queued', 'queued', 'queued', 'queued', 'queued'], completed: [2, 1, 0, 0, 0, 0, 0] },
+  { at: 6, statuses: ['succeeded', 'succeeded', 'running', 'queued', 'queued', 'queued', 'queued'], completed: [2, 3, 0, 0, 0, 0, 0] },
+  { at: 9, statuses: ['succeeded', 'succeeded', 'succeeded', 'running', 'running', 'running', 'queued'], completed: [2, 3, 1, 1, 1, 1, 0] },
+  { at: 13, statuses: ['succeeded', 'succeeded', 'succeeded', 'running', 'running', 'running', 'queued'], completed: [2, 3, 1, 2, 2, 3, 0] },
+  { at: 17, statuses: ['succeeded', 'succeeded', 'succeeded', 'succeeded', 'running', 'running', 'queued'], completed: [2, 3, 1, 4, 2, 4, 0] },
+  { at: 21, statuses: ['succeeded', 'succeeded', 'succeeded', 'succeeded', 'succeeded', 'succeeded', 'running'], completed: [2, 3, 1, 4, 3, 5, 1] },
+  { at: 25, statuses: ['succeeded', 'succeeded', 'succeeded', 'succeeded', 'succeeded', 'succeeded', 'succeeded'], completed: [2, 3, 1, 4, 3, 5, 2] },
+]
+const replayEvents: Array<ExecutionEvent & { at: number }> = [
+  { at: 0, id: 'event-0', nodeId: 'lead', message: '本地演示开始：整理示例目标。' },
+  { at: 3, id: 'event-1', nodeId: 'advisor', message: '主控完成示例范围，顾问开始检查。' },
+  { at: 6, id: 'event-2', nodeId: 'router', message: '顾问检查完成，路由准备分派。' },
+  { at: 9, id: 'event-3', nodeId: 'router', message: '三项示例工作并行开始。' },
+  { at: 13, id: 'event-4', nodeId: 'worker-c', message: '并行节点更新了示例进度。' },
+  { at: 17, id: 'event-5', nodeId: 'worker-a', message: '资料收集示例完成，等待汇合。' },
+  { at: 21, id: 'event-6', nodeId: 'review', message: '三项示例工作已完成，开始汇总。' },
+  { at: 25, id: 'event-7', nodeId: 'review', message: '本地演示回放结束。' },
+]
+const stamp = (seconds: number) => new Date(Date.UTC(2000, 0, 1, 0, 0, seconds)).toISOString()
+const replaySnapshots: readonly ExecutionPlan[] = freezeDeep(replayStages.map(stage => {
+  const nodes: ExecutionNode[] = replayNodes.map(({ total, ...node }, index) => ({
+    ...node, status: stage.statuses[index]!, progress: { current: stage.completed[index]!, total, unit: '项' },
+    metrics: [{ label: '示例完成', value: stage.completed[index]!, unit: '项' }],
+  }))
+  const byId = new Map(nodes.map(node => [node.id, node]))
+  const edges: ExecutionEdge[] = replayLinks.map(([source, target]) => {
+    const from = byId.get(source)!, to = byId.get(target)!
+    return { source, target, status: to.status === 'succeeded' ? 'done' : from.status === 'succeeded' && to.status === 'running' ? 'active' : 'idle' }
+  })
+  const events = replayEvents.filter(event => event.at <= stage.at).map(({ at, ...event }) => ({ ...event, timestamp: stamp(at) }))
+  return { kind: 'execution-flow' as const, title: '本地演示 · 并行执行流程', nodes, edges, events, updatedAt: stamp(stage.at) }
+}))
+
+function ExecutionReplay(): ReactElement {
+  const [step, setStep] = useState(0), [playing, setPlaying] = useState(true), [generation, setGeneration] = useState(0)
+  const remaining = useRef((replayStages[1]!.at - replayStages[0]!.at) * 1000)
+  const version = useRef(0)
+  useEffect(() => {
+    if (!playing || step >= replaySnapshots.length - 1) return
+    const currentVersion = version.current, duration = remaining.current, started = performance.now()
+    let fired = false
+    const timer = window.setTimeout(() => {
+      fired = true
+      const next = step + 1
+      remaining.current = next < replaySnapshots.length - 1 ? (replayStages[next + 1]!.at - replayStages[next]!.at) * 1000 : 0
+      setStep(next)
+      if (next === replaySnapshots.length - 1) setPlaying(false)
+    }, duration)
+    return () => {
+      window.clearTimeout(timer)
+      if (!fired && currentVersion === version.current) remaining.current = Math.max(0, duration - (performance.now() - started))
+    }
+  }, [step, playing, generation])
+  const replay = () => {
+    version.current++
+    remaining.current = (replayStages[1]!.at - replayStages[0]!.at) * 1000
+    setStep(0); setPlaying(true); setGeneration(value => value + 1)
+  }
+  const snapshot = replaySnapshots[step]!
+  return h('section', { className: 'fixture-section', 'data-fixture-execution': true, 'data-fixture-replay-step': step, 'data-fixture-replay-playing': playing },
+    h('h2', null, '本地演示回放'),
+    h('p', null, '固定合成快照，展示分派、并行与汇合；不运行模型或真实任务。'),
+    h('div', { className: 'iexp-flow-toolbar' },
+      h(ThemeButton, { type: 'button', onClick: () => setPlaying(value => !value), disabled: step === replaySnapshots.length - 1 }, playing ? '暂停回放' : '继续回放'),
+      h(ThemeButton, { type: 'button', onClick: replay }, '重新回放'),
+      h('span', { className: 'fixture-replay-clock' }, `演示进度 ${replayStages[step]!.at} / 25 秒`)),
+    h(OutputView, { sessionId, raw: snapshot }, h(ContentView, { value: snapshot })))
+}
+
+function ExecutionFixture(): ReactElement {
+  return h('main', { className: 'fixture-main' },
+    h('header', { className: 'fixture-header' },
+      h('div', null, h('h1', null, '执行流程 · 本地验收'), h('p', null, '仅展示合成快照；不连接正式 DSH。')),
+      h(HeaderControls, { store, sessionId })),
+    h('div', { 'data-slot': 'conversation.view', className: 'dsh-experience fixture-content' }, h(ExecutionReplay)))
+}
+
 function Fixture(): ReactElement {
   const [count, setCount] = useState(0)
   const clicked = () => setCount(value => value + 1)
@@ -200,5 +304,5 @@ function Fixture(): ReactElement {
 }
 
 const root = createRoot(document.getElementById('root')!)
-root.render(h(Fixture))
+root.render(h(executionOnly ? ExecutionFixture : Fixture))
 window.addEventListener('pagehide', () => { root.unmount(); removeAsciiEffect(); removeAppearance(); removeStyles(); displayModes.clear() }, { once: true })

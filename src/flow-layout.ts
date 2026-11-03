@@ -1,10 +1,13 @@
 import ElkPackage from 'elkjs/lib/elk.bundled.js'
+import type { ExecutionNode } from './execution-flow.js'
 import type { ELK, ElkNode, ElkPoint } from 'elkjs/lib/elk-api.js'
 
 export interface FlowViewPlan {
   title?: string
-  nodes: { id: string, label: string, description?: string, position?: { x: number, y: number } }[]
-  edges: { source: string, target: string, label?: string }[]
+  direction?: 'RIGHT' | 'DOWN'
+  execution?: true
+  nodes: { id: string, label: string, description?: string, position?: { x: number, y: number }, execution?: ExecutionNode }[]
+  edges: { source: string, target: string, label?: string, executionStatus?: 'idle' | 'active' | 'done' | 'error' }[]
   sourceText?: string
   reason?: string
 }
@@ -23,7 +26,7 @@ function textLines(text: string): number {
   return text.split('\n').reduce((lines, line) => lines + Math.max(1, Math.ceil(Array.from(line).reduce((width, character) => width + (/[^\u0000-\u00ff]/u.test(character) ? 2 : 1), 0) / 26)), 0)
 }
 export function flowNodeHeight(node: FlowViewPlan['nodes'][number]): number {
-  return 34 + textLines(node.label) * 24 + (node.description ? 10 + textLines(node.description) * 22 : 0)
+  return 34 + textLines(node.label) * 24 + (node.description ? 10 + textLines(node.description) * 22 : 0) + (node.execution ? 96 + (node.execution.metrics?.length ?? 0) * 24 : 0)
 }
 const finitePoint = (point: ElkPoint | undefined): point is ElkPoint => Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y))
 
@@ -81,7 +84,8 @@ async function workerLayout(input: ElkNode, options: { signal?: AbortSignal, tim
 let engine: ELK | undefined
 /** Maintained ELK performs both node layout and obstacle-aware orthogonal edge routing. */
 export async function layoutFlow(plan: FlowViewPlan, options: { signal?: AbortSignal, timeoutMs?: number, compact?: boolean } = {}): Promise<FlowGeometry> {
-  const supplied = options.compact ? undefined : sourceFanGeometry(plan)
+  const vertical = plan.direction === 'DOWN'
+  const supplied = options.compact || vertical ? undefined : sourceFanGeometry(plan)
   if (supplied) return supplied
   if (!plan.nodes.length || new TextEncoder().encode(JSON.stringify({ nodes: plan.nodes, edges: plan.edges })).byteLength > GRAPH_SOURCE_BYTE_LIMIT) throw new FlowLayoutError('原文关系图为空或超过宿主 1 MiB 数据边界。')
   const large = isLargeFlow(plan)
@@ -94,19 +98,20 @@ export async function layoutFlow(plan: FlowViewPlan, options: { signal?: AbortSi
       'elk.algorithm': 'force', 'elk.force.iterations': '40', 'elk.edgeRouting': 'POLYLINE',
       'elk.randomSeed': '1', 'elk.padding': '[top=24,left=24,bottom=24,right=24]', 'elk.spacing.nodeNode': '56',
     } : {
-      'elk.algorithm': 'layered', 'elk.direction': 'RIGHT', 'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.algorithm': 'layered', 'elk.direction': vertical ? 'DOWN' : 'RIGHT', 'elk.edgeRouting': 'ORTHOGONAL',
       'elk.randomSeed': '1', 'elk.padding': '[top=24,left=24,bottom=24,right=24]',
       'elk.spacing.nodeNode': '56', 'elk.spacing.edgeNode': '24', 'elk.spacing.edgeEdge': '18',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '112', 'elk.layered.spacing.edgeNodeBetweenLayers': '24',
+      'elk.layered.spacing.nodeNodeBetweenLayers': vertical ? '56' : '112', 'elk.layered.spacing.edgeNodeBetweenLayers': '24',
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+      ...(vertical ? {'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED'} : {}),
     },
     children: plan.nodes.map((node, i) => {
       const height = nodeHeight(node)
       return { id: `n${i}`, width: FLOW_NODE_WIDTH, height, ...(large ? {} : {
         layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
         ports: [
-          { id: `n${i}-in`, x: -3, y: height / 2 - 3, width: 6, height: 6, layoutOptions: { 'elk.port.side': 'WEST', 'elk.port.borderOffset': '-3' } },
-          { id: `n${i}-out`, x: FLOW_NODE_WIDTH - 3, y: height / 2 - 3, width: 6, height: 6, layoutOptions: { 'elk.port.side': 'EAST', 'elk.port.borderOffset': '-3' } },
+          { id: `n${i}-in`, x: vertical ? FLOW_NODE_WIDTH / 2 - 3 : -3, y: vertical ? -3 : height / 2 - 3, width: 6, height: 6, layoutOptions: { 'elk.port.side': vertical ? 'NORTH' : 'WEST', 'elk.port.borderOffset': '-3' } },
+          { id: `n${i}-out`, x: vertical ? FLOW_NODE_WIDTH / 2 - 3 : FLOW_NODE_WIDTH - 3, y: vertical ? height - 3 : height / 2 - 3, width: 6, height: 6, layoutOptions: { 'elk.port.side': vertical ? 'SOUTH' : 'EAST', 'elk.port.borderOffset': '-3' } },
         ],
       }) }
     }),

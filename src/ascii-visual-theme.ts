@@ -38,7 +38,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     status.className = 'dsh-experience iexp-ascii-status'
     status.setAttribute('role', 'status'); status.dataset.iexpAsciiStatus = 'true'
     status.style.cssText = 'position:fixed;right:16px;bottom:16px;max-width:min(360px,90%);pointer-events:none;z-index:101;padding:8px 12px;border-radius:8px;background:var(--iexp-solid-bg);color:var(--iexp-text);font:12px/1.5 var(--iexp-font,system-ui);display:none'
-    style.textContent = `[${MARK}="true"]{opacity:0!important}`
+    style.textContent = `[${MARK}="true"]{opacity:0!important}[${MARK}="flow-underlay"]{opacity:.7!important}`
     overlay.append(stage); doc.body.append(overlay, status); doc.head.append(style)
     let effect: AsciiGpuEffect | undefined, queued = false, running = false, again = false, closed = false, failed = false, revision = 0
     let pending: { revision: number; items: { entry: Entry; epoch: number; box: Box }[] } | undefined
@@ -53,15 +53,18 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       entry.marks.clear()
     }
     const invalidate = (entry: Entry) => { restore(entry); entry.epoch++; entry.dirty = true; entry.failed = undefined }
+    // Fine semantic connections must not disappear between character samples.
+    // Retain their original geometry beneath the transparent glyph projection.
+    const paintMark = (entry: Entry, node: Element) => entry.source.closest('.iexp-flow') && node.matches('path.react-flow__edge-path') ? 'flow-underlay' : 'true'
     const hide = (entry: Entry) => {
       if (!entry.marks.size) entry.nativeOpacity = win!.getComputedStyle(entry.source).opacity
       const nodes = entry.source.localName === 'svg' ? [...entry.source.querySelectorAll(SHAPES)].filter(node => !node.closest('defs,clipPath,mask,marker,symbol')) : [entry.source]
-      for (const node of nodes) { if (!entry.marks.has(node)) entry.marks.set(node, node.getAttribute(MARK)); node.setAttribute(MARK, 'true') }
+      for (const node of nodes) { if (!entry.marks.has(node)) entry.marks.set(node, node.getAttribute(MARK)); node.setAttribute(MARK, paintMark(entry, node)) }
     }
     const measured = (source: Source): DOMRect => {
-      const marks = entries.get(source)?.marks
+      const entry = entries.get(source), marks = entry?.marks
       if (marks) for (const [node, value] of marks) { if (value === null) node.removeAttribute(MARK); else node.setAttribute(MARK, value) }
-      try { return measureAsciiVisualBounds(source) } finally { if (marks) for (const node of marks.keys()) node.setAttribute(MARK, 'true') }
+      try { return measureAsciiVisualBounds(source) } finally { if (marks && entry) for (const node of marks.keys()) node.setAttribute(MARK, paintMark(entry, node)) }
     }
     const visibleBox = (source: Element): Box | undefined => {
       if (source.closest(EXCLUDED)) return
@@ -188,7 +191,13 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     }
     const schedule = () => { if (closed || queued) return; queued = true; win!.requestAnimationFrame(() => { queued = false; void compose() }) }
     const observer = new win!.MutationObserver(records => {
-      const real = records.filter(record => record.attributeName !== MARK && !overlay.contains(record.target) && !status.contains(record.target) && record.target !== style)
+      const real = records.filter(record => {
+        if (record.attributeName === MARK || overlay.contains(record.target) || status.contains(record.target) || record.target === style) return false
+        // Draw counters describe a frame; they do not change its source geometry.
+        if (record.target instanceof win!.HTMLCanvasElement && record.target.getAttribute('data-iexp-continuous-visual') === 'true'
+          && (record.attributeName === 'data-drawn-frames' || record.attributeName === 'data-particle-state')) return false
+        return true
+      })
       if (!real.length) return
       for (const entry of entries.values()) if (real.some(record => entry.source.contains(record.target) || record.target instanceof win!.Element && record.target.contains(entry.source))) invalidate(entry)
       if (hasPopup()) { pending = undefined; for (const entry of entries.values()) restore(entry); committed = []; }
@@ -199,10 +208,13 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     const frame = (event: Event) => {
       const source = event.target as Source
       if (source.localName === 'canvas') {
-        if (event.type === 'iexp:visual-frame-error') frameFailures.set(source as HTMLCanvasElement, (event as CustomEvent<{code?: string}>).detail?.code ?? 'frame unavailable')
+        const code = (event as CustomEvent<{code?: string}>).detail?.code
+        if (event.type === 'iexp:visual-frame-error' && code !== 'SOURCE_RELEASED') frameFailures.set(source as HTMLCanvasElement, code ?? 'frame unavailable')
         else frameFailures.delete(source as HTMLCanvasElement)
       }
-      const entry = entries.get(source); if (entry) invalidate(entry); clip(committed); schedule() }
+      const entry = entries.get(source);
+      if (event.type === 'iexp:visual-frame' && source.getAttribute('data-iexp-continuous-visual') === 'true') { schedule(); return }
+      if (entry) invalidate(entry); clip(committed); schedule() }
     const resize = new win!.ResizeObserver(geometry); resize.observe(doc.documentElement)
     doc.addEventListener('scroll', geometry, true); win!.addEventListener('resize', geometry)
     doc.addEventListener('iexp:visual-frame', frame); doc.addEventListener('iexp:visual-frame-error', frame)

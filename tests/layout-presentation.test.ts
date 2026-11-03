@@ -10,13 +10,14 @@ const mounted: Array<{ root: Root, host: HTMLDivElement }> = []
 const scrollIntoView = vi.fn()
 beforeEach(() => {
   displayModes.clear()
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, writable: true, value: scrollIntoView })
   scrollIntoView.mockClear()
 })
 afterEach(async () => {
   for (const { root, host } of mounted.splice(0)) { await act(async () => root.unmount()); host.remove() }
-  vi.unstubAllGlobals()
+  vi.restoreAllMocks(); vi.unstubAllGlobals()
 })
 async function mount(element: ReactElement) {
   const host = document.createElement('div'); document.body.append(host)
@@ -76,7 +77,29 @@ describe('actual automatic layout routing', () => {
     await act(async () => { mode.value = 'visual'; mode.dispatchEvent(new Event('change', { bubbles: true })) })
     expect(host.querySelector('figure')?.dataset.motion).toBe('still')
     expect(pause.textContent).toBe('恢复连线动效')
-    expect(host.querySelector('[hidden]')).toBeNull()
+    expect(host.querySelector('[hidden] .react-flow')).toBeNull()
+  })
+
+  it('automatically projects source execution updates and retains every original field', async () => {
+    const record = {kind: 'execution-flow', title: '验证执行快照', privateNote: '必须保留的额外字段', nodes: [{id: 'a', label: '核对', role: 'worker', status: 'running', progress: {current: 2, total: 8, unit: '项'}}], edges: [], events: [{id: 'e1', nodeId: 'a', message: '已检查两项'}]}
+    const original = JSON.stringify(record), {host, render} = await mount(h(ContentView, {value: record}))
+    await waitForFlowNodes(host, 1)
+    expect(host.querySelector('[data-execution-flow]')).not.toBeNull()
+    expect(host.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')).toBe('2')
+    expect(host.querySelector('.iexp-flow-source pre')?.textContent).toBe(JSON.stringify(record, null, 2))
+    expect(host.querySelector('[data-execution-log]')?.textContent).toContain('已检查两项')
+    const node = host.querySelector('.react-flow__node')!
+    const updated = {...record, nodes: [{...record.nodes[0]!, status: 'done', progress: {current: 8, total: 8, unit: '项'}}], events: [...record.events, {id: 'e2', nodeId: 'a', message: '核对完成'}]}
+    await render(h(ContentView, {value: updated}))
+    expect(host.querySelector('.react-flow__node')).toBe(node)
+    expect(host.querySelector('[data-execution-status=succeeded]')).not.toBeNull()
+    expect(host.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')).toBe('8')
+    expect(host.querySelector('[data-execution-log]')?.textContent).toContain('核对完成')
+    expect(host.querySelector('.iexp-flow-source pre')?.textContent).toBe(JSON.stringify(updated, null, 2))
+    expect(JSON.stringify(record)).toBe(original)
+    await render(h(ContentView, {value: {...record, nodes: [{...record.nodes[0]!, progress: {current: 9, total: 8}}]}}))
+    expect(host.querySelector('[role=alert]')?.textContent).toContain('执行流程数据无法显示')
+    expect(host.querySelector('.react-flow')).toBeNull()
   })
 
   it('makes invalid explicit graphs visibly fail and retains every original value', async () => {

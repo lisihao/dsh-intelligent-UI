@@ -52,34 +52,45 @@ function GraphOverview({ plan, geometry, selectedId, onSelect }: { plan: FlowVie
     },
   }), renderError ? h('p', { role: 'alert' }, renderError) : rendererKind && h('p', { className: 'iexp-flow-help' }, rendererKind === 'webgl2' ? 'WebGL2 批量总览；搜索、选取与原文使用普通页面控件。' : 'Canvas2D 总览：当前环境未提供 WebGL2，源数据与页面控件保持可用。'))
 }
+/** Layout identity excludes reported values while retaining fields used to size/route the graph. */
+function layoutFingerprint(plan: Pick<FlowViewPlan, 'nodes' | 'edges' | 'direction' | 'execution'>): string {
+  return JSON.stringify({
+    nodes: plan.nodes.map(({ execution, ...node }) => ({ ...node, ...(execution ? { execution: true } : {}) })),
+    edges: plan.edges.map(({ executionStatus: _status, ...edge }) => edge), direction: plan.direction, execution: plan.execution,
+  })
+}
 export function LargeFlowView({ plan: inputPlan, onNodeActivate }: { plan: FlowViewPlan, motion?: boolean, onNodeActivate?: (id: string) => void }): ReactElement {
-  const fingerprint = useMemo(() => JSON.stringify(inputPlan), [inputPlan]), plan = useMemo(() => inputPlan, [fingerprint])
+  const plan = inputPlan
+  const layoutKey = useMemo(() => layoutFingerprint(plan), [plan])
   const [selectedId, setSelectedId] = useState<string>(), [query, setQuery] = useState(''), [mode, setMode] = useState<'overview' | 'detail'>('overview'), [detailPage, setDetailPage] = useState(0)
-  const [layout, setLayout] = useState<{ geometry?: FlowGeometry, error?: string }>({})
+  const [layout, setLayout] = useState<{ key: string, geometry?: FlowGeometry, error?: string }>({ key: layoutKey })
   const keyboardActivation = useRef(false), controller = useRef<AbortController>()
   const instance = useRef<ReactFlowInstance<ReturnType<typeof buildFlowGraph>['nodes'][number], ReturnType<typeof buildFlowGraph>['edges'][number]> | null>(null)
   const viewportElement = useRef<HTMLDivElement>(null), [size, setSize] = useState({ width: 800, height: 440 })
   const [viewport, setViewport] = useState<FlowViewport>({ x: 0, y: 0, zoom: 1 })
-  const fallback = useMemo(() => sourceOverviewGeometry(plan), [plan]), source = useMemo(() => indexFlow(plan), [plan])
+  const fallback = useMemo(() => sourceOverviewGeometry(plan), [layoutKey]), source = useMemo(() => indexFlow(plan), [plan])
   useEffect(() => {
     const abort = new AbortController(); controller.current = abort; let current = true
-    setLayout({}); setMode('overview'); setSelectedId(undefined); setDetailPage(0)
-    void layoutFlow(plan, { signal: abort.signal }).then(geometry => { if (current) setLayout({ geometry }) }, error => { if (current) setLayout({ error: error instanceof Error ? `${error.name}：${error.message}` : 'FlowLayoutError：后台布局失败。' }) })
+    setLayout({ key: layoutKey }); setMode('overview'); setSelectedId(undefined); setDetailPage(0)
+    void layoutFlow(plan, { signal: abort.signal }).then(geometry => { if (current) setLayout({ key: layoutKey, geometry }) }, error => { if (current) setLayout({ key: layoutKey, error: error instanceof Error ? `${error.name}：${error.message}` : 'FlowLayoutError：后台布局失败。' }) })
     return () => { current = false; abort.abort() }
-  }, [plan])
-  const geometry = layout.geometry ?? fallback
+  }, [layoutKey])
+  const layoutReady = layout.key === layoutKey ? layout.geometry : undefined
+  const layoutError = layout.key === layoutKey ? layout.error : undefined
+  const geometry = layoutReady ?? fallback
   const selected = selectedId ? source.nodes.get(selectedId) : undefined
   const adjacent = selectedId ? source.incident.get(selectedId) ?? [] : []
   const neighborhoods = useMemo(() => selectedId ? flowNeighborhoodPages(plan, source, selectedId) : [], [plan, source, selectedId])
   const currentPage = Math.min(detailPage, Math.max(0, neighborhoods.length - 1)), neighborhood = neighborhoods[currentPage]
-  const neighborhoodKey = useMemo(() => JSON.stringify(neighborhood), [neighborhood])
-  const initialDetail = useMemo(() => neighborhood ? sourceOverviewGeometry(neighborhood) : undefined, [neighborhood])
+  const neighborhoodPlan = useMemo(() => neighborhood ? { ...neighborhood, direction: plan.direction, execution: plan.execution } : undefined, [neighborhood, plan.direction, plan.execution])
+  const neighborhoodKey = useMemo(() => neighborhoodPlan ? JSON.stringify({ graph: layoutFingerprint(neighborhoodPlan), edgeIndexes: neighborhoodPlan.edgeIndexes }) : '', [neighborhoodPlan])
+  const initialDetail = useMemo(() => neighborhoodPlan ? sourceOverviewGeometry(neighborhoodPlan) : undefined, [neighborhoodKey])
   const [detailLayout, setDetailLayout] = useState<{ key: string, geometry?: FlowGeometry, error?: string }>({ key: '' })
   useEffect(() => {
-    if (!neighborhood) return
+    if (!neighborhoodPlan) return
     let current = true; setDetailLayout({ key: neighborhoodKey })
-    void layoutFlow(neighborhood, { compact: true }).then(geometry => {
-      if (current) setDetailLayout({ key: neighborhoodKey, geometry: { ...geometry, routes: geometry.routes.map((route, index) => ({ ...route, id: `relation-${neighborhood.edgeIndexes[index]}` })) } })
+    void layoutFlow(neighborhoodPlan, { compact: true }).then(geometry => {
+      if (current) setDetailLayout({ key: neighborhoodKey, geometry: { ...geometry, routes: geometry.routes.map((route, index) => ({ ...route, id: `relation-${neighborhoodPlan.edgeIndexes[index]}` })) } })
     }, error => { if (current) setDetailLayout({ key: neighborhoodKey, error: `FlowNeighborhoodLayoutError：${error instanceof Error ? error.message : '局部布局失败。'} 临时排列仍保留本页原文关系。` }) })
     return () => { current = false }
   }, [neighborhoodKey])
@@ -106,13 +117,13 @@ export function LargeFlowView({ plan: inputPlan, onNodeActivate }: { plan: FlowV
     return () => observer?.disconnect()
   }, [mode, detailHeight])
   const windowed = useMemo(() => neighborhood && detailGeometry ? flowWindow(neighborhood, detailGeometry, viewport, size.width, detailHeight) : undefined, [neighborhood, detailGeometry, viewport, size.width, detailHeight])
-  const graph = useMemo(() => windowed && detailGeometry && neighborhood ? buildFlowGraph({ nodes: windowed.nodes, edges: windowed.edges }, detailGeometry, { selectedNodeId: selectedId, compact: true, edgeIndexes: windowed.edgeIndexes.map(index => neighborhood.edgeIndexes[index]!) }) : { nodes: [], edges: [] }, [neighborhood, detailGeometry, windowed, selectedId])
+  const graph = useMemo(() => windowed && detailGeometry && neighborhood ? buildFlowGraph({ nodes: windowed.nodes, edges: windowed.edges, direction: plan.direction, execution: plan.execution }, detailGeometry, { selectedNodeId: selectedId, compact: true, edgeIndexes: windowed.edgeIndexes.map(index => neighborhood.edgeIndexes[index]!) }) : { nodes: [], edges: [] }, [neighborhood, detailGeometry, windowed, selectedId, plan.direction, plan.execution])
   const relation = (index: number) => { const edge = plan.edges[index]!; return h('span', null,
     h(ThemeButton, { renderRole: 'flow', type: 'button', onClick: () => select(edge.source) }, source.nodes.get(edge.source)!.label), ' → ',
     h(ThemeButton, { renderRole: 'flow', type: 'button', onClick: () => select(edge.target) }, source.nodes.get(edge.target)!.label), edge.label === undefined ? '' : `：${edge.label}`, h('details', null, h('summary', null, '原始连线字段'), h('pre', null, JSON.stringify(edge, null, 2)))) }
-  return h(UiverseRenderScope, { role: 'flow' }, h('figure', { className: 'iexp-flow iexp-flow-large', 'data-motion': 'still', 'data-layout': geometry.kind, 'data-layout-algorithm': geometry.algorithm ?? 'source-order' },
-    h('figcaption', { className: 'iexp-flow-caption' }, h('strong', null, plan.title ?? '原文关系'), h('span', null, `${format.format(plan.nodes.length)} 个节点 · ${format.format(plan.edges.length)} 条原文连线；连线不表示执行状态。`)),
-    layout.error ? h('p', { role: 'alert' }, `${layout.error} 当前按原文顺序排列，不推断层级或距离。`) : !layout.geometry ? h('div', { className: 'iexp-flow-toolbar' }, h('span', { role: 'status' }, '正在后台排列节点；当前总览按原文顺序分布，不推断层级或距离。'), h(ThemeButton, { renderRole: 'flow', type: 'button', onClick: () => controller.current?.abort() }, '取消后台布局')) : h('p', { className: 'iexp-flow-help' }, 'ELK 力导向概览已完成；位置仅用于阅读，不代表关系强度、执行顺序或最优结构。'),
+  return h(UiverseRenderScope, { role: 'flow' }, h('figure', { className: 'iexp-flow iexp-flow-large', 'data-motion': 'still', 'data-layout': geometry.kind, 'data-execution': plan.execution || undefined, 'data-layout-algorithm': geometry.algorithm ?? 'source-order' },
+    h('figcaption', { className: 'iexp-flow-caption' }, h('strong', null, plan.title ?? '原文关系'), h('span', null, `${format.format(plan.nodes.length)} 个节点 · ${format.format(plan.edges.length)} 条原文连线；${plan.execution ? '节点状态与数值来自来源快照。' : '连线不表示执行状态。'}`)),
+    layoutError ? h('p', { role: 'alert' }, `${layoutError} 当前按原文顺序排列，不推断层级或距离。`) : !layoutReady ? h('div', { className: 'iexp-flow-toolbar' }, h('span', { role: 'status' }, '正在后台排列节点；当前总览按原文顺序分布，不推断层级或距离。'), h(ThemeButton, { renderRole: 'flow', type: 'button', onClick: () => controller.current?.abort() }, '取消后台布局')) : h('p', { className: 'iexp-flow-help' }, 'ELK 力导向概览已完成；位置仅用于阅读，不代表关系强度、执行顺序或最优结构。'),
     h('div', { className: 'iexp-flow-search' }, h('label', null, '搜索原文节点', h(ThemeInput, { renderRole: 'flow', type: 'search', value: query, placeholder: '名称、标识或描述', onChange: event => setQuery(event.currentTarget.value), 'aria-label': '搜索原文节点' })),
       !!query.trim() && h('span', { role: 'status' }, `找到 ${format.format(matches.length)} 个节点`)),
     !!query.trim() && h(SourcePages<FlowViewPlan['nodes'][number]>, { items: matches, name: '搜索结果', initialOpen: true, render: node => h(ThemeButton, { renderRole: 'flow', type: 'button', onClick: () => select(node.id) }, node.label) }),

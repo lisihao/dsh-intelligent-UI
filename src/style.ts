@@ -1,3 +1,4 @@
+import { executionFlowCss } from './execution-flow-style.js'
 import { chartViewportCss } from './chart-viewport.js'
 import { researchCss } from './research-style.js'
 import { themeComponentsCss } from './theme-components-style.js'
@@ -129,7 +130,7 @@ export function installExperienceStyles(): () => void {
 .iexp-content .iexp-markdown-illustration-original { display:flex; align-items:center; justify-content:center; width:100%; height:auto; max-height:260px; min-height:0; }
 .iexp-content .iexp-markdown-illustration-original img { display:block; max-width:100%; max-height:260px; width:auto; height:auto; object-fit:contain; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss
+` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss + executionFlowCss
   document.head.append(element)
   return () => element.remove()
 }

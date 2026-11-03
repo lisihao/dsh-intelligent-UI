@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({ createEffect: vi.fn(), capture: vi.fn(), relea
 vi.mock('../src/ascii-gpu-effect.js', () => ({ createAsciiGpuEffect: mocks.createEffect }))
 vi.mock('../src/ascii-visual-capture.js', () => ({ captureAsciiVisual: mocks.capture, measureAsciiVisualBounds: (source: Element) => source.getBoundingClientRect() }))
 vi.mock('../src/canvas-runtime-client.js', () => ({ acquireCanvasSlot: (start: () => void) => { start(); return mocks.release } }))
+import { publishAsciiVisualFrame, releaseAsciiVisualFrame } from '../src/ascii-visual-frames.js'
 import { installAsciiVisualTheme } from '../src/ascii-visual-theme.js'
 
 const MARK = 'data-iexp-ascii-paint'
@@ -66,7 +67,7 @@ beforeEach(() => {
   })
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => ({
-    fillRect: vi.fn(), save: vi.fn(), beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), restore: vi.fn(),
+    clearRect: vi.fn(), getImageData: vi.fn(() => ({data: new Uint8ClampedArray(4)})), fillRect: vi.fn(), save: vi.fn(), beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), restore: vi.fn(),
     drawImage: vi.fn((bitmap: HTMLCanvasElement) => { if (bitmap.dataset.frame) frames.push(bitmap.dataset.frame) }),
   })) as never)
 })
@@ -157,4 +158,30 @@ describe('ASCII visual source policy', () => {
     expect(count(moving.element)).toBeGreaterThanOrEqual(3)
     expect(count(moving.element)).toBeLessThanOrEqual(5)
   })
+  it('coalesces owned continuous frames without restoring the original on draw counters, and treats pause as normal', async () => {
+    const {host} = image(); host.replaceChildren()
+    const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 100
+    canvas.getBoundingClientRect = () => rect(); canvas.dataset.iexpContinuousVisual = 'true'; host.append(canvas)
+    activate(); publishAsciiVisualFrame(canvas); await tick(10)
+    expect(canvas.getAttribute(MARK)).toBe('true')
+    autoPaint = false
+    canvas.dataset.drawnFrames = '2'; publishAsciiVisualFrame(canvas); await Promise.resolve()
+    expect(canvas.getAttribute(MARK)).toBe('true')
+    await tick(10)
+    expect(canvas.getAttribute(MARK)).toBe('true')
+    releaseAsciiVisualFrame(canvas); await tick(10)
+    expect(canvas.hasAttribute(MARK)).toBe(false)
+    const status = document.querySelector<HTMLElement>('[data-iexp-ascii-status]')!
+    expect(status.textContent).toBe(''); expect(status.style.display).toBe('none')
+  })
+
+  it('retains native fine flow connections beneath the transparent glyph projection', async () => {
+    const {element,path} = svg(false); element.parentElement!.classList.add('iexp-flow')
+    path.classList.add('react-flow__edge-path'); const {stop} = activate(); await tick(10)
+    expect(path.getAttribute(MARK)).toBe('flow-underlay')
+    document.dispatchEvent(new Event('scroll')); await tick(10)
+    expect(path.getAttribute(MARK)).toBe('flow-underlay')
+    stop(); expect(path.hasAttribute(MARK)).toBe(false)
+  })
+
 })
