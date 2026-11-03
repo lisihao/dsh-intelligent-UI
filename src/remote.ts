@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PACKAGE, SERVICE, artifactSchema, settingsSchema, saveSettingsSchema, publishSchema, widgetInputSchema, widgetStateSchema, saveWidgetStateSchema } from './contracts.js'
 import { themeCatalogResultSchema, downloadThemeSchema } from './theme-source.js'
 import { installThemeSchema, removeThemeSchema } from './theme-contracts.js'
+import { insightPreviewSnapshotSchema } from './insight-preview-contracts.js'
 
 export const sessionInputSchema = z.strictObject({ sessionId: z.string().min(1).max(200) })
 const codec = (name: string, schema: z.ZodType) => ({
@@ -17,6 +18,8 @@ const specs = [
   ['themeCatalog', undefined, themeCatalogResultSchema],
   ['downloadTheme', downloadThemeSchema, settingsSchema],
   ['artifacts', sessionInputSchema, z.array(artifactSchema)],
+  ['localFiles', undefined, z.array(artifactSchema)],
+  ['insightPreview', sessionInputSchema, insightPreviewSnapshotSchema],
   ['publish', publishSchema, artifactSchema],
   ['widgetState', widgetInputSchema, widgetStateSchema],
   ['saveWidgetState', saveWidgetStateSchema, widgetStateSchema],

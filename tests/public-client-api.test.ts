@@ -26,6 +26,7 @@ describe('public client document service', () => {
       return () => { if (services.get(key) === service) services.delete(key) }
     })
     const ctx = {
+      inject: () => () => {},
       effect: (callback: () => () => void) => { const cleanup = callback(); cleanups.push(cleanup); return cleanup },
       provide,
       get: (key: string) => key === 'sessions' ? sessions : key === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : key === 'remote.solarExperience' ? wire : services.get(key),

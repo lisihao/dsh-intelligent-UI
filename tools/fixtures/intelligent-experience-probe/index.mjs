@@ -94,6 +94,27 @@ async function probe(ctx) {
     assert(typeof service.artifacts === 'function' && typeof service.publish === 'function', 'solarExperience artifact service is incomplete')
     checks.service = true
 
+    const libraryRaw = '\uFEFF# Local file fixture\r\n\r\n| Group | Count |\r\n| --- | ---: |\r\n| A | 12 |\r\n'
+    const imported = await service.publish({source:{sessionId:'library:intelligent-ui:files',kind:'generated',label:'本地导入：scratch.md'},protocol:'content',providerId:'local-import',raw:libraryRaw,payload:libraryRaw})
+    const localFiles = await service.localFiles()
+    assert(localFiles.some(file=>file.id===imported.id && file.raw===libraryRaw && file.payload===libraryRaw), 'global file library did not read its unchanged imported source')
+    const missingInsight = await service.insightPreview({sessionId:'scratch-insight-preview'})
+    assert(missingInsight.formatVersion===1 && missingInsight.sessionId==='scratch-insight-preview' && missingInsight.available===false && missingInsight.runs.length===0, 'optional Insight peers must produce an explicit unavailable snapshot')
+    checks.localFiles = true
+    checks.insightReadonlyUnavailable = true
+
+    const insightSession='scratch-insight-preview'
+    const task={kind:'insight',runId:'readonly-run',title:'Scratch existing analysis',status:'running',updatedAt:1793664000000,outputs:[],stages:[{key:'analysis',label:'Analysis',status:'completed',outputs:[{label:'Report',text:libraryRaw}]},{key:'pptx',label:'Deck pending',status:'pending',outputs:[]}]}
+    const readCalls=[]
+    const removeReadPeer=ctx.provide('solarConversationTasks',{status:async input=>{readCalls.push(input);return {formatVersion:1,sessionId:input.sessionId,tasks:[task]}}})
+    try {
+      const preview=await service.insightPreview({sessionId:insightSession})
+      assert(readCalls.length===1 && readCalls[0].sessionId===insightSession, 'preview did not read the exact current session once')
+      assert(preview.available && preview.runs.length===1 && preview.runs[0].outputs[0].text===libraryRaw, 'built preview lost the existing analysis source')
+      assert(/^preview:[a-f0-9]{64}$/.test(preview.runs[0].outputs[0].documentId) && JSON.stringify(preview.runs[0].raw)===JSON.stringify(task), 'built preview lost stable identity or complete pending-stage provenance')
+      checks.insightReadonlyRead=true
+    } finally { await removeReadPeer() }
+
     let state = await service.settings()
     assert(state.revision === 0 && state.takeover === false, `expected initial off settings revision 0; got ${JSON.stringify(state)}`)
     checks.settingsOff = true

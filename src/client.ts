@@ -1,4 +1,8 @@
-import { LocalDataImport } from './local-data-import.js'
+import { DataBrowser, type DataBrowserApi } from './data-browser.js'
+import { installDataBrowserNavigation } from './data-browser-navigation.js'
+import { InsightPreview, type InsightPreviewApi } from './insight-preview-view.js'
+import { insightPreviewSnapshotSchema } from './insight-preview-contracts.js'
+import { artifactSchema } from './contracts.js'
 import { ResearchWorkspace, researchModes } from './research-view.js'
 import { RPC_REMOTE as RESEARCH_REMOTE } from './research-remote.js'
 import { documentInput, prepareInput, markSubmissionInput, saveNotesInput, stateSchema, type ResearchApi } from './research-contracts.js'
@@ -40,8 +44,9 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' { interface Sess
 export const name = 'intelligent-experience-platform'
 export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
-type ClientApi = ExperienceApi & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
-type Wire = { [K in keyof ExperienceApi]: (...args: Parameters<ExperienceApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ExperienceApi[K]>>>> } & { [K in keyof ThemeApi]?: (...args: Parameters<ThemeApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ThemeApi[K]>>>> } & { [K in keyof WidgetStateApi]?: (...args: Parameters<WidgetStateApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<WidgetStateApi[K]>>>> } & { mcpStatus?: () => Promise<RemoteResult<unknown>> } & { [K in keyof McpUiApi]?: (...args: Parameters<McpUiApi[K]>) => Promise<RemoteResult<unknown>> }
+type PreviewApi = Pick<DataBrowserApi,'localFiles'> & InsightPreviewApi
+type ClientApi = ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
+type Wire = { [K in keyof PreviewApi]?: (...args: Parameters<PreviewApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<PreviewApi[K]>>>> } & { [K in keyof ExperienceApi]: (...args: Parameters<ExperienceApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ExperienceApi[K]>>>> } & { [K in keyof ThemeApi]?: (...args: Parameters<ThemeApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ThemeApi[K]>>>> } & { [K in keyof WidgetStateApi]?: (...args: Parameters<WidgetStateApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<WidgetStateApi[K]>>>> } & { mcpStatus?: () => Promise<RemoteResult<unknown>> } & { [K in keyof McpUiApi]?: (...args: Parameters<McpUiApi[K]>) => Promise<RemoteResult<unknown>> }
 type ResearchWire = { [K in keyof ResearchApi]: (...args: Parameters<ResearchApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ResearchApi[K]>>>> }
 /** Research stays optional when connected to an older Host. Validate both sides of the wire. */
 export function researchApiFromWire(w?: ResearchWire): ResearchApi | undefined {
@@ -55,7 +60,7 @@ export function researchApiFromWire(w?: ResearchWire): ResearchApi | undefined {
 }
 const message = (e: unknown): string => e instanceof Error ? e.message : String(e)
 function unwrap<T>(result: RemoteResult<T>): T { if (result.ok) return result.value; throw result.error }
-export function apiFromWire(w: Wire, research?: ResearchWire): ClientApi { const researchApi = researchApiFromWire(research); return { ...(researchApi ? { research: researchApi } : {}), settings: async () => unwrap(await w.settings()), saveSettings: async input => unwrap(await w.saveSettings(saveSettingsSchema.parse(JSON.parse(JSON.stringify(input))))), artifacts: async input => unwrap(await w.artifacts(input)), publish: async input => unwrap(await w.publish(input)), ...(w.themeCatalog ? { themeCatalog: async () => unwrap(await w.themeCatalog!()) } : {}), ...(w.downloadTheme ? { downloadTheme: async input => unwrap(await w.downloadTheme!(input)) } : {}), ...(w.installTheme ? { installTheme: async input => unwrap(await w.installTheme!(input)) } : {}), ...(w.removeTheme ? { removeTheme: async input => unwrap(await w.removeTheme!(input)) } : {}), ...(w.mcpStatus ? { mcpStatus: async () => mcpStatusSchema.parse(unwrap(await w.mcpStatus!())) } : {}), ...(w.widgetState && w.saveWidgetState ? { widgetState: async input => unwrap(await w.widgetState!(input)), saveWidgetState: async input => unwrap(await w.saveWidgetState!(input)) } : {}), ...(w.mcpOpen && w.mcpAction && w.mcpClose ? { mcpOpen: async input => openSchema.parse(unwrap(await w.mcpOpen!(input))), mcpAction: async input => resultSchema.parse(unwrap(await w.mcpAction!(input))), mcpClose: async input => z.null().parse(unwrap(await w.mcpClose!(input))) } : {}) } }
+export function apiFromWire(w: Wire, research?: ResearchWire): ClientApi { const researchApi = researchApiFromWire(research); return { ...(w.localFiles ? {localFiles: async () => z.array(artifactSchema).parse(unwrap(await w.localFiles!()))} : {}), ...(w.insightPreview ? {insightPreview: async input => insightPreviewSnapshotSchema.parse(unwrap(await w.insightPreview!(input)))} : {}), ...(researchApi ? { research: researchApi } : {}), settings: async () => unwrap(await w.settings()), saveSettings: async input => unwrap(await w.saveSettings(saveSettingsSchema.parse(JSON.parse(JSON.stringify(input))))), artifacts: async input => unwrap(await w.artifacts(input)), publish: async input => unwrap(await w.publish(input)), ...(w.themeCatalog ? { themeCatalog: async () => unwrap(await w.themeCatalog!()) } : {}), ...(w.downloadTheme ? { downloadTheme: async input => unwrap(await w.downloadTheme!(input)) } : {}), ...(w.installTheme ? { installTheme: async input => unwrap(await w.installTheme!(input)) } : {}), ...(w.removeTheme ? { removeTheme: async input => unwrap(await w.removeTheme!(input)) } : {}), ...(w.mcpStatus ? { mcpStatus: async () => mcpStatusSchema.parse(unwrap(await w.mcpStatus!())) } : {}), ...(w.widgetState && w.saveWidgetState ? { widgetState: async input => unwrap(await w.widgetState!(input)), saveWidgetState: async input => unwrap(await w.saveWidgetState!(input)) } : {}), ...(w.mcpOpen && w.mcpAction && w.mcpClose ? { mcpOpen: async input => openSchema.parse(unwrap(await w.mcpOpen!(input))), mcpAction: async input => resultSchema.parse(unwrap(await w.mcpAction!(input))), mcpClose: async input => z.null().parse(unwrap(await w.mcpClose!(input))) } : {}) } }
 const resultSchema = z.object({ content: z.array(z.record(z.string(), z.unknown())), isError: z.boolean().optional() }).passthrough().transform(value => value as CallToolResult)
 const mcpStatusSchema = z.object({ configured: z.boolean(), enabled: z.boolean(), connected: z.boolean(), instances: z.number().int().nonnegative(), error: z.string().optional() })
 const openSchema = z.object({ instanceId: z.uuid(), proxyUrl: z.url(), html: z.string(), input: z.record(z.string(), z.unknown()), result: resultSchema })
@@ -274,7 +279,7 @@ export function Workspace({ store, sessionId, onContinue, onOrganize }: { store:
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState('')
   const refreshEpoch = useRef(0)
   useEffect(() => { let live = true; setItems([]); setError(''); const refresh = () => { const epoch = ++refreshEpoch.current; if (api) void api.artifacts({ sessionId }).then(x => { if (live && epoch === refreshEpoch.current) { setItems(x); setError('') } }, e => { if (live && epoch === refreshEpoch.current) setError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, sessionId])
-  return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), api && h(LocalDataImport, { api, sessionId, onImported: artifact => { refreshEpoch.current++; setItems(current => [...current.filter(item => item.id !== artifact.id), artifact]); setError('') } }), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => {
+  return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => {
     const text = item.protocol === 'content' && typeof item.payload === 'string' ? item.payload : undefined
     const original = h(ArtifactView, { key: item.id, artifact: item, openuiEnabled: settings?.openui, onContinue, stateApi: stateApi(api), mcpApi: settings?.mcpApps ? mcpApi(api) : undefined, ...(text ? { displayMode: 'visual' as const } : {}) })
     return text ? h(OutputView, { key: item.id, sessionId, raw: item.raw }, h(ResearchWorkspace, { sessionId, documentId: `artifact:${item.id}`, text, api: api?.research, onOrganize }, original)) : original
@@ -361,6 +366,16 @@ export function apply(ctx: Context): void {
     return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); injectionDispose?.(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
   }, 'intelligent-experience: remote')
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'solar-intelligent-experience-mode', order: 47 }, (props: PropsRuntime<'conversation.session.header.utilities'>) => h(HeaderControls, { store, sessionId: String(props.sessionId) })))
+  function BrowserPanel(): ReactElement {
+    const {api}=useStore(store)
+    return h(CanvasRuntimeContext.Provider,{value:canvasScope.loadCanvasEffect},h(DataBrowser,{api:api?.localFiles ? api as DataBrowserApi : undefined,themeControl:h(ThemeQuickSwitch,{store})}))
+  }
+  ctx.inject(['layout'], child => installDataBrowserNavigation(child,BrowserPanel))
+  function PreviewPanel(props:PropsRuntime<'conversation.view'>): ReactElement {
+    const {api}=useStore(store)
+    return h(CanvasRuntimeContext.Provider,{value:canvasScope.loadCanvasEffect},h(InsightPreview,{api:api?.insightPreview ? api as InsightPreviewApi : undefined,sessionId:String(props.sessionId),researchApi:api?.research,onOrganize:(text,signal)=>submitResearchPrompt(sessionContext,props.sessionId,text,signal)}))
+  }
+  ctx.slots.inject('conversation.view', () => ctx.slots.register({ name:'conversation.view',id:'solar-intelligent-insight-preview',order:46,label:()=> '洞察预览' }, PreviewPanel))
   ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'solar-intelligent-experience', order: 47, label: () => '智能体验' }, () => h(Settings, { store })))
   ctx.slots.inject('conversation.view', () => ctx.slots.register({ name: 'conversation.view', id: 'solar-intelligent-experience', order: 47, label: () => '生成内容' }, (props: PropsRuntime<'conversation.view'>) => h(Workspace, { store, sessionId: String(props.sessionId), onOrganize: (text, signal) => submitResearchPrompt(sessionContext, props.sessionId, text, signal), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })))
 }

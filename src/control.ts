@@ -10,6 +10,8 @@ import { McpHost } from './mcp-host.js'
 import { listSourceThemes, downloadSourceTheme } from './theme-download.js'
 import type { DownloadThemeInput } from './theme-source.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/core'
+import { readInsightPreview } from './insight-preview-source.js'
+import type { InsightPreviewPorts } from './insight-preview-contracts.js'
 
 export class ExperienceControl extends TypertRemoteService implements ExperienceApi, WidgetStateApi, ThemeApi {
   readonly registry = new ExperienceRegistry()
@@ -41,6 +43,20 @@ export class ExperienceControl extends TypertRemoteService implements Experience
   }
   @Remote
   async artifacts(input: { sessionId: string }) { this.owner(); return this.store.artifacts(sessionInputSchema.parse(input)) }
+  @Remote
+  async localFiles() { this.owner(); return this.store.localFiles() }
+  @Remote
+  async insightPreview(input: {sessionId:string}) {
+    this.owner()
+    const {sessionId}=sessionInputSchema.parse(input)
+    // Optional peers expose read operations only; never obtain a mutable flow API here.
+    const legacy=this.ctx.get('solarConversationTasks' as never) as {status?:InsightPreviewPorts['legacyStatus']}|undefined
+    const workflow=this.ctx.get('solarWorkflowControl' as never) as {overview?:InsightPreviewPorts['workflowOverview']}|undefined
+    return readInsightPreview(sessionId,{
+      ...(typeof legacy?.status==='function'?{legacyStatus:legacy.status.bind(legacy)}:{}),
+      ...(typeof workflow?.overview==='function'?{workflowOverview:workflow.overview.bind(workflow)}:{}),
+    })
+  }
   @Remote
   async publish(input: PublishInput) {
     this.owner()

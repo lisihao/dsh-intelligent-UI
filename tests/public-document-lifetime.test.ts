@@ -26,6 +26,7 @@ function glb(): Uint8Array {
 function fixture() {
   const cleanups: Array<() => void> = [], services = new Map<string, unknown>()
   const ctx = {
+    inject: () => () => {},
     effect: (callback: () => () => void) => { const cleanup = callback(); cleanups.push(cleanup); return cleanup },
     provide: (key: string, service: unknown) => { services.set(key, service); return () => services.delete(key) },
     get: (key: string) => key === 'sessions' ? { using: vi.fn() } : key === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : services.get(key),

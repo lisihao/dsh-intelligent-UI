@@ -16,6 +16,7 @@ import { z as schema } from 'zod'
 import { ExperienceStore } from './store.js'
 import { ExperienceControl } from './control.js'
 import { artifactSchema } from './contracts.js'
+import { LOCAL_IMPORT_PROVIDER } from './file-library-contracts.js'
 import { McpHost } from './mcp-host.js'
 
 export { UiComponentsControl } from './uiverse/host.js'
@@ -81,7 +82,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   if (current.takeover && current.mcpApps && config.mcpEndpoint) void control.activateMcp()
   ctx.effect(() => store.subscribe(settings => { current = settings; if (!settings.takeover || !settings.mcpApps) void mcp.closeAll().catch(error => ctx.logger('solar-experience').warn('%s', error)) }))
   ctx.effect(() => () => mcp.dispose())
-  for (const [id, protocol] of [['openui', 'openui'], ['content', 'content'], ['mcp-app', 'mcp-app']] as const) {
+  for (const [id, protocol] of [['openui', 'openui'], ['content', 'content'], [LOCAL_IMPORT_PROVIDER, 'content'], ['mcp-app', 'mcp-app']] as const) {
     ctx.effect(() => control.registry.register({ id, version: '1', capabilities: [protocol] }, value => value))
   }
   const pending = new Set<Promise<unknown>>()

@@ -1,7 +1,10 @@
+import {DataBrowser} from '../../src/data-browser.js'
+import {InsightPreview} from '../../src/insight-preview-view.js'
+import type {InsightPreviewSnapshot} from '../../src/insight-preview-contracts.js'
 import { createElement as h, useEffect, useRef, useState, type ReactElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BarChart, IconWrapper, LineChart, PieChart, RadarChart, ScatterChart, ThemeProvider } from '@openuidev/react-ui'
-import { ExperienceStore, HeaderControls, Workspace } from '../../src/client.js'
+import { ExperienceStore, HeaderControls } from '../../src/client.js'
 import { initialSettings, type ExperienceArtifact, type ExperienceSettings } from '../../src/contracts.js'
 import { ArtifactView, ContentView, OutputView, displayModes, experienceTheme } from '../../src/presentation.js'
 import { FlowView } from '../../src/flow-view.js'
@@ -21,6 +24,7 @@ const executionOnly = params.get('execution') === '1'
 const showcaseOnly = params.get('showcase') === '1'
 const typographyOnly = params.get('typography') === '1'
 const importOnly = params.get('import') === '1'
+const insightOnly = params.get('insight') === '1'
 const requestedTheme = params.get('theme')
 const themeId = requestedTheme && ['empryo','ascii','ascii-gpu','uiverse-soft-relief'].includes(requestedTheme) ? requestedTheme : 'ascii-gpu'
 const preference = { activeId: themeId, installed: [] }
@@ -38,6 +42,7 @@ store.update({ settings, api: {
     return settings
   },
   artifacts: async () => importedArtifacts,
+  localFiles: async () => [...importedArtifacts].reverse(),
   publish: async input => {
     if (!importOnly) throw new Error('本地验收不会发布内容。')
     const artifact: ExperienceArtifact = {...input,formatVersion:1,id:`local-import-${importedArtifacts.length+1}`,createdAt:new Date().toISOString()}
@@ -305,11 +310,21 @@ function TypographyFixture(): ReactElement {
 }
 
 function ImportFixture(): ReactElement {
-  return h('main',{className:'fixture-main'},
-    h('header',{className:'fixture-header'},
-      h('div',null,h('h1',null,'导入内容 · 本地验收'),h('p',null,'文件仅保存在此预览页内存，不写会话、不调用模型。')),
-      h(HeaderControls,{store,sessionId})),
-    h('div',{'data-slot':'conversation.view','data-fixture-import':true,style:{minWidth:0}},h(Workspace,{store,sessionId})))
+  const [opened,setOpened]=useState(true)
+  const api=store.snapshot().api!
+  return h('main',{className:'fixture-main',style:{height:'100dvh',display:'flex',flexDirection:'column',boxSizing:'border-box'}},
+    h('header',{className:'fixture-header'},h('div',null,h('h1',null,'数据浏览器 · 本地验收'),h('p',null,'实际组件；文件仅保存在此页内存，不写会话、不调用模型。')),
+      h(ThemeButton,{onClick:()=>setOpened(value=>!value)},opened?'关闭数据浏览器':'打开数据浏览器')),
+    opened&&h('div',{'data-fixture-import':true,style:{minWidth:0,minHeight:0,flex:1}},h(DataBrowser,{api:api as Parameters<typeof DataBrowser>[0]['api']})))
+}
+function InsightFixture(): ReactElement {
+  const snapshot:InsightPreviewSnapshot={formatVersion:1,sessionId,available:true,warnings:[],runs:[{
+    id:'workflow-fixture',source:'workflow',sourceRunId:'readonly-fixture',title:'研究洞察 · 本地回放',status:'running',updatedAt:'2026-11-02T12:00:00Z',pptxState:'pending',
+    raw:{notice:'验收回放，原报告内容；运行状态为合成样本，不是真实 DSH 执行。',nodes:[{id:'analysis',status:'completed',output:report},{id:'pptx',status:'pending'}]},
+    outputs:[{id:'analysis',documentId:'preview:'+ 'a'.repeat(64),label:'研究报告',status:'completed',text:report,nodeId:'analysis',location:'node'}],
+  }]}
+  const [api]=useState(()=>({insightPreview:async()=>snapshot}))
+  return h('main',{className:'fixture-main'},h('header',{className:'fixture-header'},h('div',null,h('h1',null,'洞察预览 · 本地验收'),h('p',null,'实际预览组件；已有正文的只读回放，PPTX 等待状态为合成样本，不代表真实执行。')),h(HeaderControls,{store,sessionId})),h(InsightPreview,{api,sessionId}))
 }
 
 // These immutable snapshots are illustrative local input, not DSH task state.
@@ -453,5 +468,5 @@ function Fixture(): ReactElement {
 }
 
 const root = createRoot(document.getElementById('root')!)
-root.render(h(importOnly ? ImportFixture : typographyOnly ? TypographyFixture : executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
+root.render(h(importOnly ? ImportFixture : insightOnly ? InsightFixture : typographyOnly ? TypographyFixture : executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
 window.addEventListener('pagehide', () => { root.unmount(); removeAsciiEffect(); removeAppearance(); removeStyles(); displayModes.clear() }, { once: true })

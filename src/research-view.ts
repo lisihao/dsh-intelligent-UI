@@ -50,10 +50,13 @@ export interface ResearchWorkspaceProps {
   sessionId: string; documentId: string; text: string; api?: ResearchApi
   onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void>
   children?: ReactNode; isStreaming?: boolean
+  /** A standalone preview can show the workspace without changing the conversation toggle. */
+  enabled?: boolean
 }
 
-export function ResearchWorkspace({ sessionId, documentId, text, api, onOrganize, children, isStreaming = false }: ResearchWorkspaceProps): ReactElement {
-  const enabled = useSyncExternalStore(researchModes.subscribe, () => researchModes.get(sessionId), () => false)
+export function ResearchWorkspace({ sessionId, documentId, text, api, onOrganize, children, isStreaming = false, enabled: override }: ResearchWorkspaceProps): ReactElement {
+  const selected = useSyncExternalStore(researchModes.subscribe, () => researchModes.get(sessionId), () => false)
+  const enabled = override ?? selected
   const prefix = useId(), doc = useMemo(() => ({ sessionId, documentId, text }), [sessionId, documentId, text])
   const local = useMemo(() => enabled && !isStreaming ? analyzeResearchDocument(text) : emptyResearchDocument, [text, enabled, isStreaming])
   const [tab, setTab] = useState<Tab>('report'), [state, setState] = useState<ResearchState>(), [error, setError] = useState('')

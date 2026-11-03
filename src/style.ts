@@ -1,5 +1,6 @@
 import { executionFlowCss } from './execution-flow-style.js'
 import { tableViewportCss } from './table-viewport.js'
+import { documentWorkbenchCss } from './document-workbench-style.js'
 import { chartViewportCss } from './chart-viewport.js'
 import { researchCss } from './research-style.js'
 import { themeComponentsCss } from './theme-components-style.js'
@@ -42,7 +43,7 @@ export function installExperienceStyles(): () => void {
   const element = document.createElement('style')
   element.dataset.solarExperience = 'true'
   const defaults = Object.entries(themeStyleTokens(resolveTheme(), appearanceTokens())).map(([key, value]) => `${key}:${value}`).join(';')
-  element.textContent = researchCss + openuiCss + flowCss + tableViewportCss + `
+  element.textContent = researchCss + openuiCss + flowCss + tableViewportCss + documentWorkbenchCss + `
 @font-face { font-family: 'DSH Paper Sans'; src: url('${paperFont}') format('woff2'); font-weight: 100 1000; font-style: normal; font-display: swap; }
 @font-face { font-family: 'DSH Recursive'; src: url('${recursiveFont}') format('woff2'); font-weight: 300 1000; font-style: normal; font-display: swap; }
 .dsh-experience.iexp-content {

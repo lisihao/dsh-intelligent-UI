@@ -382,3 +382,10 @@ A single full-document Markdown AST preserves definitions, footnotes, original n
 ## Source-table viewport
 
 Original/source tables fit their actual parent width with a measured CSS transform and reserved layout height. The compact fit toolbar reuses ThemeButton and existing13px metadata/line/accent tokens, remains unscaled and exposes native size for reading. Native size restores keyboard-accessible local horizontal scrolling; fit resets its horizontal offset. Resize follows container changes, including research comparison layouts and disclosure visibility. Full table DOM/cells/anchors remain intact; body text and other plugin/app surfaces retain their size. Very narrow dense overviews are navigation, not a claim of readable microtext.
+
+
+## Data browser and Insight preview
+
+Data browser is a plugin-owned main panel, reached through one fixed sidebar footer action so it is also reachable in DS Bot mode. A compact toolbar holds import, refresh, display mode and the existing theme selector. The file list is 180–260px beside a flexible reader; below 760px it becomes a 160px-high list above the reader. Both areas scroll independently. Source labels keep their prefix on one line, file names and report links wrap, and focused reader Home/End reaches the document boundaries. Use existing theme tokens and controls; no new visual theme is introduced.
+
+Conversation Insight preview selects an existing run and an already-produced stage/node output. Source status and complete original-run disclosure sit above the reader. PPTX waiting/manifest state is explicit. The local research workspace exposes report, judgments, sources and technical comparison without changing the conversation's research preference; its tabs form two columns at narrow widths. This is content preview rather than final slide-layout proof. Real output, units and source strings remain available in shared original/compare modes.
