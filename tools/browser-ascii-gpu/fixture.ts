@@ -19,6 +19,7 @@ const sessionId = 'local-ascii-gpu-fixture'
 const params = new URLSearchParams(location.search)
 const executionOnly = params.get('execution') === '1'
 const showcaseOnly = params.get('showcase') === '1'
+const typographyOnly = params.get('typography') === '1'
 const requestedTheme = params.get('theme')
 const themeId = requestedTheme && ['empryo','ascii','ascii-gpu','uiverse-soft-relief'].includes(requestedTheme) ? requestedTheme : 'ascii-gpu'
 const preference = { activeId: themeId, installed: [] }
@@ -254,6 +255,48 @@ function ShowcaseFixture(): ReactElement {
           h('h2', null, '合成数据对照'), h(OutputView, { sessionId, raw: showcaseMarkdown }, h(ContentView, { value: showcaseMarkdown }))))))
 }
 
+const terminalMarkdown = `# 字符终端里的研究输出
+
+技术洞察需要清晰的正文、精确的数字和可追溯的证据。Terminal text should feel consistent: i l 1 I / O 0; !=; fi fl.
+
+## 证据与判断
+
+**结论保持可读**，强调通过字重区分。GPU ASCII 负责图形，原生文字仍可选择和复制；不会修改原始报告，也不会给每一行添加虚假的命令提示符。
+
+- 数据期间：2026-11-01 至 2026-11-02；以下均为合成测试。
+- API latency = 12.50 ms；sample_count = 1,024；confidence = 0.85。
+- 中文全角标点：“证据”、（单位）、《来源》，中英混排自然换行。
+
+### 合成数据对照
+
+| 项目 | 耗时（ms） |
+|---|---:|
+| 检索 Search | 12.5 |
+| 分析 Analyze | 24 |
+| 验证 Verify | 18 |
+
+来源：确定性本地样本，非真实任务指标。
+
+\`\`\`text
+task       state       elapsed
+search     complete     12.50 ms
+analyze    running       24.00 ms
+verify     queued         0.00 ms
+\`\`\`
+
+#### 编码与复核
+
+保留完整原文、代码、数值和口径；[查看合成来源](https://example.com/synthetic/research/source-with-a-long-path-for-wrapping-0123456789)。
+`
+function TypographyFixture(): ReactElement {
+  return h('main', { className:'fixture-main' },
+    h('header', { className:'fixture-header' },
+      h('div',null,h('h1',null,'终端文字 · 本地验收'),h('p',null,'中英混排、数值与代码均为合成样本。')),
+      h(HeaderControls,{store,sessionId})),
+    h('div',{'data-slot':'conversation.view',className:'dsh-experience fixture-content','data-fixture-typography':true},
+      h(OutputView,{sessionId,raw:terminalMarkdown},h(ContentView,{value:terminalMarkdown}))))
+}
+
 // These immutable snapshots are illustrative local input, not DSH task state.
 function freezeDeep<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -395,5 +438,5 @@ function Fixture(): ReactElement {
 }
 
 const root = createRoot(document.getElementById('root')!)
-root.render(h(executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
+root.render(h(typographyOnly ? TypographyFixture : executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
 window.addEventListener('pagehide', () => { root.unmount(); removeAsciiEffect(); removeAppearance(); removeStyles(); displayModes.clear() }, { once: true })

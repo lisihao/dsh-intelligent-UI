@@ -84,6 +84,25 @@ describe('selected theme runtime', () => {
       }
     }
   })
+  it('applies terminal text only in ASCII and removes it on theme switch and plugin disposal', () => {
+    const store = new ExperienceStore(), base = initialSettings()
+    store.update({settings:{...base,theme:{activeId:'ascii-gpu',installed:[]}}})
+    const dispose = installAppearanceStyles(store)
+    const sheet = document.querySelector('[data-solar-experience-appearance]')!
+    try {
+      for (const id of ['ascii-gpu','ascii']) {
+        store.update({settings:{...base,theme:{activeId:id,installed:[]}}})
+        const theme=themePreferences.getSnapshot(), tokens=themeStyleTokens(theme,appearanceTokens(undefined,theme))
+        expect(tokens['--iexp-font']).toMatch(/^Menlo,/)
+        expect(tokens['--iexp-code-font']).toBe(tokens['--iexp-font'])
+        expect(sheet.textContent).toContain('font-variant-ligatures:none')
+      }
+      store.update({settings:{...base,theme:{activeId:'empryo',installed:[]}}})
+      expect(sheet.textContent).not.toContain('font-variant-ligatures:none')
+      expect(sheet.textContent).not.toContain('--iexp-font:Menlo')
+    } finally {dispose()}
+    expect(document.querySelector('[data-solar-experience-appearance]')).toBeNull()
+  })
   it('updates the same stylesheet for theme-only changes and restores all state on disposal', () => {
     const store = new ExperienceStore(), settings = { ...initialSettings(), takeover: true }
     store.update({ settings }); const dispose = installAppearanceStyles(store)

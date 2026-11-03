@@ -25,3 +25,9 @@ Use dim graphite `#34383d` instead of `#e8e8e8`; derive raised/inset highlights 
 ## Evidence boundary
 
 Inspect real desktop/narrow output and actual GPU motion, select both rendering modes through normal controls, retain original data across changes, and test error/reduced-motion/disposal paths. A generated local GLB, existing SVG network and Markdown numeric table are labeled synthetic test material, not a real model run. Keep all captures/recordings private. Official Desktop/CSP acceptance belongs to the centralized installer and remains separate from browser and scratch-package tests.
+
+## Terminal typography refinement
+
+Both ASCII modes use the same native terminal text role: local Menlo/SFMono, then Consolas/Liberation Mono, existing bundled Recursive and available CJK fallbacks. No font download or new font redistribution is introduced. Body, headings, source, chart SVG/HTML labels, plugin-owned header controls and popovers inherit that role while other themes keep their existing typography. Ligatures and kerning are disabled, figures are tabular with a slashed-zero preference, and code tabs use four spaces. Headings use a compact fixed 22/20/18/16px scale (20/18/16px at the narrow breakpoint) with regular body and 600 emphasis. No fake prompt prefixes, source rewriting, blur or blinking are added.
+
+CJK fallback remains platform-dependent. The local browser resolved Latin to Menlo Regular and Chinese to Heiti SC Light; representative Chinese glyphs share width but are not claimed to be exactly two Latin cells. Native DSH font/CSP acceptance remains separate. ASCII styles are removed on selecting another theme or disposing the plugin.

@@ -39,19 +39,19 @@ colors:
   host-border: "var(--dsw-alias-border-l2, #b9bdc4)"
 typography:
   ascii-body:
-    fontFamily: "'DSH Recursive', 'SFMono-Regular', Menlo, Consolas, monospace"
-    fontSize: "15px"
-    lineHeight: 1.7
+    fontFamily: "Menlo, 'SFMono-Regular', Consolas, 'Liberation Mono', 'DSH Recursive', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'Heiti SC', monospace"
+    fontSize: "16px"
+    lineHeight: 1.5
     fontVariation: "'MONO' 1, 'CASL' 0"
   ascii-headline:
-    fontSize: "clamp(23px, 3vw, 32px)"
-    fontWeight: 550
+    fontSize: "22px"
+    fontWeight: 600
     lineHeight: 1.5
     letterSpacing: "0"
   ascii-section:
-    fontSize: "22px"
-  ascii-section-narrow:
     fontSize: "20px"
+  ascii-section-narrow:
+    fontSize: "18px"
   paper-display:
     fontFamily: "'DSH Paper Sans', 'PingFang SC', system-ui, sans-serif"
     fontSize: "56px"

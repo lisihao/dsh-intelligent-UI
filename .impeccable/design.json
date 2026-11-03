@@ -13,8 +13,8 @@
         "purpose": "Code blocks use MONO 1 and CASL 0."
       },
       "ascii-body": {
-        "displayName": "ASCII Recursive monospace axis",
-        "purpose": "Source-preserving ASCII presentation; use the bundled font with a monospace fallback."
+        "displayName": "ASCII terminal text",
+        "purpose": "Both ASCII modes use local terminal Menlo/SFMono first, bundled Recursive fallback and available CJK fonts; native selectable text, no ligatures, tabular slashed-zero figures."
       }
     },
     "shadows": [
