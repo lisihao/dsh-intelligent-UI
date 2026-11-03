@@ -123,7 +123,7 @@
     },
     "themePackages": {
       "contract": "docs/design/experience-themes.md",
-      "format": "Data-only .dsh-theme.json v1, v2 and v3; v2 selects a bundled component set; v3 selects ASCII with a mono font; no CSS, JavaScript or remote assets",
+      "format": "Data-only .dsh-theme.json v1, v2 and v3; v2 selects a bundled component set; v3 selects the ASCII presentation; no CSS, JavaScript or remote assets",
       "builtIns": [
         "empryo",
         "ascii",
@@ -359,18 +359,11 @@
       "description": "Unboxed direct-label meter; shared-scale CSS width preserves the original numeric value. Illustrative value only.",
       "html": "<div class=\"ds-comparison-row\"><span class=\"ds-comparison-label\">示例项目</span><div class=\"ds-comparison-measure\"><div class=\"ds-comparison-meter\" role=\"meter\" aria-label=\"示例项目\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-valuetext=\"50\"><span class=\"ds-comparison-stroke\"></span></div><span class=\"ds-comparison-value\" aria-hidden=\"true\">50</span></div></div>",
       "css": ".ds-comparison-row{color:var(--iexp-text,#1a2028);font-variant-numeric:tabular-nums}.ds-comparison-label{display:block;margin-block-end:5px;font:13px/1.55 \"DSH Recursive\",sans-serif}.ds-comparison-measure{position:relative;width:calc(100% - 11ch);min-height:29px}.ds-comparison-meter{position:absolute;top:0;width:100%;height:17px;padding-block:3px}.ds-comparison-meter::before{content:\"\";position:absolute;inset-inline:0;top:8px;height:1px;background:var(--iexp-line,#cdd5dc)}.ds-comparison-stroke{position:relative;display:block;width:50%;height:11px;background:var(--iexp-accent,#4a6a80);border-radius:4% 3% 5% 2% / 42% 56% 38% 58%}.ds-comparison-value{position:relative;display:block;top:-3px;inset-inline-start:50%;margin-inline-start:9px;width:10ch;font:13px/1.55 \"DSH Recursive\",sans-serif}@media(forced-colors:active){.ds-comparison-stroke{background:CanvasText;forced-color-adjust:none}.ds-comparison-meter::before{background:GrayText;forced-color-adjust:none}}"
-    },
-    {
-      "name": "ASCII source comparison",
-      "kind": "custom",
-      "description": "Illustrative source-backed categorical comparison; the original value stays readable and the character marks are approximate.",
-      "html": "<div class=\"ds-ascii\"><p class=\"ds-ascii-guide\">字符条为近似；精确数值见原文和数据表。</p><ol class=\"ds-ascii-list\"><li><div>示例项目</div><div class=\"ds-ascii-measure\"><span>示例单位</span><span>42</span><span class=\"ds-ascii-marks\" aria-hidden=\"true\">|########----</span></div></li></ol></div>",
-      "css": ".ds-ascii{color:var(--iexp-text,#e8ebee);font:13px/1.55 \"DSH Recursive\",monospace;font-variation-settings:\"MONO\" 1,\"CASL\" 0}.ds-ascii-guide{margin:0 0 12px;color:var(--iexp-muted,#adb5bf)}.ds-ascii-list{display:grid;gap:12px;margin:0;padding:0;list-style:none}.ds-ascii-measure{display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:8px}.ds-ascii-marks{grid-column:1/-1;white-space:pre;color:var(--iexp-accent,#b9d985)}"
     }
   ],
   "narrative": {
     "northStar": "Source-led reading in Undertow",
-    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.\n\nASCII is a separate selectable presentation alongside the default Empryo. Its character plots and fixed-width type organize eligible source-derived comparisons without changing the source. Candidate g passed scoped official DSH checks for theme switching, source-preserving reports and selected model/image paths, but its native header overlapped host controls at narrower window sizes. Candidate h subsequently passed affected native acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks; source data and original appearance were preserved.",
+    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.\n\nASCII is a separate selectable presentation alongside the default Empryo. Its fixed-width type and actual Canvas UI Asciify WebGL projection give supported graphics a character-based appearance while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of the newer graphics effects, which is pending.",
     "keyCharacteristics": [
       "Continuous prose and compact comparisons share the configurable quiet gray content surface; data cards use rounded elevation.",
       "Composition follows explicit source structure rather than decorative tiles.",
@@ -385,8 +378,8 @@
         "section": "colors"
       },
       {
-        "name": "The Fixed-Width Plot Rule",
-        "body": "Character bars use the monospace axis; labels and exact source values remain readable and are not converted into decoration.",
+        "name": "The Native Label Rule",
+        "body": "The GPU character effect projects supported graphic geometry; native labels, units and exact source values remain readable.",
         "section": "typography"
       },
       {
@@ -400,7 +393,7 @@
       "Do scope configurable surface appearance to plugin content and keep the single conversation-header selector.",
       "Do retain exact source strings, units, exclusions, qualifications and complete sources.",
       "Do keep the local Recursive font and OFL together.",
-      "Do keep ASCII chart marks approximate and the exact source values and qualifications visible.",
+      "Do treat ASCII-projected graphics as approximate while keeping exact source values and qualifications visible.",
       "Do distinguish browser review from installed official DSH acceptance."
     ],
     "donts": [

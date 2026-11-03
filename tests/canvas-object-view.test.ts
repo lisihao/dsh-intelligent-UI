@@ -239,8 +239,9 @@ describe('source-bound Canvas object display', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/illustration')
   })
 
-  it('keeps the verified original image visible without animation in reduced motion', async () => {
+  it.each(['empryo', 'ascii'] as const)('keeps the verified original image visible without animation in reduced motion (%s)', async theme => {
     const bytes = fixturePng(), value = { type: 'image/png', role: 'decorative', url: '/art.png' }
+    themePreferences.set({ activeId: theme, installed: [] })
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }))
     URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/illustration')
@@ -249,7 +250,7 @@ describe('source-bound Canvas object display', () => {
     try {
       await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 10)) })
       expect(host.querySelector<HTMLDivElement>('.iexp-canvas-object')?.hidden).toBe(true)
-      expect(host.querySelector('img')?.getAttribute('src')).toBe('blob:http://localhost/illustration')
+      expect(host.querySelector('figure[data-iexp-ascii-original] img')?.getAttribute('src')).toBe('blob:http://localhost/illustration')
       expect(host.querySelector('a')?.textContent).toBe('打开原始插画')
       expect(runtime.load).not.toHaveBeenCalled()
     } finally { await act(async () => root.unmount()); host.remove() }
@@ -301,6 +302,24 @@ describe('source-bound Canvas object display', () => {
       await act(async () => { retry.click(); await new Promise(resolve => setTimeout(resolve, 0)) })
       expect(host.querySelector('img')?.getAttribute('src')).toBe('blob:http://localhost/illustration')
       expect(host.textContent).not.toContain('插画格式或尺寸不受支持')
+      expect(runtime.load).not.toHaveBeenCalled()
+    } finally { await act(async () => root.unmount()); host.remove() }
+  })
+
+  it('does not start the ASCII image effect when bytes do not match the declared type', async () => {
+    const bytes = fixtureJpeg(), value = { type: 'image/png', role: 'illustration', url: '/wrong.png' }
+    themePreferences.set({ activeId: 'ascii', installed: [] })
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
+    vi.stubGlobal('IntersectionObserver', class { constructor(private callback: IntersectionObserverCallback) {} observe(target: Element) { this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver) } disconnect() {} })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }))
+    URL.createObjectURL = vi.fn(); URL.revokeObjectURL = vi.fn()
+    const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
+    try {
+      await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 10)) })
+      expect(host.textContent).toContain('插画格式或尺寸不受支持')
+      expect(host.querySelector('a')?.getAttribute('href')).toBe(new URL('/wrong.png', location.href).href)
+      expect(host.querySelector('pre')!.textContent).toBe(JSON.stringify(value, null, 2))
+      expect(URL.createObjectURL).not.toHaveBeenCalled()
       expect(runtime.load).not.toHaveBeenCalled()
     } finally { await act(async () => root.unmount()); host.remove() }
   })
@@ -512,24 +531,53 @@ describe('source-bound Canvas object display', () => {
     expect(runtime.release).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps an eligible image on Ink when the ASCII theme is selected', async () => {
-    const bytes = fixturePng(), value = { type: 'image/png', role: 'illustration', url: '/art.png', alt: '原始插画' }
+  it.each([
+    ['PNG', 'image/png', fixturePng],
+    ['JPEG', 'image/jpeg', fixtureJpeg],
+  ] as const)('renders a validated %s illustration with ASCII, returns to Ink, and retains its original', async (_label, mime, fixture) => {
+    const bytes = fixture(), value = { type: mime, role: 'illustration', url: '/art', alt: '原始插画' }, original = JSON.stringify(value)
+    const destroys: Array<ReturnType<typeof vi.fn>> = [], sources: string[] = []
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
     vi.stubGlobal('IntersectionObserver', class { constructor(private callback: IntersectionObserverCallback) {} observe(target: Element) { this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver) } disconnect() {} })
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as WebGL2RenderingContext)
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }))
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer })
+    vi.stubGlobal('fetch', fetchMock)
     URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/art'); URL.revokeObjectURL = vi.fn()
-    runtime.load.mockResolvedValue((_elements: unknown, options: { onLoad(): void }) => { options.onLoad(); return { destroy: runtime.destroy } })
+    runtime.load.mockImplementation(async () => (_elements: unknown, options: { src: string; onLoad(): void }) => {
+      const destroy = vi.fn(); destroys.push(destroy); sources.push(options.src); options.onLoad(); return { destroy }
+    })
     themePreferences.set({ activeId: 'ascii', installed: [] })
     const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
     try {
       await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 10)) })
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
-      expect(runtime.load).toHaveBeenCalledWith('ink-object')
-      expect(runtime.load).not.toHaveBeenCalledWith('ascii-object')
-      expect(host.querySelector('img')?.getAttribute('alt')).toBe('原始插画')
+      const image = host.querySelector<HTMLImageElement>('figure[data-iexp-ascii-original] img')!
+      const link = host.querySelector<HTMLAnchorElement>('a.iexp-model-source-link')!
+      expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ascii-object'])
+      expect(image.getAttribute('src')).toBe('blob:http://localhost/art')
+      expect(image.getAttribute('alt')).toBe('原始插画')
+      expect(image.closest('figure')?.querySelector('figcaption')?.textContent).toBe('原图')
+      expect(link.getAttribute('href')).toBe(new URL('/art', location.href).href)
       expect(host.querySelector('pre')!.textContent).toBe(JSON.stringify(value, null, 2))
+      expect(sources).toEqual(['blob:http://localhost/art'])
+
+      await act(async () => { themePreferences.set({ activeId: 'empryo', installed: [] }); await new Promise(resolve => setTimeout(resolve, 10)) })
+      expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ascii-object', 'ink-object'])
+      expect(destroys[0]).toHaveBeenCalledTimes(1)
+      expect(runtime.release).toHaveBeenCalledTimes(1)
+      expect(destroys[0]!.mock.invocationCallOrder[0]).toBeLessThan(runtime.load.mock.invocationCallOrder[1]!)
+      expect(host.querySelector('figure[data-iexp-ascii-original] img')).toBe(image)
+      expect(image.getAttribute('src')).toBe('blob:http://localhost/art')
+      expect(host.querySelector<HTMLAnchorElement>('a.iexp-model-source-link')!.getAttribute('href')).toBe(link.getAttribute('href'))
+      expect(host.querySelector('pre')!.textContent).toBe(JSON.stringify(value, null, 2))
+      expect(JSON.stringify(value)).toBe(original)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(sources).toEqual(['blob:http://localhost/art', 'blob:http://localhost/art'])
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
     } finally { await act(async () => root.unmount()); host.remove() }
+    expect(destroys[1]).toHaveBeenCalledTimes(1)
+    expect(runtime.release).toHaveBeenCalledTimes(2)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/art')
   })
 
   it('recognizes an explicit model in the normal content path while retaining the source text', async () => {

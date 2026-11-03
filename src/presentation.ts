@@ -13,8 +13,6 @@ import { widgetStateSchema, saveWidgetStateSchema, type ExperienceArtifact, type
 import { styles } from './style.js'
 import { appearancePreferences, appearanceTokens } from './appearance.js'
 import { themePreferences } from './theme-runtime.js'
-import { isAsciiTheme } from './theme-contracts.js'
-import { AsciiChart, supportsAsciiChart } from './ascii-chart.js'
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
 import remarkGfm from 'remark-gfm'
@@ -103,7 +101,6 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
   const palette = (theme === 'dark' ? selectedTheme.tokens.paletteDark : selectedTheme.tokens.paletteLight).map((_, index) => colors[`--iexp-series-${index + 1}`]!)
   const compact = selectedTheme.tokens.comparison === 'organic' && isCompactComparison(plan)
   const plot = (view: AutoChartPlan) => {
-    if (isAsciiTheme(selectedTheme) && supportsAsciiChart(plan)) return h(AsciiChart, { plan: view, scalePlan: plan })
     let categoryKey = 'category'
     while (view.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
     const horizontal = view.kind === 'bar'

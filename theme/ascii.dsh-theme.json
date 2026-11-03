@@ -6,7 +6,7 @@
   "license": "MIT",
   "id": "ascii",
   "name": "ASCII",
-  "description": "紧凑的等宽文字与克制的浅绿配色。",
+  "description": "WebGL ASCII 图形：自动将支持的图标、图表和图片重绘为字符，保留清晰的原文与数据。",
   "presentation": "ascii",
   "appearance": {
     "backgroundColor": "#191c19",

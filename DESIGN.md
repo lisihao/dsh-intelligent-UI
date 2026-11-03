@@ -176,7 +176,7 @@ The user-pinned Empryo reference now informs distinct compositions rather than a
 
 The official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.
 
-ASCII is a separate selectable presentation alongside the default Empryo. Its character plots and fixed-width type organize eligible source-derived comparisons without changing the source. Candidate g passed scoped official DSH checks for theme switching, source-preserving reports and selected model/image paths, but its native header overlapped host controls at narrower window sizes. Candidate h subsequently passed affected native acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks; source data and original appearance were preserved.
+ASCII is a separate selectable presentation alongside the default Empryo. Its fixed-width type and actual Canvas UI Asciify WebGL projection give supported graphics a character-based appearance while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of the newer graphics effects, which is pending.
 
 **Key Characteristics:**
 
@@ -220,7 +220,7 @@ OpenUI's OS-preference fallback root selectors are removed during CSS bundling s
 
 The ASCII theme switches the owned reading surface to Recursive's MONO 1 axis with a monospace fallback, tabular numerals and zero letter spacing. Its headings use the ASCII headline/section roles; source text remains ordinary readable text.
 
-**The Fixed-Width Plot Rule.** Character bars use the monospace axis; labels and exact source values remain readable and are not converted into decoration.
+**The Native Label Rule.** The GPU character effect projects supported graphical geometry; original text, labels, units and exact source values remain native and readable.
 
 ### Hierarchy
 
@@ -238,7 +238,7 @@ The 28px rounded reading surface (24px at narrow widths) is centered with a 1240
 
 Figures use an auto-fit grid with `minmax(min(100%, 310px), 1fr)`, the chart-gap token and a 1160px maximum width. A solitary figure caps at 760px. Eligible comparisons retain direct endpoint labels inside the same rounded data-card material as other charts. Supported charts retain a separated header, plot and disclosure footer.
 
-ASCII bars measure available width and the actual glyph advance; category labels and exact values wrap independently from the character marks. The full source-wide scale stays shared across pages.
+ASCII projects supported visible chart geometry through a bounded viewport atlas. Category labels and exact values remain native, and the original renderer retains its own scale and layout across pages.
 
 At 560px and below, content insets and figure padding tighten, full-table summaries wrap and helper text hides. Tables scroll inside focusable labeled regions. Comparison mode uses `repeat(auto-fit, minmax(min(100%, 280px), 1fr))` with a 16px gap; raw strings wrap anywhere.
 
@@ -274,7 +274,7 @@ A local thin meter adapter handles one nonnegative finite series with two to six
 
 OpenUI categorical bars retain full labels and source values. Their height follows `max(230, labels × (30 + series × 26) + 56 + (series > 1 ? 50 : 0))`; line charts use 280px. Animation is disabled. Approximation/exclusion notices remain visible; native disclosures expose selection reasons and exact source strings. Chart failure retains the complete table and reports an error.
 
-Under ASCII, eligible categorical bar plans with one shared unit render discrete `#` marks on a zero-anchored track. Zero can be left, right or centered as the source-wide extent requires; nonzero magnitudes get at least one mark. The displayed source values, units and disclosure remain authoritative. Other chart kinds retain their existing renderer.
+Under ASCII, supported visible chart and icon SVGs, images and explicitly published owned Canvas frames are projected by the real pinned Asciify factory through one GPU atlas. Source geometry and data remain unchanged; labels and units remain native. Visible eligible images refresh at up to five times per second, while owned graphs provide current frames. Eligible explicitly identified GLB models and validated PNG/JPEG illustrations use ASCII Object separately. Each illustration's adjacent “原图” figure is excluded from the atlas, and the original source link remains accessible. Hover or focus permits inspection of other projected originals, and unavailable or unsupported graphics remain original. Arbitrary iframe interiors, closed shadow roots and unpublished foreign canvases are outside this bridge; ASCII Sweep is not implemented.
 
 ### Complete source tables
 
@@ -308,7 +308,7 @@ MCP Apps retain their separate application surface and explicit open action. Thi
 - **Do** scope configurable surface appearance to plugin content and keep the single conversation-header selector.
 - **Do** retain exact source strings, units, exclusions, qualifications and complete sources.
 - **Do** keep the local Recursive font and OFL together.
-- **Do** keep ASCII chart marks approximate and the exact source values and qualifications visible.
+- **Do** treat ASCII-projected graphics as approximate while keeping exact source values and qualifications visible.
 - **Do** distinguish browser review from installed official DSH acceptance.
 
 ### Don't:

@@ -32,6 +32,7 @@ import { safeResearchUrl } from './research-content.js'
 import type { IntelligentUiClient } from './public-api.js'
 import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
+import { installAsciiVisualTheme } from './ascii-visual-theme.js'
 import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contracts.js'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
@@ -310,6 +311,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
   const store = new ExperienceStore()
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
+  ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined
   let injectionDispose: (() => void) | undefined
   let registrationDisposers: Array<() => void> = []

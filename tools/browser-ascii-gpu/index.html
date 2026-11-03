@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>智能 UI · 本地图形验收</title>
+  <style>
+    body { margin:0; background:#181b20; color:#edf0f2; font:15px/1.55 system-ui,sans-serif; --dsw-alias-label-primary:#edf0f2; color-scheme:dark; }
+    .fixture-main { box-sizing:border-box; max-width:1440px; margin:auto; padding:16px; }
+    .fixture-header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; }
+    .fixture-header h1,.fixture-header p { margin:0; }
+    .fixture-header h1 { font-size:20px; } .fixture-header p { font-size:13px; color:#b8c1c9; }
+    .fixture-content,.fixture-section,.fixture-chart { min-width:0; }
+    .fixture-section { margin-block:20px; }
+    .fixture-section h2 { font-size:17px; margin:0 0 8px; }
+    .fixture-section h3 { font-size:14px; margin:0 0 8px; }
+    .fixture-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+    .fixture-chart { box-sizing:border-box; min-width:0; border:1px solid #3c454c; padding:12px; }
+    .fixture-icons,.fixture-raster { display:flex; flex-wrap:wrap; gap:20px; align-items:center; }
+    .fixture-icons > svg { max-width:100%; height:auto; }
+    .fixture-raster canvas,.fixture-raster img { max-width:100%; height:auto; }
+    .fixture-section pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+    @media (max-width:680px) { .fixture-grid { grid-template-columns:minmax(0,1fr); } }
+  </style>
+</head>
+<body>
+  <div id="root" style="container-type:inline-size"></div>
+  <script type="module" src="/fixture.js"></script>
+</body>
+</html>

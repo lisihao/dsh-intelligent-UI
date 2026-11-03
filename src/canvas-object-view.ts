@@ -326,10 +326,10 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   const [visible, setVisible] = useState(false)
   const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible')
   const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
-  // Images use the legible Ink effect. Infer a model's domain only while its
-  // effect can actually run, so streaming, hidden and reduced-motion views stay cheap.
+  // Infer a model's domain only while its effect can run; images use the
+  // selected ASCII theme or the existing Ink default without domain inference.
   const domain = useMemo(() => imageSource || isStreaming || !visible || !pageVisible || reduced ? 'general' : modelDomain(value), [value, !!imageSource, isStreaming, visible, pageVisible, reduced])
-  const component = imageSource ? 'ink-object' : isAsciiTheme(selectedTheme) ? 'ascii-object' : domainEffects[domain]
+  const component = isAsciiTheme(selectedTheme) ? 'ascii-object' : imageSource ? 'ink-object' : domainEffects[domain]
   const [status, setStatus] = useState(imageSource ? '正在准备插画效果…' : '正在准备模型视图…')
   const [canRotate, setCanRotate] = useState(false)
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0)
@@ -473,7 +473,7 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   const originalTitle = value && typeof value === 'object' && !Array.isArray(value) && typeof (value as Record<string, unknown>).title === 'string'
     ? (value as Record<string, string>).title : undefined
   const originalImage = originalView ?? (verifiedImage && !imageError && h('img', { src: verifiedImage.url, alt: originalAlt, title: originalTitle, onError: () => setImageError('插画解码失败，仍可打开原始来源。'), style: { display: 'block', width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: 260, objectFit: 'contain' } }))
-  const sourceImage = imageSource && originalImage && h('figure', { style: { flex: '1 1 200px', minWidth: 0, margin: 0 } },
+  const sourceImage = imageSource && originalImage && h('figure', { 'data-iexp-ascii-original': true, style: { flex: '1 1 200px', minWidth: 0, margin: 0 } },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', width: '100%', maxHeight: 300, padding: 16, background: 'var(--iexp-soft)', borderRadius: 'var(--iexp-card-radius)' } }, originalImage),
     h('figcaption', { style: { marginTop: 6, color: 'var(--iexp-muted)', fontSize: 12 } }, '原图'))
   const download = imageSource ? (imageSource.mime === 'image/png' ? 'illustration.png' : 'illustration.jpg') : 'model.glb'
