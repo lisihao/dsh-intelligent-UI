@@ -19,6 +19,7 @@ export class AsciiVisualCaptureError extends Error {
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
+const HTML_NS = 'http://www.w3.org/1999/xhtml'
 const DEFAULT_MAX_PIXELS = 16_777_216
 const MAX_SIDE = 8192
 const UNSAFE_ELEMENTS = new Set(['script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'image', 'animate', 'animatemotion', 'animatetransform', 'set', 'discard', 'mpath'])
@@ -193,59 +194,112 @@ function localResourceValue(value: string, documentUrl: string, refs: Set<string
   return result
 }
 
-function textRects(svg: SVGSVGElement, viewport: DOMRect): ReadonlyArray<AsciiVisualRect> {
+/** The chart's native HTML labels stay in the source; no HTML is ever rasterized. */
+function plaintextLabels(svg: SVGSVGElement): ReadonlySet<Element> {
+  const view = svg.ownerDocument.defaultView
+  if (!view) return fail('unavailable', 'The source document has no window')
+  const labels = new Set<Element>()
+  const labelAttributes = new Set(['id', 'class', 'style', 'xmlns', 'dir', 'lang', 'title', 'aria-hidden', 'aria-label', 'role'])
+  const frameAttributes = new Set([...labelAttributes, 'x', 'y', 'width', 'height'])
+  const resourceProperties = ['background-image', 'border-image-source', 'mask-image', '-webkit-mask-image', 'clip-path', 'filter', 'list-style-image', 'shape-outside']
+  for (const element of Array.from(svg.querySelectorAll('*'))) {
+    if (element.localName.toLowerCase() !== 'foreignobject') continue
+    if (element.namespaceURI !== SVG_NS || !element.textContent?.trim() || !element.children.length || element.closest('defs,clipPath,mask,marker,symbol,pattern,a')) return fail('unsafe', 'Unsupported SVG foreignObject')
+    const inspect = (node: Node, frame = false): void => {
+      if (node.nodeType === 3 /* TEXT_NODE */) return
+      if (node.nodeType !== 1 /* ELEMENT_NODE */) return fail('unsafe', 'Unsupported native chart label content')
+      const current = node as Element
+      if (!frame && (current.namespaceURI !== HTML_NS || !['div', 'span'].includes(current.localName.toLowerCase()))) return fail('unsafe', 'Unsupported native chart label element')
+      for (const attr of Array.from(current.attributes)) {
+        const name = attr.localName.toLowerCase()
+        if (name.startsWith('on') || !(frame ? frameAttributes : labelAttributes).has(name) || attr.namespaceURI && attr.namespaceURI !== 'http://www.w3.org/2000/xmlns/') return fail('unsafe', 'Interactive or resource-bearing chart labels are unsupported')
+        if (name === 'role' && attr.value !== 'none' && attr.value !== 'presentation') return fail('unsafe', 'Interactive chart labels are unsupported')
+        if (name === 'style' && /\\|url\s*\(|@import|expression\s*\(|image-set\s*\(|javascript\s*:/i.test(attr.value)) return fail('unsafe', 'Chart label resources are unsupported')
+      }
+      for (const name of ['onclick', 'onauxclick', 'ondblclick', 'onkeydown', 'onkeyup', 'onpointerdown', 'onpointerup', 'onmousedown', 'onmouseup', 'ontouchstart', 'onfocus']) {
+        if (typeof (current as unknown as Record<string, unknown>)[name] === 'function') return fail('unsafe', 'Interactive chart labels are unsupported')
+      }
+      const computed = view.getComputedStyle(current)
+      for (const property of resourceProperties) {
+        const value = computed.getPropertyValue(property).trim()
+        if (value && value !== 'none') return fail('unsafe', 'Chart label resources are unsupported')
+      }
+      for (const property of ['cursor', 'content']) if (/url\s*\(|image-set\s*\(|javascript\s*:/i.test(computed.getPropertyValue(property))) return fail('unsafe', 'Chart label resources are unsupported')
+      for (const child of Array.from(current.childNodes)) inspect(child)
+    }
+    inspect(element, true)
+    labels.add(element)
+  }
+  return labels
+}
+
+function textRects(svg: SVGSVGElement, viewport: DOMRect, nativeLabels: ReadonlySet<Element>): ReadonlyArray<AsciiVisualRect> {
   const doc = svg.ownerDocument
   const view = doc.defaultView
   if (!view) return fail('unavailable', 'The source document has no window')
   const rects: AsciiVisualRect[] = []
+  const visibleLabels = new Set<Element>()
+  const addRect = (rect: DOMRect) => {
+    const left = Math.max(viewport.left, rect.left), top = Math.max(viewport.top, rect.top)
+    const right = Math.min(viewport.right, rect.right), bottom = Math.min(viewport.bottom, rect.bottom)
+    if (right > left && bottom > top) rects.push(Object.freeze({ x: left - viewport.left, y: top - viewport.top, width: right - left, height: bottom - top }))
+  }
   const walker = doc.createTreeWalker(svg, 4 /* NodeFilter.SHOW_TEXT */)
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (!node.textContent?.trim()) continue
     let parent: Element | null = node.parentNode as Element | null
     let insideText = false
+    let nativeLabel: Element | undefined
     let visible = true
     while (parent && parent !== svg) {
       const name = parent.localName.toLowerCase()
       if (TEXT_ELEMENTS.has(name)) insideText = true
+      if (nativeLabels.has(parent)) { insideText = true; nativeLabel = parent }
       const style = view.getComputedStyle(parent)
       if (style.display === 'none' || Number(style.opacity || 1) === 0) visible = false
       parent = parent.parentElement
     }
-    if (!insideText || !visible || !node.parentElement || view.getComputedStyle(node.parentElement).visibility === 'hidden') continue
+    if (!insideText || !visible || !node.parentElement || ['hidden', 'collapse'].includes(view.getComputedStyle(node.parentElement).visibility)) continue
+    if (nativeLabel) visibleLabels.add(nativeLabel)
     const range = doc.createRange()
     range.selectNodeContents(node)
-    for (const rect of Array.from(range.getClientRects())) {
-      const left = Math.max(viewport.left, rect.left)
-      const top = Math.max(viewport.top, rect.top)
-      const right = Math.min(viewport.right, rect.right)
-      const bottom = Math.min(viewport.bottom, rect.bottom)
-      if (right > left && bottom > top) rects.push(Object.freeze({ x: left - viewport.left, y: top - viewport.top, width: right - left, height: bottom - top }))
-    }
+    for (const rect of Array.from(range.getClientRects())) addRect(rect)
     range.detach()
   }
+  // Range geometry may be empty or clipped by ellipsis. Preserve the label's
+  // whole native frame as well, without hiding its source pixels or hit targets.
+  for (const label of visibleLabels) addRect(label.getBoundingClientRect())
   return Object.freeze(rects)
 }
 
-function cloneSvg(svg: SVGSVGElement, width: number, height: number, observer: MutationObserver, expanded?: DOMRect): SVGSVGElement {
+function cloneSvg(svg: SVGSVGElement, width: number, height: number, observer: MutationObserver, expanded?: DOMRect, nativeLabels: ReadonlySet<Element> = new Set()): SVGSVGElement {
   const doc = svg.ownerDocument
   const view = doc.defaultView
   if (!view) return fail('unavailable', 'The source document has no window')
   const url = doc.URL
   const clone = svg.cloneNode(true) as SVGSVGElement
   const ids = new Set<string>()
+  const allIds = new Set<string>()
   const refs = new Set<string>()
+  const omitted = new Set<Element>()
+  for (const label of nativeLabels) { omitted.add(label); label.querySelectorAll('*').forEach(child => omitted.add(child)) }
   const copyTree = (source: Element, target: Element) => {
     const originals = [source, ...Array.from(source.querySelectorAll('*'))]
     const copies = [target, ...Array.from(target.querySelectorAll('*'))]
-    // Inspect even nodes that will subsequently be omitted.
+    // Pair first: removing an approved HTML-label branch must not shift later
+    // SVG siblings onto another source node's clone. All other omitted nodes
+    // still receive the existing complete unsafe-element/resource inspection.
     originals.forEach((original, index) => {
       const copy = copies[index]
-    if (!copy || original.namespaceURI !== SVG_NS || UNSAFE_ELEMENTS.has(original.localName.toLowerCase())) return fail('unsafe', 'Unsupported SVG element')
+    if (!copy) return fail('unsafe', 'Unsupported SVG element')
     const id = original.getAttribute('id')
     if (id) {
-      if (ids.has(id)) return fail('unsafe', 'Duplicate SVG id')
-      ids.add(id)
+      if (allIds.has(id)) return fail('unsafe', 'Duplicate SVG id')
+      allIds.add(id)
+      if (!omitted.has(original)) ids.add(id)
     }
+    if (omitted.has(original)) { if (nativeLabels.has(original)) copy.remove(); return }
+    if (original.namespaceURI !== SVG_NS || UNSAFE_ELEMENTS.has(original.localName.toLowerCase())) return fail('unsafe', 'Unsupported SVG element')
     for (const attr of Array.from(original.attributes)) {
       const name = attr.localName.toLowerCase()
       if (name.startsWith('on')) return fail('unsafe', 'SVG event attributes are unsupported')
@@ -405,9 +459,10 @@ export async function captureAsciiVisual(
       const svg = element as SVGSVGElement
       observer = new view.MutationObserver(() => { changed = true })
       observer.observe(svg, { subtree: true, childList: true, characterData: true, attributes: true })
-      labels = textRects(svg, rect)
+      const nativeLabels = plaintextLabels(svg)
+      labels = textRects(svg, rect, nativeLabels)
       const expanded = rect.left !== originalRect.left || rect.top !== originalRect.top || rect.width !== originalRect.width || rect.height !== originalRect.height
-      const clone = cloneSvg(svg, width, height, observer, expanded ? rect : undefined)
+      const clone = cloneSvg(svg, width, height, observer, expanded ? rect : undefined, nativeLabels)
       const serialized = new view.XMLSerializer().serializeToString(clone)
       source = await loadSvgImage(doc, serialized, signal)
       if (observer.takeRecords().length) changed = true

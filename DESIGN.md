@@ -4,6 +4,8 @@ description: Source-led Undertow presentation inside the official DSH conversati
 colors:
   content-default: "#24262b"
   ascii-ground: "#191c19"
+  ascii-gpu-ground: "#101214"
+  soft-relief-ground: "#34383d"
   ascii-primary-dark: "#b9d985"
   ascii-primary-light: "#405d25"
   ascii-cyan-dark: "#89cdd1"
@@ -176,7 +178,7 @@ The user-pinned Empryo reference now informs distinct compositions rather than a
 
 The official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.
 
-ASCII is a separate selectable presentation alongside the default Empryo. Its fixed-width type and actual Canvas UI Asciify WebGL projection give supported graphics a character-based appearance while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of the newer graphics effects, which is pending.
+Classic ASCII and GPU ASCII are separate selectable presentations alongside the default Empryo. Classic ASCII retains fixed-width reading and source-backed character comparison bars. GPU ASCII uses the actual Canvas UI Asciify WebGL projection for supported graphics while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of candidate k's newer graphics effects, which is pending.
 
 **Key Characteristics:**
 
@@ -195,7 +197,7 @@ Frontmatter retains the measured Empryo reference and chart-series palette. Acti
 ### Primary
 
 - **Slate blue / ice blue:** links, outline icons, selection, focus, comparison strokes and the first chart series.
-- **ASCII leaf green:** the light/dark accent pair for the optional ASCII presentation, with a graphite ground. The other three ASCII chart colors distinguish series; appearance contrast adjustment still applies.
+- **Classic ASCII leaf green:** the light/dark accent pair on its graphite ground. GPU ASCII instead uses its own pale blue-gray accents and darker ground; appearance contrast adjustment still applies.
 
 ### Secondary
 
@@ -204,6 +206,7 @@ Frontmatter retains the measured Empryo reference and chart-series palette. Acti
 ### Neutral
 
 - **Pale canvas / charcoal:** the continuous reading surface.
+- **Dark graphite:** Soft relief's configurable default surface, avoiding a bright white starting background.
 - **Raised paper / graphite:** chart cards, task cards and relationship nodes.
 - **Sunken paper:** code, table headings, board columns and the relationship canvas.
 - **Slate rule:** table rows, section boundaries, controls and source disclosures.
@@ -218,7 +221,7 @@ OpenUI's OS-preference fallback root selectors are removed during CSS bundling s
 
 **Content Font:** bundled unmodified Recursive Latin variable font, registered as DSH Recursive, with platform CJK sans fallbacks. Its WOFF2 and OFL travel together without a remote font request. The body uses CASL 0 and MONO 0; code switches to MONO 1. Shell controls retain platform sans.
 
-The ASCII theme switches the owned reading surface to Recursive's MONO 1 axis with a monospace fallback, tabular numerals and zero letter spacing. Its headings use the ASCII headline/section roles; source text remains ordinary readable text.
+Both ASCII modes switch the owned reading surface to Recursive's MONO 1 axis with a monospace fallback, tabular numerals and zero letter spacing. Their headings use the ASCII headline/section roles; source text remains ordinary readable text.
 
 **The Native Label Rule.** The GPU character effect projects supported graphical geometry; original text, labels, units and exact source values remain native and readable.
 
@@ -238,7 +241,7 @@ The 28px rounded reading surface (24px at narrow widths) is centered with a 1240
 
 Figures use an auto-fit grid with `minmax(min(100%, 310px), 1fr)`, the chart-gap token and a 1160px maximum width. A solitary figure caps at 760px. Eligible comparisons retain direct endpoint labels inside the same rounded data-card material as other charts. Supported charts retain a separated header, plot and disclosure footer.
 
-ASCII projects supported visible chart geometry through a bounded viewport atlas. Category labels and exact values remain native, and the original renderer retains its own scale and layout across pages.
+GPU ASCII projects supported visible chart geometry through a bounded viewport atlas. Category labels and exact values remain native, and the original renderer retains its own scale and layout across pages. Classic ASCII uses source-wide scaled character bars only for compatible categorical data.
 
 At 560px and below, content insets and figure padding tighten, full-table summaries wrap and helper text hides. Tables scroll inside focusable labeled regions. Comparison mode uses `repeat(auto-fit, minmax(min(100%, 280px), 1fr))` with a 16px gap; raw strings wrap anywhere.
 
@@ -249,6 +252,8 @@ Boards use horizontally scrollable columns of at least 220px, with independently
 The content surface has diffuse depth; data cards, tasks and record detail use 22px corners and a soft 0 10px 28px -14px shadow. Fine-pointer hover raises them 3px, changes the surface tone and accent boundary, and deepens the shadow over 180ms. Focus-within retains tonal/depth emphasis with visible keyboard outlines. The flow canvas lifts 2px as a whole so nodes and edge ports stay aligned; individual 20px nodes change tone and boundary. Reduced motion removes lift/transitions and stops relationship-edge animation.
 
 ASCII data surfaces start flat with dashed separators; chart, task and detail cards acquire the theme's soft shadow on fine-pointer hover. The shared theme token sets a restrained 2px lift where the existing surface supports it.
+
+Soft relief starts on the dark graphite theme surface. Its paired highlight and shadow are mixed from the active background so raised and inset controls follow a user's custom color without a fixed bright rim.
 
 **The Source Stays Reachable Rule.** Visualizations supplement source content. Keep qualifications, exact selected cells, complete tables, original records and raw/comparison access available.
 
@@ -274,7 +279,11 @@ A local thin meter adapter handles one nonnegative finite series with two to six
 
 OpenUI categorical bars retain full labels and source values. Their height follows `max(230, labels × (30 + series × 26) + 56 + (series > 1 ? 50 : 0))`; line charts use 280px. Animation is disabled. Approximation/exclusion notices remain visible; native disclosures expose selection reasons and exact source strings. Chart failure retains the complete table and reports an error.
 
-Under ASCII, supported visible chart and icon SVGs, images and explicitly published owned Canvas frames are projected by the real pinned Asciify factory through one GPU atlas. Source geometry and data remain unchanged; labels and units remain native. Visible eligible images refresh at up to five times per second, while owned graphs provide current frames. Eligible explicitly identified GLB models and validated PNG/JPEG illustrations use ASCII Object separately. Each illustration's adjacent “原图” figure is excluded from the atlas, and the original source link remains accessible. Hover or focus permits inspection of other projected originals, and unavailable or unsupported graphics remain original. Arbitrary iframe interiors, closed shadow roots and unpublished foreign canvases are outside this bridge; ASCII Sweep is not implemented.
+Classic ASCII renders compatible finite categorical series sharing a unit as responsive `#` bars with a zero-inclusive scale shared across pages. Their lengths are discrete approximations; original labels, values, units and source tables remain available. Unsupported plots retain the existing renderer.
+
+GPU ASCII projects supported visible complex SVGs, charts, images and explicitly published owned Canvas frames through one atlas using the real pinned Asciify factory. The current 5×5 glyph uses a nominal 6.25px drawing area inside an 8.75px logical cell; the screen size also follows atlas scaling. Native text, controls and SVGs no larger than 32×32px stay readable in their original form. Plain noninteractive `div`/`span` chart labels inside SVG foreign objects stay in the original DOM and are masked out of the visual copy; unsupported foreign content retains its original graphic. Visible eligible images refresh at up to five times per second, while owned graphs provide current frames. Hover or focus permits inspection of projected originals; unavailable or unsupported graphics remain original. Arbitrary iframe interiors, closed shadow roots and unpublished foreign canvases are outside this bridge; ASCII Sweep is not implemented.
+
+GPU ASCII also uses the separate 95-character ASCII Object effect for eligible explicit GLB models and validated PNG/JPEG illustrations. Model-only view options use a 45-degree field of view and scale 3.2; the native rotation controls occupy a 40px row. Each illustration's adjacent “原图” figure is excluded from the atlas, and the original source URL and content remain accessible.
 
 ### Complete source tables
 
@@ -288,7 +297,7 @@ Published React Flow 12.12 and ELK 0.12 supply a read-only, pan/zoom canvas with
 
 Recognized execution snapshots use the same graph surface. Small diagrams use a downward layered layout; large diagrams retain the bounded, static overview and detail path. Detailed nodes show only supplied role, model, status, progress and metrics, with explicit unknown labels where the source omits status or progress; a zero total does not become a percentage. Large compact nodes show status while their other source fields remain accessible. Existing chart-series colors distinguish supplied roles: series 1 for tool, 2 for worker, 3 for lead and 4 for advisor. Node text and numbers stay native. The compact event log preserves source order, initially shows the latest eight and keeps an inspected page stable as snapshots change; full original data remains accessible through the source disclosure when supplied and the shared raw mode.
 
-On small execution diagrams, moving points follow actual paths only for edges the source marks active. The independent point layer remains native and is excluded from the ASCII atlas so its fine moving marks survive character sampling; a thin original connection remains beneath the approximate ASCII projection. WebGL2 draws the points where available, with Canvas2D fallback. Pause, reduced motion, hidden or offscreen state, and disposal stop the moving layer. These visuals represent the supplied snapshot and do not advance or infer task state.
+On small execution diagrams, moving points follow actual paths only for edges the source marks active. The independent point layer remains native and is excluded from the GPU ASCII atlas so its fine moving marks survive character sampling; a thin original connection remains beneath the approximate GPU projection. WebGL2 draws the points where available, with Canvas2D fallback. Pause, reduced motion, hidden or offscreen state, and disposal stop the moving layer. These visuals represent the supplied snapshot and do not advance or infer task state.
 
 ### Task board and record detail
 

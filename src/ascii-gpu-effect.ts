@@ -193,7 +193,7 @@ export async function createAsciiGpuEffect(options: AsciiGpuEffectOptions): Prom
     output.addEventListener('webglcontextlost', contextLost)
     options.signal?.addEventListener('abort', abort, { once: true })
     effect = factory({ source, content: proxy, output }, {
-      charset: 'ascii', baseStrength: 1, strength: 1, scale: 0.5, spacing: 0, contrast: 1, brightness: 0.09,
+      charset: 'ascii', baseStrength: 1, strength: 1, scale: 1.25, spacing: 1, contrast: 1, brightness: 0.09,
       background: 'auto', backgroundOpacity: 0, glow: 0, aberration: 0,
     })
     if (!effect || typeof effect.destroy !== 'function' || typeof effect.resize !== 'function' || typeof source.onpaint !== 'function') {

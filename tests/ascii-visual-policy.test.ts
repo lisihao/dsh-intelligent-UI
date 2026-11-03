@@ -13,7 +13,7 @@ import { installAsciiVisualTheme } from '../src/ascii-visual-theme.js'
 
 const MARK = 'data-iexp-ascii-paint'
 const rect = (left = 10, top = 10, width = 200, height = 100) => ({ x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({}) }) as DOMRect
-const ascii = (): ExperienceSettings => ({ ...initialSettings(), takeover: true, theme: { activeId: 'ascii', installed: [] } })
+const ascii = (): ExperienceSettings => ({ ...initialSettings(), takeover: true, theme: { activeId: 'ascii-gpu', installed: [] } })
 const stopFunctions: Array<() => void> = []
 let frames: string[], sourceFrame: string, paints: Array<{ options: AsciiGpuEffectOptions; update: ReturnType<typeof vi.fn> }>, autoPaint: boolean
 function store() {
@@ -182,6 +182,16 @@ describe('ASCII visual source policy', () => {
     document.dispatchEvent(new Event('scroll')); await tick(10)
     expect(path.getAttribute(MARK)).toBe('flow-underlay')
     stop(); expect(path.hasAttribute(MARK)).toBe(false)
+  })
+
+  it('never loads the GPU factory for the classic theme and retains tiny functional icons', async () => {
+    const {element} = image(), state = store();state.set({...ascii(),theme:{activeId:'ascii',installed:[]}})
+    activate(state);await tick(10)
+    expect(mocks.createEffect).not.toHaveBeenCalled();expect(element.hasAttribute(MARK)).toBe(false)
+    const icon=svg(false);icon.element.getBoundingClientRect=()=>rect(10,10,18,18)
+    state.set(ascii());await tick(10)
+    expect(element.getAttribute(MARK)).toBe('true');expect(icon.path.hasAttribute(MARK)).toBe(false)
+    expect(mocks.capture.mock.calls.some(([source])=>source===icon.element)).toBe(false)
   })
 
 })

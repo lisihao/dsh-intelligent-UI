@@ -20,8 +20,15 @@
     .fixture-icons > svg { max-width:100%; height:auto; }
     .fixture-raster canvas,.fixture-raster img { max-width:100%; height:auto; }
     .fixture-replay-clock { align-self:center; font-size:12px; color:var(--iexp-muted,#b8c1c9); }
+    .fixture-showcase { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); gap:16px; align-items:start; margin-top:20px; }
+    .fixture-showcase-panel { box-sizing:border-box; min-width:0; padding:14px; border:1px solid var(--iexp-line); border-radius:var(--iexp-card-radius); background:var(--iexp-card); }
+    .fixture-showcase-panel h2 { margin:0 0 6px; font-size:16px; }
+    .fixture-showcase-panel > p { margin:0 0 10px; color:var(--iexp-muted); font-size:13px; }
+    .fixture-showcase-panel pre { max-height:110px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .fixture-showcase-side { display:grid; min-width:0; gap:16px; }
+    .fixture-showcase-network svg { display:block; width:min(100%,240px); height:auto; margin:auto; }
     .fixture-section pre { white-space:pre-wrap; overflow-wrap:anywhere; }
-    @media (max-width:680px) { .fixture-grid { grid-template-columns:minmax(0,1fr); } }
+    @media (max-width:680px) { .fixture-grid,.fixture-showcase { grid-template-columns:minmax(0,1fr); } }
   </style>
 </head>
 <body>

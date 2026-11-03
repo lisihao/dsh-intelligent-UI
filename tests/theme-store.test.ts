@@ -44,10 +44,10 @@ describe('portable theme contracts', () => {
   })
 
   it('validates the ASCII theme as a strict, mono-only V3 while preserving V1 and V2 contracts', () => {
-    expect(builtInThemes.slice(0, 3).map(theme => theme.id)).toEqual(['empryo', 'ascii', 'plain'])
+    expect(builtInThemes.slice(0, 4).map(theme => theme.id)).toEqual(['empryo', 'ascii', 'ascii-gpu', 'plain'])
     const ascii = resolveTheme({ activeId: 'ascii', installed: [] })
     expect(isAsciiTheme(ascii)).toBe(true)
-    expect(ascii).toMatchObject({ formatVersion: 3, presentation: 'ascii', id: 'ascii', name: 'ASCII', author: 'Solar', license: 'MIT',
+    expect(ascii).toMatchObject({ formatVersion: 3, presentation: 'ascii', id: 'ascii', name: '经典 ASCII', author: 'Solar', license: 'MIT',
       appearance: { backgroundColor: '#191c19', translucent: true, backgroundOpacity: .85 },
       tokens: { accentDark: '#b9d985', accentLight: '#405d25', font: 'mono', panelRadius: 12, cardRadius: 8, nodeRadius: 8, controlRadius: 6,
         density: 'compact', translucentAlpha: .85, hoverLift: 2, shadow: 'soft', comparison: 'standard', composition: 'document' } })

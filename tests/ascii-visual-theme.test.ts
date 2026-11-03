@@ -43,7 +43,7 @@ function store(initial: ExperienceSettings) {
   }
 }
 
-const asciiSettings = (): ExperienceSettings => ({ ...initialSettings(), takeover: true, theme: { activeId: 'ascii', installed: [] } })
+const asciiSettings = (): ExperienceSettings => ({ ...initialSettings(), takeover: true, theme: { activeId: 'ascii-gpu', installed: [] } })
 function source() {
   const host = document.createElement('div')
   host.className = 'dsh-experience'

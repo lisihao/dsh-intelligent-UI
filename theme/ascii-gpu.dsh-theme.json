@@ -1,0 +1,48 @@
+{
+  "formatVersion": 3,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar",
+  "license": "MIT",
+  "id": "ascii-gpu",
+  "name": "GPU ASCII",
+  "description": "WebGL 按图形明暗实时绘制可辨识的字符，支持复杂图标、图表、图片和三维物体；正文与原始数据保持可读。",
+  "presentation": "ascii",
+  "appearance": {
+    "backgroundColor": "#101214",
+    "translucent": true,
+    "backgroundOpacity": 0.94
+  },
+  "tokens": {
+    "accentDark": "#bccbd6",
+    "accentLight": "#405a6b",
+    "success": "#79bd88",
+    "warning": "#d9b971",
+    "error": "#d78c83",
+    "paletteDark": [
+      "#9bbce6",
+      "#b5cfca",
+      "#c6b0dd",
+      "#d9b889"
+    ],
+    "paletteLight": [
+      "#365c80",
+      "#3a665d",
+      "#684e7c",
+      "#735a2a"
+    ],
+    "panelRadius": 12,
+    "cardRadius": 8,
+    "nodeRadius": 8,
+    "controlRadius": 6,
+    "density": "compact",
+    "font": "mono",
+    "translucentAlpha": 0.85,
+    "blur": 4,
+    "hoverLift": 2,
+    "shadow": "soft",
+    "comparison": "standard",
+    "composition": "document"
+  },
+  "asciiRenderer": "gpu"
+}

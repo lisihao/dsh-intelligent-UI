@@ -14,6 +14,16 @@ function svgFixture() {
   document.body.append(svg)
   return svg
 }
+function chartLabel(svg: SVGSVGElement, text = '原始类别 · 42') {
+  const frame = document.createElementNS(svgNs, 'foreignObject')
+  frame.setAttribute('x', '0'); frame.setAttribute('y', '2'); frame.setAttribute('width', '100'); frame.setAttribute('height', '12')
+  frame.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml'); frame.style.pointerEvents = 'none'
+  const label = document.createElement('div'); label.className = 'openui-horizontal-bar-chart-category-label'
+  const span = document.createElement('span'); span.textContent = text; label.append(span); frame.append(label)
+  frame.getBoundingClientRect = () => rect(102, 64, 120, 18)
+  svg.querySelector('g')!.append(frame)
+  return { frame, label, span }
+}
 function imageFixture() {
   const image = document.createElement('img')
   Object.defineProperties(image, {
@@ -88,6 +98,92 @@ afterEach(() => {
 })
 
 describe('captureAsciiVisual', () => {
+  it('omits a plaintext OpenUI foreignObject label from serialized SVG while retaining its native pixels and masks', async () => {
+    const svg = svgFixture(); svg.querySelectorAll('text').forEach(node => node.remove())
+    const { frame, label, span } = chartLabel(svg)
+    const trailingPath = document.createElementNS(svgNs, 'path')
+    trailingPath.setAttribute('id', 'after-label'); trailingPath.setAttribute('d', 'M5 7L80 20'); trailingPath.style.stroke = 'rgb(9, 8, 7)'
+    svg.querySelector('g')!.append(trailingPath)
+    const original = svg.outerHTML
+    const result = await captureAsciiVisual(svg, new AbortController().signal)
+    expect(serialized).not.toMatch(/foreignObject|<div|<span|原始类别/)
+    expect(serialized).toContain('id="after-label"'); expect(serialized).toContain('d="M5 7L80 20"'); expect(serialized).toContain('stroke: rgb(9, 8, 7)')
+    expect(result.textRects).toEqual([{ x: 10, y: 20, width: 30, height: 15 }, { x: 2, y: 14, width: 120, height: 18 }])
+    expect(svg.outerHTML).toBe(original); expect(svg.contains(frame)).toBe(true)
+    expect(frame.firstElementChild).toBe(label); expect(label.firstElementChild).toBe(span); expect(span.textContent).toBe('原始类别 · 42')
+    expect(label.hasAttribute('hidden')).toBe(false); expect(span.style.opacity).toBe('')
+    expect(drawImage).toHaveBeenCalledOnce(); result.dispose()
+  })
+
+  it('keeps adjacent SVG sibling pairings after several omitted label branches and clips whole-frame masks to the visual', async () => {
+    const svg = svgFixture(); svg.querySelectorAll('text').forEach(node => node.remove())
+    const first = chartLabel(svg, '第一个标签')
+    first.frame.getBoundingClientRect = () => rect(90, 75, 80, 12)
+    const rectNode = document.createElementNS(svgNs, 'rect'); rectNode.setAttribute('id', 'middle-paint'); rectNode.setAttribute('width', '45'); rectNode.style.fill = 'rgb(1, 2, 3)'
+    svg.querySelector('g')!.append(rectNode)
+    chartLabel(svg, '第二个标签')
+    const path = document.createElementNS(svgNs, 'path'); path.setAttribute('id', 'final-paint'); path.setAttribute('d', 'M15 9L42 11'); path.style.stroke = 'rgb(4, 5, 6)'; svg.querySelector('g')!.append(path)
+    vi.mocked(document.createRange).mockReturnValue({ selectNodeContents() {}, getClientRects: () => [], detach() {} } as unknown as Range)
+    const result = await captureAsciiVisual(svg, new AbortController().signal)
+    const isolated = new DOMParser().parseFromString(serialized, 'image/svg+xml')
+    expect(isolated.querySelector('#middle-paint')?.getAttribute('width')).toBe('45')
+    expect(isolated.querySelector('#middle-paint')?.getAttribute('style')).toContain('fill: rgb(1, 2, 3)')
+    expect(isolated.querySelector('#final-paint')?.getAttribute('d')).toBe('M15 9L42 11')
+    expect(isolated.querySelector('#final-paint')?.getAttribute('style')).toContain('stroke: rgb(4, 5, 6)')
+    expect(result.textRects).toEqual([{ x: 0, y: 25, width: 70, height: 12 }, { x: 2, y: 14, width: 120, height: 18 }])
+    expect(svg.querySelectorAll('foreignObject')).toHaveLength(2)
+    result.dispose()
+  })
+
+  it('does not mask a hidden native label and rejects an HTML label reused as SVG paint', async () => {
+    const svg = svgFixture(); svg.querySelectorAll('text').forEach(node => node.remove())
+    const { frame } = chartLabel(svg)
+    frame.style.display = 'none'
+    const result = await captureAsciiVisual(svg, new AbortController().signal)
+    expect(result.textRects).toEqual([]); result.dispose()
+    frame.style.display = ''; frame.id = 'native-label'
+    svg.querySelector('path')!.setAttribute('fill', 'url(#native-label)')
+    createUrl.mockClear()
+    await expect(captureAsciiVisual(svg, new AbortController().signal)).rejects.toMatchObject({ name: 'AsciiVisualCaptureError', code: 'unsafe' })
+    expect(createUrl).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    '<button>Action</button>', '<a href="https://example.com/">Link</a>', '<input value="Input">', '<textarea>Input</textarea>',
+    '<img src="https://example.com/picture.png">', '<iframe src="https://example.com/"></iframe>', '<script>run()</script>',
+    '<div onclick="run()">Action</div>', '<span onmouseover="run()">Action</span>', '<div role="button">Action</div>',
+    '<div tabindex="0">Focusable</div>', '<div contenteditable="true">Editable</div>',
+    '<div style="background-image:url(https://example.com/a.png)">Resource</div>', '<span style="cursor:url(https://example.com/c.cur),auto">Cursor</span>',
+    '<div><svg xmlns="http://www.w3.org/2000/svg"><text>Other namespace</text></svg></div>', '<canvas>Texture</canvas>',
+  ])('keeps unsafe/interactive foreignObject content on the existing fallback path: %s', async markup => {
+    const svg = svgFixture(), { label } = chartLabel(svg)
+    label.innerHTML = markup
+    const original = svg.outerHTML
+    await expect(captureAsciiVisual(svg, new AbortController().signal)).rejects.toMatchObject({ name: 'AsciiVisualCaptureError', code: 'unsafe' })
+    expect(createUrl).not.toHaveBeenCalled(); expect(svg.outerHTML).toBe(original)
+  })
+
+  it('rejects resource CSS supplied through a class and property-bound interactive handlers', async () => {
+    const sheet = document.createElement('style'); sheet.textContent = '.capture-resource-label{background-image:url(https://example.com/bg.png)}'; document.head.append(sheet)
+    const svg = svgFixture(), { label } = chartLabel(svg)
+    label.className = 'capture-resource-label'
+    await expect(captureAsciiVisual(svg, new AbortController().signal)).rejects.toMatchObject({ code: 'unsafe' })
+    label.className = ''; sheet.remove()
+    label.onclick = () => { throw new Error('must never execute') }
+    await expect(captureAsciiVisual(svg, new AbortController().signal)).rejects.toMatchObject({ code: 'unsafe' })
+    expect(createUrl).not.toHaveBeenCalled()
+  })
+
+  it('does not allow a plaintext-label exception inside clipping definitions or weaken duplicate-ID checks', async () => {
+    const svg = svgFixture(), { frame, label } = chartLabel(svg)
+    svg.querySelector('clipPath')!.append(frame)
+    await expect(captureAsciiVisual(svg, new AbortController().signal)).rejects.toMatchObject({ code: 'unsafe' })
+    svg.querySelector('g')!.append(frame)
+    label.id = 'clip'
+    await expect(captureAsciiVisual(svg, new AbortController().signal)).rejects.toMatchObject({ code: 'unsafe' })
+    expect(createUrl).not.toHaveBeenCalled()
+  })
+
   it.each([1, 2])('captures visible overflowing React Flow edges and markers at scale %s', async scale => {
     const { svg } = overflowingEdge(scale)
     const before = svg.outerHTML

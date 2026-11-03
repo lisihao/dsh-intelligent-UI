@@ -1,3 +1,5 @@
+import { isAsciiTheme, isGpuAsciiTheme } from './theme-contracts.js'
+import { AsciiChart, supportsAsciiChart } from './ascii-chart.js'
 import { analyzeExecutionFlow } from './execution-flow.js'
 import { ExecutionFlowView } from './execution-flow-view.js'
 import { DenseLinePlot, requiresDenseLinePlot } from './dense-line-plot.js'
@@ -103,6 +105,7 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
   const palette = (theme === 'dark' ? selectedTheme.tokens.paletteDark : selectedTheme.tokens.paletteLight).map((_, index) => colors[`--iexp-series-${index + 1}`]!)
   const compact = selectedTheme.tokens.comparison === 'organic' && isCompactComparison(plan)
   const plot = (view: AutoChartPlan) => {
+    if (isAsciiTheme(selectedTheme) && !isGpuAsciiTheme(selectedTheme) && supportsAsciiChart(plan)) return h(AsciiChart, {plan:view, scalePlan:plan})
     let categoryKey = 'category'
     while (view.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
     const horizontal = view.kind === 'bar'
@@ -190,7 +193,7 @@ function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStr
   if (execution.status === 'valid') return h(ChartBoundary, { fallback: h('pre', { style: styles.raw }, rawText(value)) }, h(ExecutionFlowView, { plan: execution.plan, sourceText: rawText(value) }))
   if (execution.status === 'invalid') return h('div', null, h('p', { role: 'alert' }, `执行流程数据无法显示：${execution.error.message}`), h('pre', { style: styles.raw }, rawText(value)))
   const model = !isStreaming && glbSource(value)
-  if (model) return h('div', null, h(CanvasObjectView, { value, source: model, dark }), h('pre', { style: styles.raw }, rawText(value)))
+  if (model) return h('div', null, h(CanvasObjectView, { value, source: model, dark }), h('details', {className:'iexp-disclosure'}, h('summary',null,'原始模型记录'), h('pre', { style: styles.raw }, rawText(value))))
   const graph = isStreaming ? { status: 'unrecognized' as const } : analyzeGraph(value)
   if (graph.status === 'invalid') return h('div', null, h('p', { role: 'alert' }, '关系图数据不完整或格式不受支持，请查看原始内容。'), h('pre', { style: styles.raw }, rawText(value)))
   if (graph.status === 'valid') return h(ChartBoundary, { fallback: h('pre', { style: styles.raw }, rawText(value)) }, h(FlowView, { plan: { ...graph.plan, title: '原文关系', sourceText: rawText(value), reason: '仅绘制来源明确提供的节点与连线，图示不改变原始数据。' } }))

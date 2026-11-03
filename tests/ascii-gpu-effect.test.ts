@@ -58,7 +58,7 @@ describe('Asciify GPU atlas bridge', () => {
     const f = fixture(), originalDraw = f.gl.drawArrays, originalUpload = f.gl.texImage2D
     const effect = await f.create()
     expect(f.loadFactory).toHaveBeenCalledWith('asciify')
-    expect(vi.mocked(f.factory).mock.calls[0]![1]).toMatchObject({ charset: 'ascii', baseStrength: 1, strength: 1, background: 'auto', backgroundOpacity: 0, glow: 0, aberration: 0 })
+    expect(vi.mocked(f.factory).mock.calls[0]![1]).toMatchObject({ charset: 'ascii', scale: 1.25, spacing: 1, baseStrength: 1, strength: 1, background: 'auto', backgroundOpacity: 0, glow: 0, aberration: 0 })
     expect(f.content.textContent).toBe('')
     expect(f.content.parentElement).toBe(f.stage)
     expect(f.content.style.backgroundColor).toBe('rgb(16, 20, 24)')

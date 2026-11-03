@@ -18,7 +18,9 @@ declare const LOCAL_REPORT: string | null
 const sessionId = 'local-ascii-gpu-fixture'
 const params = new URLSearchParams(location.search)
 const executionOnly = params.get('execution') === '1'
-const themeId = params.get('theme') === 'empryo' ? 'empryo' : 'ascii'
+const showcaseOnly = params.get('showcase') === '1'
+const requestedTheme = params.get('theme')
+const themeId = requestedTheme && ['empryo','ascii','ascii-gpu','uiverse-soft-relief'].includes(requestedTheme) ? requestedTheme : 'ascii-gpu'
 const preference = { activeId: themeId, installed: [] }
 let settings: ExperienceSettings = { ...initialSettings(), takeover: true, openui: true, theme: preference, appearance: resolveTheme(preference).appearance }
 const store = new ExperienceStore()
@@ -163,6 +165,95 @@ function SyntheticObjectImage(): ReactElement {
     error ? h('p', { role: 'status' }, error) : url ? h(ContentView, { value: record }) : h('p', { role: 'status' }, '正在生成本地合成图标…'))
 }
 
+const showcaseMarkdown = `## 合成样本
+
+以下数值仅用于本地展示。
+
+| 类别 | 样本数（项） |
+| --- | ---: |
+| 甲 | 18 |
+| 乙 | 32 |
+| 丙 | 24 |
+| 丁 | 43 |
+`
+
+type FixtureDisposable = { dispose(): void }
+type FixtureMesh = { rotation: { set(x: number, y: number, z: number): unknown } }
+type FixtureGroup = { add(...items: FixtureMesh[]): unknown }
+type FixtureThree = {
+  Group: new () => FixtureGroup
+  Mesh: new (geometry: FixtureDisposable, material: FixtureDisposable) => FixtureMesh
+  MeshStandardMaterial: new (options: { color: string, metalness: number, roughness: number }) => FixtureDisposable
+  TorusGeometry: new (...values: number[]) => FixtureDisposable
+  TorusKnotGeometry: new (...values: number[]) => FixtureDisposable
+}
+type FixtureExporter = { GLTFExporter: new () => { parseAsync(scene: FixtureGroup, options: { binary: true }): Promise<ArrayBuffer | Record<string, unknown>> } }
+
+/** The GLB and its object URL exist only for the lifetime of this local fixture. */
+function SyntheticModel(): ReactElement {
+  const [url, setUrl] = useState('')
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let live = true, objectUrl = ''
+    let disposeGeometry = () => {}
+    // The pinned project dependency is JavaScript-only; keep the fixture's used API typed locally.
+    // @ts-expect-error Three.js 0.185.1 has no declarations in this project.
+    const threeModule = import('three') as Promise<FixtureThree>
+    // @ts-expect-error The pinned exporter's declarations are not installed either.
+    const exporterModule = import('three/addons/exporters/GLTFExporter.js') as Promise<FixtureExporter>
+    void Promise.all([threeModule, exporterModule]).then(async ([three, { GLTFExporter }]) => {
+      if (!live) return
+      const group = new three.Group()
+      const geometry = new three.TorusKnotGeometry(0.8, 0.24, 192, 28, 2, 3)
+      const ringGeometry = new three.TorusGeometry(1.48, 0.026, 8, 112)
+      const material = new three.MeshStandardMaterial({ color: '#d1e3d0', metalness: 0.15, roughness: 0.58 })
+      const ringMaterial = new three.MeshStandardMaterial({ color: '#a9c8ad', metalness: 0.12, roughness: 0.66 })
+      let disposed = false
+      disposeGeometry = () => {
+        if (disposed) return
+        disposed = true; geometry.dispose(); ringGeometry.dispose(); material.dispose(); ringMaterial.dispose()
+      }
+      const knot = new three.Mesh(geometry, material)
+      knot.rotation.set(0.36, -0.22, 0.12)
+      const firstRing = new three.Mesh(ringGeometry, ringMaterial)
+      firstRing.rotation.set(0.28, 0.35, 0.1)
+      const secondRing = new three.Mesh(ringGeometry, ringMaterial)
+      secondRing.rotation.set(1.05, 0.2, 0.75)
+      group.add(knot, firstRing, secondRing)
+      return new GLTFExporter().parseAsync(group, { binary: true })
+    }).then(result => {
+      if (!live) return
+      if (!(result instanceof ArrayBuffer)) throw new Error('未生成二进制模型')
+      objectUrl = URL.createObjectURL(new Blob([result], { type: 'model/gltf-binary' }))
+      setUrl(objectUrl)
+    }).catch(() => { disposeGeometry(); if (live) setError('无法生成本地三维模型。') })
+    return () => {
+      live = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      disposeGeometry()
+    }
+  }, [])
+  const source = { type: 'model/gltf-binary', url, title: '本地合成几何模型' }
+  return h('section', { className: 'fixture-showcase-panel fixture-showcase-model', 'data-fixture-showcase': 'model' },
+    h('h2', null, '本地合成三维模型'),
+    h('p', null, '本地合成模型；可旋转，保留原始模型链接。'),
+    error ? h('p', { role: 'status' }, error) : url ? h(OutputView, { sessionId, raw: source }, h(ContentView, { value: source })) : h('p', { role: 'status' }, '正在生成本地模型…'))
+}
+
+function ShowcaseFixture(): ReactElement {
+  return h('main', { className: 'fixture-main' },
+    h('header', { className: 'fixture-header' },
+      h('div', null, h('h1', null, 'ASCII 图形 · 本地展示'), h('p', null, '三维模型、网络图和数据均为合成样本。')),
+      h(HeaderControls, { store, sessionId })),
+    h('div', { 'data-slot': 'conversation.view', className: 'dsh-experience fixture-content fixture-showcase' },
+      h(SyntheticModel),
+      h('div', { className: 'fixture-showcase-side' },
+        h('section', { className: 'fixture-showcase-panel fixture-showcase-network', 'data-fixture-showcase': 'network' },
+          h('h2', null, '合成网络图标'), h(NetworkScene)),
+        h('section', { className: 'fixture-showcase-panel fixture-showcase-chart', 'data-fixture-showcase': 'chart' },
+          h('h2', null, '合成数据对照'), h(OutputView, { sessionId, raw: showcaseMarkdown }, h(ContentView, { value: showcaseMarkdown }))))))
+}
+
 // These immutable snapshots are illustrative local input, not DSH task state.
 function freezeDeep<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -304,5 +395,5 @@ function Fixture(): ReactElement {
 }
 
 const root = createRoot(document.getElementById('root')!)
-root.render(h(executionOnly ? ExecutionFixture : Fixture))
+root.render(h(executionOnly ? ExecutionFixture : showcaseOnly ? ShowcaseFixture : Fixture))
 window.addEventListener('pagehide', () => { root.unmount(); removeAsciiEffect(); removeAppearance(); removeStyles(); displayModes.clear() }, { once: true })

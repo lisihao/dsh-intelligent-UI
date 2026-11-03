@@ -123,10 +123,11 @@
     },
     "themePackages": {
       "contract": "docs/design/experience-themes.md",
-      "format": "Data-only .dsh-theme.json v1, v2 and v3; v2 selects a bundled component set; v3 selects the ASCII presentation; no CSS, JavaScript or remote assets",
+      "format": "Data-only .dsh-theme.json v1, v2 and v3; v2 selects a bundled component set; v3 selects ASCII with optional classic or GPU renderer; no CSS, JavaScript or remote assets",
       "builtIns": [
         "empryo",
         "ascii",
+        "ascii-gpu",
         "plain",
         "uiverse-soft-relief",
         "uiverse-clear-glass",
@@ -138,6 +139,38 @@
       "knownFrameException": "Same-origin ThoughtDAG only; original logo font metrics retained"
     },
     "colorMeta": {
+      "ascii-gpu-ground": {
+        "role": "neutral",
+        "displayName": "GPU ASCII near-black",
+        "canonical": "#101214",
+        "tonalRamp": [
+          "oklch(15% 0.0013 248.12)",
+          "oklch(26% 0.0027 248.12)",
+          "oklch(37% 0.0042 248.12)",
+          "oklch(48% 0.0052 248.12)",
+          "oklch(60% 0.0052 248.12)",
+          "oklch(72% 0.0040 248.12)",
+          "oklch(84% 0.0022 248.12)",
+          "oklch(95% 0.0006 248.12)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "soft-relief-ground": {
+        "role": "neutral",
+        "displayName": "Soft relief graphite",
+        "canonical": "#34383d",
+        "tonalRamp": [
+          "oklch(15% 0.0026 253.98)",
+          "oklch(26% 0.0054 253.98)",
+          "oklch(37% 0.0083 253.98)",
+          "oklch(48% 0.0103 253.98)",
+          "oklch(60% 0.0103 253.98)",
+          "oklch(72% 0.0080 253.98)",
+          "oklch(84% 0.0044 253.98)",
+          "oklch(95% 0.0012 253.98)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
       "ascii-ground": {
         "role": "neutral",
         "displayName": "Graphite ground",
@@ -363,7 +396,7 @@
   ],
   "narrative": {
     "northStar": "Source-led reading in Undertow",
-    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.\n\nASCII is a separate selectable presentation alongside the default Empryo. Its fixed-width type and actual Canvas UI Asciify WebGL projection give supported graphics a character-based appearance while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of the newer graphics effects, which is pending.",
+    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.\n\nClassic ASCII and GPU ASCII are separate selectable presentations alongside the default Empryo. Classic ASCII retains fixed-width reading and source-backed character comparison bars. GPU ASCII uses the actual Canvas UI Asciify WebGL projection for supported graphics while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of candidate k's newer graphics effects, which is pending.",
     "keyCharacteristics": [
       "Continuous prose and compact comparisons share the configurable quiet gray content surface; data cards use rounded elevation.",
       "Composition follows explicit source structure rather than decorative tiles.",
@@ -379,7 +412,7 @@
       },
       {
         "name": "The Native Label Rule",
-        "body": "The GPU character effect projects supported graphic geometry; native labels, units and exact source values remain readable.",
+        "body": "The GPU character effect projects supported graphical geometry; original text, labels, units and exact source values remain native and readable.",
         "section": "typography"
       },
       {

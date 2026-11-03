@@ -308,7 +308,7 @@ describe('source-bound Canvas object display', () => {
 
   it('does not start the ASCII image effect when bytes do not match the declared type', async () => {
     const bytes = fixtureJpeg(), value = { type: 'image/png', role: 'illustration', url: '/wrong.png' }
-    themePreferences.set({ activeId: 'ascii', installed: [] })
+    themePreferences.set({ activeId: 'ascii-gpu', installed: [] })
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
     vi.stubGlobal('IntersectionObserver', class { constructor(private callback: IntersectionObserverCallback) {} observe(target: Element) { this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver) } disconnect() {} })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }))
@@ -459,7 +459,7 @@ describe('source-bound Canvas object display', () => {
       expect(sourceLink.getAttribute('href')).toBe(new URL('/source.glb', location.href).href)
       expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ink-object'])
 
-      await act(async () => { themePreferences.set({ activeId: 'ascii', installed: [] }); await new Promise(resolve => setTimeout(resolve, 10)) })
+      await act(async () => { themePreferences.set({ activeId: 'ascii-gpu', installed: [] }); await new Promise(resolve => setTimeout(resolve, 10)) })
       expect(runtime.load.mock.calls.map(call => call[0])).toEqual(['ink-object', 'ascii-object'])
       expect(destroys[0]).toHaveBeenCalledTimes(1)
       expect(runtime.release).toHaveBeenCalledTimes(1)
@@ -504,11 +504,11 @@ describe('source-bound Canvas object display', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), arrayBuffer: async () => bytes.buffer }); vi.stubGlobal('fetch', fetchMock)
     URL.createObjectURL = vi.fn().mockReturnValue('blob:http://localhost/paused'); URL.revokeObjectURL = vi.fn()
     runtime.load.mockResolvedValue((_elements: unknown, options: { onLoad(): void }) => { options.onLoad(); return { destroy: runtime.destroy } })
-    themePreferences.set({ activeId: 'ascii', installed: [] })
+    themePreferences.set({ activeId: 'ascii-gpu', installed: [] })
     const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
     try {
       await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 0)) })
-      await act(async () => { themePreferences.set({ activeId: 'empryo', installed: [] }); themePreferences.set({ activeId: 'ascii', installed: [] }); await new Promise(resolve => setTimeout(resolve, 0)) })
+      await act(async () => { themePreferences.set({ activeId: 'empryo', installed: [] }); themePreferences.set({ activeId: 'ascii-gpu', installed: [] }); await new Promise(resolve => setTimeout(resolve, 0)) })
       expect(fetchMock).not.toHaveBeenCalled()
       expect(runtime.load).not.toHaveBeenCalled()
       expect(runtime.release).not.toHaveBeenCalled()
@@ -546,7 +546,7 @@ describe('source-bound Canvas object display', () => {
     runtime.load.mockImplementation(async () => (_elements: unknown, options: { src: string; onLoad(): void }) => {
       const destroy = vi.fn(); destroys.push(destroy); sources.push(options.src); options.onLoad(); return { destroy }
     })
-    themePreferences.set({ activeId: 'ascii', installed: [] })
+    themePreferences.set({ activeId: 'ascii-gpu', installed: [] })
     const host = document.createElement('div'), root = createRoot(host); document.body.append(host)
     try {
       await act(async () => { root.render(h(ContentView, { value })); await new Promise(resolve => setTimeout(resolve, 10)) })

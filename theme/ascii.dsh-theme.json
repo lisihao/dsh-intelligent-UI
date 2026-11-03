@@ -5,8 +5,8 @@
   "author": "Solar",
   "license": "MIT",
   "id": "ascii",
-  "name": "ASCII",
-  "description": "WebGL ASCII 图形：自动将支持的图标、图表和图片重绘为字符，保留清晰的原文与数据。",
+  "name": "经典 ASCII",
+  "description": "经典终端风格：等宽排版、字符比较图和原始数值，不启用 GPU 字符图形投影。",
   "presentation": "ascii",
   "appearance": {
     "backgroundColor": "#191c19",
@@ -43,5 +43,6 @@
     "shadow": "soft",
     "comparison": "standard",
     "composition": "document"
-  }
+  },
+  "asciiRenderer": "classic"
 }

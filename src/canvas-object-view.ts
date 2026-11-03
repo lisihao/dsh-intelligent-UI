@@ -1,7 +1,7 @@
 // ai-design-check-ignore-file locale-aware-case -- MIME, format, and role values are protocol identifiers, not localized UI text.
 import { createElement as h, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from 'react'
 import { themePreferences } from './theme-runtime.js'
-import { isAsciiTheme } from './theme-contracts.js'
+import { isGpuAsciiTheme } from './theme-contracts.js'
 import { acquireCanvasSlot, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
 import { planCanvasEffect, type EffectDomain } from './effect-planner.js'
@@ -34,10 +34,10 @@ export function modelDomain(value: unknown): EffectDomain {
 }
 
 /** Upstream object effects use different material/color controls. */
-function objectEffectAppearance(component: string, dark: boolean, isImage = false): Record<string, unknown> {
+function objectEffectAppearance(component: string, dark: boolean, isImage = false, gpuTheme = false): Record<string, unknown> {
   const color = dark ? '#d5e2e9' : '#1e2c32'
   if (component === 'ink-object') return { inkColor: color, ...(isImage ? { threshold: 0.15, contrast: 4, lineSpacing: 6, scale: 4.2 } : {}) }
-  if (component === 'ascii-object') return { colored: false, color, cellSize: 9, exposure: 2 }
+  if (component === 'ascii-object') return { colored: false, color, cellSize: 9, exposure: 2, ...(gpuTheme && !isImage ? {fov:45, scale:3.2} : {}) }
   return {}
 }
 
@@ -329,7 +329,8 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   // Infer a model's domain only while its effect can run; images use the
   // selected ASCII theme or the existing Ink default without domain inference.
   const domain = useMemo(() => imageSource || isStreaming || !visible || !pageVisible || reduced ? 'general' : modelDomain(value), [value, !!imageSource, isStreaming, visible, pageVisible, reduced])
-  const component = isAsciiTheme(selectedTheme) ? 'ascii-object' : imageSource ? 'ink-object' : domainEffects[domain]
+  const gpuAscii = isGpuAsciiTheme(selectedTheme)
+  const component = gpuAscii ? 'ascii-object' : imageSource ? 'ink-object' : domainEffects[domain]
   const [status, setStatus] = useState(imageSource ? '正在准备插画效果…' : '正在准备模型视图…')
   const [canRotate, setCanRotate] = useState(false)
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0)
@@ -434,7 +435,7 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
           const kind = imageSource ? 'image' : 'glb'
           const plan = planCanvasEffect({ source: latest.current, target: { kind: 'asset' }, assets: [{ kind, sourceRef: source.reference, resolved: true, sourcePath: [source.field] }], providers: [{ id: `upstream-${component}-webgl`, component, renderer: 'webgl', inputs: [kind] }], capabilities: { webgl2: true }, domain })
           if (plan.status !== 'selected') throw new Error('模型与原始来源不匹配')
-          const created = factory({ canvas: target }, { src, ...objectEffectAppearance(component, dark, !!imageSource), background: '', orbit: true, zoom: false, onLoad: () => { if (live && !effectFailed) setStatus('') }, onError: () => { if (live) { effectFailed = true; setFailed(true); setCanRotate(false); setStatus(imageSource ? '插画效果无法显示，原图仍可查看。' : '模型无法显示，原始内容仍可查看。'); discard() } } })
+          const created = factory({ canvas: target }, { src, ...objectEffectAppearance(component, dark, !!imageSource, gpuAscii), background: '', orbit: true, zoom: false, onLoad: () => { if (live && !effectFailed) setStatus('') }, onError: () => { if (live) { effectFailed = true; setFailed(true); setCanRotate(false); setStatus(imageSource ? '插画效果无法显示，原图仍可查看。' : '模型无法显示，原始内容仍可查看。'); discard() } } })
           if (!created) throw new Error('模型效果无法初始化')
           if (effectFailed || !live) created.destroy()
           else { instance = created; currentEffect.current = created; setCanRotate(typeof created.setOptions === 'function') }
@@ -448,7 +449,7 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
       })
     })
     return () => { live = false; controller.abort(); discard() }
-  }, [source.field, source.reference, imageSource?.mime, verifiedImage?.url, imageError, component, domain, dark, visible, pageVisible, isStreaming, reduced, retry, loadEffect])
+  }, [source.field, source.reference, imageSource?.mime, verifiedImage?.url, imageError, component, gpuAscii, domain, dark, visible, pageVisible, isStreaming, reduced, retry, loadEffect])
 
   const rotate = (direction: number) => {
     const effect = currentEffect.current
@@ -460,8 +461,8 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   let originalUrl: string | undefined
   try { originalUrl = typeof window === 'undefined' ? undefined : safeAssetUrl(source.reference, imageSource?.mime) } catch { /* raw source is still shown by the caller */ }
   const effectView = h('div', { role: 'figure', className: 'iexp-canvas-object', 'aria-label': imageSource ? '根据原始插画生成的效果视图，原图和记录仍可查看' : '根据原始模型生成的图形视图，原始记录在下方', hidden: reduced || isStreaming || (!!imageSource && !!imageError), style: { position: 'relative', minWidth: 0, borderRadius: 'var(--iexp-card-radius)', overflow: 'hidden', background: 'var(--iexp-soft)', ...(imageSource ? { flex: '1 1 200px', aspectRatio: '1 / 1', minHeight: 200, maxHeight: 300 } : { height: 300 }) } },
-      h('canvas', { ref: canvas, 'aria-hidden': true, style: { display: 'block', width: '100%', height: imageSource ? 'calc(100% - 40px)' : '100%', ...(imageSource ? { marginTop: 40 } : {}), touchAction: 'none' } }),
-      !status && h('span', { style: { position: 'absolute', inset: '12px auto auto 12px', color: 'var(--iexp-muted)', fontSize: 12, pointerEvents: 'none' } }, imageSource ? '拖动旋转' : '拖动或使用按钮旋转'),
+      h('canvas', { ref: canvas, 'aria-hidden': true, style: { display: 'block', width: '100%', height: 'calc(100% - 40px)', marginTop: 40, touchAction: 'none' } }),
+      !status && h('span', { style: { position: 'absolute', inset: '12px auto auto 12px', color: 'var(--iexp-muted)', fontSize: 12, pointerEvents: 'none' } }, '拖动旋转'),
       !status && canRotate && h('div', { role: 'group', 'aria-label': imageSource ? '插画效果旋转' : '模型旋转', style: { position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 } },
         h(ThemeButton, { type: 'button', 'aria-label': imageSource ? '向左旋转插画效果' : '向左旋转模型', onClick: () => rotate(-1), style: { minHeight: 32, padding: '4px 8px' } }, '左转'),
         h(ThemeButton, { type: 'button', 'aria-label': imageSource ? '向右旋转插画效果' : '向右旋转模型', onClick: () => rotate(1), style: { minHeight: 32, padding: '4px 8px' } }, '右转')),

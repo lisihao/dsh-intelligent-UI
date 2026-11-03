@@ -6,9 +6,9 @@
   "license": "MIT",
   "id": "uiverse-soft-relief",
   "name": "柔和浮雕 · Soft relief",
-  "description": "源自 Uiverse 官方归档的真实组件适配；原始源码与作者见组件预览。仅替换智能体验自有控件，其他页面仅兼容外观。",
+  "description": "柔和深灰底色与低对比浮雕光影，支持自定义背景。组件适配源自 Uiverse 官方归档；其他页面仅兼容外观。",
   "appearance": {
-    "backgroundColor": "#e8e8e8",
+    "backgroundColor": "#34383d",
     "translucent": false
   },
   "tokens": {

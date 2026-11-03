@@ -1,5 +1,5 @@
 import type { ExperienceSettings } from './contracts.js'
-import { isAsciiTheme, resolveTheme } from './theme-contracts.js'
+import { isGpuAsciiTheme, resolveTheme } from './theme-contracts.js'
 import { appearanceTokens } from './appearance.js'
 import { acquireCanvasSlot, type CanvasEffectFactory } from './canvas-runtime-client.js'
 import { createAsciiGpuEffect, type AsciiGpuEffect } from './ascii-gpu-effect.js'
@@ -24,7 +24,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     if (disposed) return
     const snapshot = store.snapshot(), settings = snapshot.settings, theme = resolveTheme(settings?.theme)
     const background = appearanceTokens(snapshot.appearancePreview ?? settings?.appearance, theme).variables['--iexp-solid-bg']!
-    const next = settings?.takeover && isAsciiTheme(theme) && !doc.hidden ? background : ''
+    const next = settings?.takeover && isGpuAsciiTheme(theme) && !doc.hidden ? background : ''
     if (next === key) return
     stop?.(); stop = undefined; key = next
     if (next) stop = run(next)
@@ -73,7 +73,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       const css = win!.getComputedStyle(source)
       const entry = entries.get(source as Source), opacity = entry?.marks.has(source) ? entry.nativeOpacity : css.opacity
       if (opacity && Number(opacity) !== 1) return
-      if (rect.width < 2 || rect.height < 2 || css.display === 'none' || css.visibility === 'hidden') return
+      if (rect.width < 2 || rect.height < 2 || source.localName === 'svg' && rect.width <= 32 && rect.height <= 32 || css.display === 'none' || css.visibility === 'hidden') return
       let left = Math.max(0, rect.left), top = Math.max(0, rect.top), right = Math.min(win!.innerWidth, rect.right), bottom = Math.min(win!.innerHeight, rect.bottom)
       for (let parent = source.parentElement; parent; parent = parent.parentElement) {
         const p = win!.getComputedStyle(parent)
@@ -170,7 +170,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
           const rect = captured && origin ? { left: rootRect.left + (captured.left - origin.left) * sx, top: rootRect.top + (captured.top - origin.top) * sy, width: captured.width * sx, height: captured.height * sy } : rootRect
           ctx.save(); ctx.beginPath(); ctx.rect(box.left * scale, box.top * scale, box.width * scale, box.height * scale); ctx.clip()
           ctx.drawImage(bitmap, rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale)
-          for (const text of entry.capture?.textRects ?? []) { ctx.fillStyle = background; ctx.fillRect((rect.left + text.x * sx) * scale, (rect.top + text.y * sy) * scale, text.width * sx * scale, text.height * sy * scale) }
+          for (const text of entry.capture?.textRects ?? []) { ctx.fillStyle = background; ctx.fillRect((rect.left + text.x * sx - 5) * scale, (rect.top + text.y * sy - 5) * scale, (text.width * sx + 10) * scale, (text.height * sy + 10) * scale) }
           ctx.restore(); items.push({entry, epoch: entry.epoch, box})
         }
         for (const entry of entries.values()) if (!items.some(item => item.entry === entry)) restore(entry)
