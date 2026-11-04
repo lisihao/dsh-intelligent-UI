@@ -28,7 +28,7 @@ const connection={rpc:{call:async(_channel:string,endpoint:string)=>{
 
 const effects:Array<()=>void>=[]
 const slots={entries:core.entries.bind(core),subscribe:core.subscribe.bind(core),register,inject:(_name:string,fn:()=>()=>void)=>fn()}
-const ctx={slots,locale:{subscribe:()=>()=>{}},get:(name:string)=>({slots,remote,configForms:forms,settingsSchema:schema,connection} as Record<string,unknown>)[name],inject:(_names:readonly string[],callback:(ctx:unknown)=>void)=>{callback(ctx);return()=>{}},effect:(fn:()=>void|(()=>void))=>{const dispose=fn();if(typeof dispose==='function')effects.push(dispose);return dispose},on:()=>()=>{}}
+const ctx={slots,locale:{subscribe:()=>()=>{}},get:(name:string)=>({slots,'remote.llm':remote.llm,'remote.session':remote.session,'remote.credentials':remote.credentials,'remote.costMeter':remote.costMeter,configForms:forms,settingsSchema:schema,connection} as Record<string,unknown>)[name],inject:(_names:readonly string[],callback:(ctx:unknown)=>void)=>{callback(ctx);return()=>{}},effect:(fn:()=>void|(()=>void))=>{const dispose=fn();if(typeof dispose==='function')effects.push(dispose);return dispose},on:()=>()=>{}}
 let preference={settings:{settingsNavigation:true}}
 const preferenceListeners=new Set<()=>void>()
 installSettingsNavigation(ctx as never,{snapshot:()=>preference,subscribe:fn=>{preferenceListeners.add(fn);return()=>preferenceListeners.delete(fn)},setEnabled:async(enabled:boolean)=>{preference={settings:{settingsNavigation:enabled}};preferenceListeners.forEach(fn=>fn())}})
@@ -45,6 +45,7 @@ const findButton=(label:string)=>[...document.querySelectorAll<HTMLButtonElement
 async function run(){
  await wait(()=>document.body.textContent?.includes('凭据已配置')&&!document.body.textContent?.includes('正在刷新模型中心信息'),'model center did not load')
  ensure(!document.body.textContent?.includes('fixture-secret-not-for-output'),'credential fixture leaked into UI')
+ ensure(document.querySelector('.iec-account-layout > .iec-account-detail'),'account detail is nested in the list instead of the second column')
  const native=[...document.querySelectorAll<HTMLButtonElement>('[data-native-id]')]
  ensure(native.length===7,'native registry entries were removed')
  ensure(getComputedStyle(native.find(row=>row.dataset.nativeId==='models')!).display==='none','original pages not consolidated behind center')

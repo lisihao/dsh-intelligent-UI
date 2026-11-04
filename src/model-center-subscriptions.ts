@@ -3,9 +3,9 @@ import type { CenterAccount, CenterSourceState, CenterQuota } from './model-cent
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 
 const text = z.string().min(1).max(512)
-const accountSchema = z.object({ id: text, label: text, active: z.boolean(), expiresAt: z.number().finite().optional(), email: text.optional() })
-const codexSchema = z.object({ authenticated: z.boolean(), provider: text, type: z.string().optional(), expiresAt: z.number().finite().optional(), accounts: z.array(accountSchema).optional() })
-const grokSchema = z.object({ account: z.object({ signedIn: z.boolean(), maskedAccount: text.optional(), authMode: text.optional(), expiresAt: z.number().finite().optional(), source: text.optional() }) })
+const accountSchema = z.object({ id: text, label: text, active: z.boolean(), email: text.optional() })
+const codexSchema = z.object({ authenticated: z.boolean(), provider: text, type: z.string().optional(), accounts: z.array(accountSchema).optional() })
+const grokSchema = z.object({ account: z.object({ signedIn: z.boolean(), maskedAccount: text.optional() }) })
 export interface ModelCenterSubscriptionsSnapshot {
   accounts: readonly CenterAccount[]
   quotas: readonly CenterQuota[]

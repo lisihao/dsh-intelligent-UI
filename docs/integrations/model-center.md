@@ -33,3 +33,7 @@ The feature adds no automatic model calls. Tests use injected source fixtures an
 ## Verification record
 
 Focused adapter/view/store/navigation tests and a real Chromium replay cover source qualification, credential-field exclusion, field-scoped model saves, stale revisions, zero/over-quota values, partial failures, explicit recovery and original navigation. The replay uses all public adapter/runtime code and registered slot components at 1280, 980 and 500 pixels; no actual accounts or model requests are used. The repository gate, exact packed install and live MacBook observations are recorded separately at delivery; they must not be inferred from this replay.
+
+### Native acceptance follow-up
+
+The first live inspection found defects absent from the initial replay: Cordis supplies `remote.llm`, `remote.session`, `remote.credentials` and optional `remote.costMeter` as independent service namespaces, not fields on `ctx.get('remote')`; account details were incorrectly nested inside the list; Grok exposes ISO-string expiry metadata. The replay now uses flat service lookup with no root facade and asserts that details are a direct sibling of the list. The production adapter injects required namespaces, resolves the optional fees namespace dynamically and ignores unused expiry metadata rather than rejecting it. Focused regression checks cover all three causes. Live verification is recorded separately after reinstalling the corrected fixed package.

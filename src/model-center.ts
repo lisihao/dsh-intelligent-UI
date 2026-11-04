@@ -73,8 +73,9 @@ export function createModelCenterRuntime(input:{remote:RuntimeRemote,forms:Confi
  }
 }
 export function installModelCenter(ctx:Context):void{
- ctx.inject(['configForms','settingsSchema'],child=>{
-  const runtime=createModelCenterRuntime({remote:child.get('remote') as unknown as RuntimeRemote,forms:child.get('configForms')!,schema:child.get('settingsSchema')!,connection:child.get('connection') as unknown as ConnectionHandle})
+ ctx.inject(['configForms','settingsSchema','remote.llm','remote.session','remote.credentials'],child=>{
+  const remote={llm:child.get('remote.llm'),session:child.get('remote.session'),credentials:child.get('remote.credentials'),get costMeter(){return child.get('remote.costMeter')}} as unknown as RuntimeRemote
+  const runtime=createModelCenterRuntime({remote,forms:child.get('configForms')!,schema:child.get('settingsSchema')!,connection:child.get('connection') as unknown as ConnectionHandle})
   child.effect(()=>()=>runtime.store.dispose(),'model center: memory-only source projections')
   const slots=child.get('slots') as unknown as Slots
   function Connected():ReactElement{

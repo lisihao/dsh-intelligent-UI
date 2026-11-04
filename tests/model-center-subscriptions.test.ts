@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { normalizeCodexAccountStatus, normalizeGrokAccountStatus, normalizeCodexUsage, normalizeGrokUsage, readModelCenterSubscriptions } from '../src/model-center-subscriptions.js'
 
 describe('model center subscription summaries', () => {
+ it('accepts Grok owner ISO expiry metadata while projecting only the fields used by the center',()=>{
+  expect(normalizeGrokAccountStatus({account:{signedIn:true,maskedAccount:'a***@example.invalid',expiresAt:'2030-01-01T00:00:00Z',authMode:'oidc',source:'grok-cli'}})[0]).toMatchObject({configured:true,status:'已保存授权'})
+ })
  it('keeps zero and over-quota values and converts owner reset seconds exactly', () => {
   const rows=normalizeCodexUsage({rateLimits:[{id:'codex',windows:[{usedPercent:100,remainingPercent:0,windowSeconds:18000,resetsAt:1890000000},{usedPercent:125,windowSeconds:604800}]}]})
   expect(rows[0]).toMatchObject({remainingPercent:0,resetAt:1890000000000,window:'5 小时窗口'})

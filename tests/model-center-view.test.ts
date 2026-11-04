@@ -85,6 +85,7 @@ describe('ModelCenterView', () => {
     Object.freeze(viewState.accounts); Object.freeze(viewState.models)
     const viewActions = actions(), { host, root } = await mount(viewState, viewActions)
     expect(host.querySelectorAll('.iec-account-row')).toHaveLength(1)
+    expect(host.querySelector('.iec-account-layout > .iec-account-detail')).not.toBeNull()
     expect(host.querySelectorAll('.iec-table tbody tr')).toHaveLength(1)
     expect(host.textContent).toContain('API Key 已配置')
     expect(host.textContent).toContain('person@example.test')

@@ -90,6 +90,13 @@ function EmptyState({ message, action }: { message: string, action?: ReactElemen
 
 function AccountsPanel({ state, actions, selected, onSelect, hidden }: { state: ModelCenterViewState, actions: ModelCenterViewActions, selected: CenterAccount | undefined, onSelect: (key: string) => void, hidden: boolean }): ReactElement {
   const loading = state.busy || state.sources.web.status === 'loading' || state.sources.subscriptions.status === 'loading'
+  const items = state.accounts.map(account => h('button', {
+    key: account.key, type: 'button', className: 'iec-account-row',
+    'aria-pressed': selected?.key === account.key,
+    onClick: () => onSelect(account.key),
+  }, h('span', { className: 'iec-account-row-title' }, account.label),
+    h('span', { className: 'iec-source-tag' }, sourceLabel(account.source)),
+    h('span', { className: 'iec-account-status' }, displayStatus(account))))
   return h('section', { className: 'iec-panel', id: 'iexp-model-center-accounts-panel', role: 'tabpanel', 'aria-labelledby': 'iexp-model-center-accounts-tab', hidden },
     h('div', { className: 'iec-panel-heading' },
       h('div', null, h('h3', null, '已接入的账号'), h('p', null, '按 API、订阅和网页通道分别查看与管理。')),
@@ -98,13 +105,8 @@ function AccountsPanel({ state, actions, selected, onSelect, hidden }: { state: 
     state.accounts.length === 0
       ? h(EmptyState, { message: loading ? '正在读取账号与连接…' : '尚未读取到账号连接。', action: h('button', { type: 'button', className: 'iec-secondary', onClick: () => actions.openOriginal('account') }, '打开原始账号设置') })
       : h('div', { className: 'iec-account-layout' },
-        h('div', { className: 'iec-account-list', role: 'group', 'aria-label': '账号连接列表' }, state.accounts.map(account => h('div', { key: account.key }, h('button', {
-          type: 'button',
-          className: 'iec-account-row',
-          'aria-pressed': selected?.key === account.key,
-          onClick: () => onSelect(account.key),
-        }, h('span', { className: 'iec-account-row-title' }, account.label), h('span', { className: 'iec-source-tag' }, sourceLabel(account.source)), h('span', { className: 'iec-account-status' }, displayStatus(account))))),
-        h(AccountDetail, { account: selected, actions }))))
+        h('div', { className: 'iec-account-list', role: 'group', 'aria-label': '账号连接列表' }, ...items),
+        h(AccountDetail, { account: selected, actions })))
 }
 
 function AccountDetail({ account, actions }: { account: CenterAccount | undefined, actions: ModelCenterViewActions }): ReactElement {
