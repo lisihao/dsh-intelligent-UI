@@ -1,3 +1,4 @@
+import { installSettingsNavigation } from './settings-navigation.js'
 import { DataBrowser, type DataBrowserApi } from './data-browser.js'
 import { installDataBrowserNavigation } from './data-browser-navigation.js'
 import { InsightPreview, type InsightPreviewApi } from './insight-preview-view.js'
@@ -42,7 +43,7 @@ import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contr
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
 
 export const name = 'intelligent-experience-platform'
-export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
+export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme', 'locale']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
 type PreviewApi = Pick<DataBrowserApi,'localFiles'> & InsightPreviewApi
 type ClientApi = ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
@@ -320,6 +321,15 @@ export function apply(ctx: Context): void {
   ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
   const store = new ExperienceStore()
+  installSettingsNavigation(ctx, {
+    snapshot: store.snapshot,
+    subscribe: store.subscribe,
+    async setEnabled(settingsNavigation) {
+      const settings = store.snapshot().settings
+      if (!settings) throw new Error('智能体验设置尚未就绪。')
+      await store.save({ expectedRevision: settings.revision, takeover: settings.takeover, openui: settings.openui, mcpApps: settings.mcpApps, settingsNavigation })
+    },
+  })
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
   ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined
