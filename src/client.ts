@@ -276,7 +276,10 @@ function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetS
 }
 function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps })) }
 /** The Chat-owned user row keeps attachments, timestamps, copy, and actions; only its raw text node is visualized. */
-function UserTextNode({ raw }: PropsRuntime<'conversation.user.text.node', 'text'>): ReactElement { return h(ContentView, { value: raw }) }
+function UserTextNode({ raw }: PropsRuntime<'conversation.user.text.node', 'text'>): ReactElement {
+  if (!raw.trim()) return h('span', { className: 'iexp-user-message-whitespace' }, raw)
+  return h('div', { className: 'iexp-user-message-text' }, h(ContentView, { value: raw, preserveSoftBreaks: true }))
+}
 export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState('')
   const refreshEpoch = useRef(0)

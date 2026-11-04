@@ -129,6 +129,11 @@ export function installExperienceStyles(): () => void {
 @media (prefers-reduced-motion: reduce) { .iexp-chart-card { transition: none; } }
 .dsh-experience .openui-markdown-renderer { overflow-wrap: anywhere; }
 .dsh-experience .openui-markdown-renderer-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.iexp-user-message-text { white-space: normal; }
+.iexp-user-message-text .openui-markdown-renderer { white-space: normal; }
+.iexp-user-message-text .openui-markdown-renderer :is(p, li) { white-space: normal; }
+.iexp-user-message-text .openui-markdown-renderer :is(pre, code) { white-space: pre-wrap; }
+.iexp-user-message-whitespace { white-space: normal; }
 .iexp-content .iexp-markdown-illustration-original { display:flex; align-items:center; justify-content:center; width:100%; height:auto; max-height:260px; min-height:0; }
 .iexp-content .iexp-markdown-illustration-original img { display:block; max-width:100%; max-height:260px; width:auto; height:auto; object-fit:contain; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
