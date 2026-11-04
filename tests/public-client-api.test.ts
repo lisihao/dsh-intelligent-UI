@@ -26,12 +26,13 @@ describe('public client document service', () => {
       return () => { if (services.get(key) === service) services.delete(key) }
     })
     const ctx = {
+    locale: { subscribe: () => () => {} },
       inject: () => () => {},
       effect: (callback: () => () => void) => { const cleanup = callback(); cleanups.push(cleanup); return cleanup },
       provide,
       get: (key: string) => key === 'sessions' ? sessions : key === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : key === 'remote.solarExperience' ? wire : services.get(key),
       on: () => () => {},
-      slots: { register: () => () => {}, inject: (_name: string, callback: () => () => void) => callback(), entriesOfSlot: () => [], subscribe: () => () => {} },
+      slots: { register: () => () => {}, inject: (_name: string, callback: () => () => void) => callback(), entries: () => [], entriesOfSlot: () => [], subscribe: () => () => {} },
       remote: { $mount: async () => async () => {} },
     } as unknown as Context
     apply(ctx)

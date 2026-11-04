@@ -44,14 +44,14 @@ describe('chat takeover', () => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     const core = new SlotCore()
     const register = core.register.bind(core) as unknown as (options: unknown, component: unknown) => () => void
-    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
+    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'settings.action': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
     const ok = <T>(value: T) => ({ ok: true as const, value })
     const snapshot = { formatVersion: 1 as const, sessionId: 'preview-session', available: true, runs: [], warnings: [] }
     const wire = { settings: async () => ok(base), saveSettings: async () => ok(base), artifacts: vi.fn(async () => ok([])), publish: vi.fn(async () => { throw Error('No automatic publish') }), localFiles: vi.fn(async () => ok([])), insightPreview: vi.fn(async () => ok(snapshot)) }
     const cleanups: Array<() => void> = []
     const inject = vi.fn((_requirements: string[], _callback: unknown) => () => {}) // Layout navigation has its own declaration-aware integration tests.
     const using = vi.fn(() => { throw Error('No automatic session submission') })
-    const ctx = { inject, slots: { register, inject: (_name: string, callback: () => () => void) => callback(), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : name === 'sessions' ? { using } : name === 'remote.solarExperience' ? wire : undefined, on: () => () => {} } as unknown as Context
+    const ctx = { locale: { subscribe: () => () => {} }, inject, slots: { register, inject: (_name: string, callback: () => () => void) => callback(), entries: core.entries.bind(core), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : name === 'sessions' ? { using } : name === 'remote.solarExperience' ? wire : undefined, on: () => () => {} } as unknown as Context
     const host = document.createElement('div'), root = createRoot(host)
     document.body.append(host)
     try {
@@ -88,7 +88,7 @@ describe('chat takeover', () => {
     vi.useFakeTimers()
     const core = new SlotCore()
     const rootRegister = core.register.bind(core) as unknown as (options: unknown, component: unknown) => () => void
-    rootRegister({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
+    rootRegister({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'settings.action': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
     const { registerFactory, officialText } = installOfficialUserMessageSeams(core, rootRegister)
     const officialAssistant = () => null; const officialTool = () => null; const officialUser = () => null
     rootRegister({ name: 'conversation.chat.node', key: 'assistant-step' }, officialAssistant)
@@ -98,7 +98,7 @@ describe('chat takeover', () => {
     const ok = <T>(value: T) => ({ ok: true as const, value })
     const wire = { settings: async () => ok(settings), saveSettings: async () => ok(settings), artifacts: async () => ok([]), publish: async () => ok({}) }
     const cleanups: Array<() => void> = []
-    const ctx = { inject: () => () => {}, slots: { register: rootRegister, registerFactory, inject: (_name: string, callback: () => () => void) => callback(), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
+    const ctx = { locale: { subscribe: () => () => {} }, inject: () => () => {}, slots: { register: rootRegister, registerFactory, inject: (_name: string, callback: () => () => void) => callback(), entries: core.entries.bind(core), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
     apply(ctx)
     await vi.advanceTimersByTimeAsync(0)
     const winner = (key: string) => core.entriesOfSlot('conversation.chat.node').find(entry => entry.options.key === key)?.component
@@ -128,7 +128,7 @@ describe('chat takeover', () => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     const core = new SlotCore()
     const register = core.register.bind(core) as unknown as SlotRegister
-    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
+    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'settings.action': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
     const { registerFactory, officialText, officialUserText, officialUserContent } = installOfficialUserMessageSeams(core, register)
     const officialUser = () => null; const officialSteering = () => null
     register({ name: 'conversation.chat.node', key: 'user' }, officialUser)
@@ -137,7 +137,7 @@ describe('chat takeover', () => {
     const ok = <T>(value: T) => ({ ok: true as const, value })
     const wire = { settings: async () => ok(settings), saveSettings: async () => ok(settings), artifacts: async () => ok([]), publish: async () => ok({}) }
     const cleanups: Array<() => void> = []
-    const ctx = { inject: () => () => {}, slots: { register, registerFactory, inject: (_name: string, callback: () => () => void) => callback(), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
+    const ctx = { locale: { subscribe: () => () => {} }, inject: () => () => {}, slots: { register, registerFactory, inject: (_name: string, callback: () => () => void) => callback(), entries: core.entries.bind(core), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
     const host = document.createElement('div'), root = createRoot(host)
     document.body.append(host)
     try {
@@ -200,7 +200,7 @@ describe('chat takeover', () => {
     vi.useFakeTimers()
     const core = new SlotCore()
     const register = core.register.bind(core) as unknown as SlotRegister
-    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
+    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'settings.action': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
     const { registerFactory, officialText } = installOfficialUserMessageSeams(core, register)
     const officialAssistant = () => null; const officialTool = () => null
     register({ name: 'conversation.chat.node', key: 'assistant-step' }, officialAssistant)
@@ -210,7 +210,7 @@ describe('chat takeover', () => {
     const wire = { settings: async () => ok(settings), saveSettings: async () => ok(settings), artifacts: async () => ok([]), publish: async () => ok({}) }
     const cleanups: Array<() => void> = []
     const firstInjectionDispose = vi.fn()
-    const ctx = { inject: () => () => {}, slots: {
+    const ctx = { locale: { subscribe: () => () => {} }, inject: () => () => {}, slots: {
       register,
       registerFactory,
       inject: (name: string, callback: () => () => void) => {
@@ -221,7 +221,7 @@ describe('chat takeover', () => {
         if (name === 'conversation.user.text.node') throw new Error('user text injection unavailable')
         return callback()
       },
-      entriesOfSlot: core.entriesOfSlot.bind(core),
+      entries: core.entries.bind(core), entriesOfSlot: core.entriesOfSlot.bind(core),
       subscribe: core.subscribe.bind(core),
     }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
     try {
@@ -244,7 +244,7 @@ describe('chat takeover', () => {
     vi.useFakeTimers()
     const core = new SlotCore()
     const register = core.register.bind(core) as unknown as (options: unknown, component: unknown) => () => void
-    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
+    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'settings.action': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
     const { registerFactory, officialText } = installOfficialUserMessageSeams(core, register)
     const officialAssistant = () => null; const officialTool = () => null; const foreign = () => null
     register({ name: 'conversation.chat.node', key: 'assistant-step' }, officialAssistant)
@@ -254,7 +254,7 @@ describe('chat takeover', () => {
     const ok = <T>(value: T) => ({ ok: true as const, value })
     const wire = { settings: async () => ok(settings), saveSettings: async () => ok(settings), artifacts: async () => ok([]), publish: async () => ok({}) }
     const cleanups: Array<() => void> = []
-    const ctx = { inject: () => () => {}, slots: { register, registerFactory, inject: (_name: string, callback: () => () => void) => callback(), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
+    const ctx = { locale: { subscribe: () => () => {} }, inject: () => () => {}, slots: { register, registerFactory, inject: (_name: string, callback: () => () => void) => callback(), entries: core.entries.bind(core), entriesOfSlot: core.entriesOfSlot.bind(core), subscribe: core.subscribe.bind(core) }, effect: (callback: () => () => void) => { const dispose = callback(); cleanups.push(dispose); return dispose }, provide: () => () => {}, remote: { $mount: async () => async () => {} }, get: (name: string) => name === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : wire, on: () => () => {} } as unknown as Context
     apply(ctx); await vi.advanceTimersByTimeAsync(0)
     settings = { ...base, revision: 1, takeover: true }; await vi.advanceTimersByTimeAsync(5000)
     expect(core.entries('conversation.chat.node').filter(entry => entry.component !== officialAssistant && entry.component !== officialTool && (slot !== 'conversation.chat.node' || entry.component !== foreign))).toHaveLength(0)

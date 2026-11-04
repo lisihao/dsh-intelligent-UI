@@ -1,3 +1,4 @@
+import { installSettingsNavigation } from './settings-navigation.js'
 import { DataBrowser, type DataBrowserApi } from './data-browser.js'
 import { installDataBrowserNavigation } from './data-browser-navigation.js'
 import { InsightPreview, type InsightPreviewApi } from './insight-preview-view.js'
@@ -42,7 +43,7 @@ import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contr
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
 
 export const name = 'intelligent-experience-platform'
-export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
+export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme', 'locale']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
 type PreviewApi = Pick<DataBrowserApi,'localFiles'> & InsightPreviewApi
 type ClientApi = ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
@@ -291,6 +292,7 @@ export function Workspace({ store, sessionId, onContinue, onOrganize }: { store:
   }))
 }
 export function apply(ctx: Context): void {
+  installSettingsNavigation(ctx)
   const canvasScope = createCanvasClientScope()
   const ScopedDocumentView: typeof DocumentView = props => {
     const active = useSyncExternalStore(canvasScope.subscribe, canvasScope.getSnapshot, canvasScope.getSnapshot)

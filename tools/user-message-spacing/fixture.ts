@@ -20,7 +20,7 @@ const cases = {
 }
 const core = new SlotCore()
 const register = core.register.bind(core) as (options: unknown, component: unknown) => () => void
-register({name:'root',children:{'conversation.chat.node':{kind:'keyed',scope:'session'},'settings.section':{kind:'list',scope:'root'},'conversation.view':{kind:'list',scope:'session'},'conversation.session.header.utilities':{kind:'list',scope:'session'}}},()=>null)
+register({name:'root',children:{'conversation.chat.node':{kind:'keyed',scope:'session'},'settings.section':{kind:'list',scope:'root'},'settings.action':{kind:'list',scope:'root'},'conversation.view':{kind:'list',scope:'session'},'conversation.session.header.utilities':{kind:'list',scope:'session'}}},()=>null)
 core.registerFactory({name:'conversation.user.text',scope:'session',children:{'conversation.user.text.node':{kind:'keyed',scope:'session',inline:true}}} as never,(()=>null) as never)
 register({name:'conversation.user.text.node',key:'text',priority:100},()=>null)
 const selected = new URLSearchParams(location.search).get('theme')==='paper' ? paper : undefined
@@ -28,7 +28,7 @@ const settings = {formatVersion:1,revision:0,takeover:true,openui:true,mcpApps:f
 const ok = <T,>(value:T)=>({ok:true,value})
 const wire = {settings:async()=>ok(settings),artifacts:async()=>ok([]),saveSettings:async()=>{throw new Error('Fixture must not save settings')},publish:async()=>{throw new Error('Fixture must not publish')}}
 const cleanups:Array<()=>void>=[]
-const ctx = {inject:()=>()=>{},slots:{register,inject:(_name:string,callback:()=>()=>void)=>callback(),entriesOfSlot:core.entriesOfSlot.bind(core),subscribe:core.subscribe.bind(core)},effect:(callback:()=>()=>void)=>{const dispose=callback();cleanups.push(dispose);return dispose},provide:()=>()=>{},remote:{$mount:async()=>async()=>{}},get:(name:string)=>name==='theme'?{getTheme:()=>({active:{colorScheme:'dark'}})}:name==='remote.solarExperience'?wire:undefined,on:()=>()=>{}}
+const ctx = {locale:{subscribe:()=>()=>{}},inject:()=>()=>{},slots:{register,inject:(_name:string,callback:()=>()=>void)=>callback(),entries:core.entries.bind(core),entriesOfSlot:core.entriesOfSlot.bind(core),subscribe:core.subscribe.bind(core)},effect:(callback:()=>()=>void)=>{const dispose=callback();cleanups.push(dispose);return dispose},provide:()=>()=>{},remote:{$mount:async()=>async()=>{}},get:(name:string)=>name==='theme'?{getTheme:()=>({active:{colorScheme:'dark'}})}:name==='remote.solarExperience'?wire:undefined,on:()=>()=>{}}
 apply(ctx as never)
 await new Promise(resolve=>setTimeout(resolve,50))
 const User = core.entriesOfSlot('conversation.user.text.node').find(x=>x.options.key==='text')?.component as ComponentType<{raw:string}>
