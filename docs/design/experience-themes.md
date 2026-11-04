@@ -15,7 +15,7 @@ flowchart LR
   Output[Original output and data] --> Recognition[Existing content analysis]
   Recognition --> Renderer[Existing renderers and interactions]
   Package[Downloaded theme JSON] --> Validation[Zod package validation]
-  Builtins[Empryo and Plain] --> Resolver[Theme resolver]
+  Builtins[Empryo, ASCII and other built-ins] --> Resolver[Theme resolver]
   Validation --> Settings[Revision-checked plugin settings]
   Settings --> Resolver
   Resolver --> Tokens[Scoped appearance and component tokens]
@@ -33,6 +33,14 @@ Tokens include separate light/dark accents and chart palettes; semantic success/
 
 Built-in manifests are ordinary JSON data consumed by the same schema and resolver as imported packages. They can be downloaded from Settings as portable packages. Theme ids are storage identifiers, not UI labels. Theme storage is bounded to 32 imported packages, with a 32 KiB import-file limit and bounded metadata/palette fields.
 
+## Package v2 and v3
+
+V2 retains the V1 fields and adds a required `componentSet` chosen from the plugin's compiled `soft-relief`, `clear-glass` and `mechanical-outline` adapters. It cannot supply markup or CSS. V3 retains the bounded V1 fields, requires `presentation: "ascii"` and requires `tokens.font: "mono"`. Unknown fields, presentation values and non-monospace V3 fonts are rejected. V1 and V2 keep their existing font vocabulary and validation.
+
+The built-in ASCII V3 package uses a translucent graphite ground and pale green accents. The selected theme activates the pinned Canvas UI Asciify WebGL factory on a shared atlas of supported visible chart/icon SVGs, images and explicitly published owned Canvas frames. This is an approximate projection of existing graphics; native labels, exact values, source geometry and disclosures remain available. Eligible explicit GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect. The illustration's adjacent labeled “原图” figure is excluded from the atlas. Visible eligible images can refresh at up to 5 Hz; captured SVG/image copies are released when they leave view and the view is recomposed. The theme package remains data-only and supplies no executable renderer. Unknown iframe/closed-shadow contents, unpublished foreign canvases and ASCII Sweep are outside this coverage.
+
+Existing Empryo remains the default. Candidate g passed scoped official DSH checks for theme selection, its earlier source-preserving report bars and selected model/image paths, but its header overlapped host controls at narrower native window sizes. Candidate h subsequently passed the affected official DSH installation and native header checks; see the scoped header acceptance record. Those checks do not establish native Desktop acceptance of the newer graphics effects, which remains pending.
+
 ## Persistence and lifecycle
 
 Add an optional `theme` preference to the existing versioned settings document: `{ activeId, installed }`. Missing preference resolves to Empryo with no imported packages. Existing appearance values remain unchanged on upgrade. Selecting a different theme saves its defaults together with the selection in the same revision-checked atomic settings write; later color/transparency changes remain user overrides. Omitting theme selection in an older settings call preserves the current selection/catalog.
@@ -40,6 +48,8 @@ Add an optional `theme` preference to the existing versioned settings document: 
 Owner-only `installTheme({expectedRevision, theme})` and `removeTheme({expectedRevision, id})` use the same settings queue and return the complete next settings snapshot. Installation does not silently activate a package. Duplicate/reserved ids are rejected. Removing the active imported theme atomically selects Empryo and its default appearance; built-ins cannot be removed. Stale revisions fail without overwriting concurrent preferences.
 
 The existing settings subscription and disposable stylesheet apply theme changes immediately, without replacing original page components or remounting output content. Equal refreshes keep the stylesheet stable. Takeover off removes external-page rules; plugin unload removes its owned styles and resets client theme state. Disabling/uninstalling does not rewrite any other plugin's theme preferences. Existing installation backups remain the downgrade path for older binaries that reject newer optional settings fields.
+
+In addition to Settings, the conversation header can select built-in or installed themes using the same revision-checked settings save. The control exposes a pending state and reports failures; the display-mode and transparency controls remain separate. Selection applies the selected theme's appearance defaults, and later color/transparency adjustments remain user overrides. The revised header keeps display and theme visible on one row. Below 1100 CSS pixels of the nearest existing size container (or viewport when none exists), research and transparency share a native **更多显示选项** popover; wide layouts keep them inline. Closing that popover or returning to wide mode closes the nested slider and cancels an unsaved preview. Candidate h passed the affected native header retest at both previously failing window sizes, including pointer reachability, popovers and focus cleanup.
 
 ## Named page coverage
 

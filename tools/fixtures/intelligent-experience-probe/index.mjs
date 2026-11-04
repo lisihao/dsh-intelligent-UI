@@ -23,7 +23,7 @@ class ProbeAdapter extends LlmAdapter {
       return
     }
     const available = options.tools?.map((tool) => tool.name) ?? []
-    for (const name of ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview']) assert(available.includes(name), `actual Agent request lacks ${name}`)
+    for (const name of ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview', 'solar_ui_canvas_search']) assert(available.includes(name), `actual Agent request lacks ${name}`)
     assert(available.includes('solar_present'), 'the actual Agent request did not receive solar_present')
     const call = { type: 'tool-call', id: randomUUID(), name: 'solar_present', arguments: JSON.stringify({
       protocol: 'content', payload: { fixture: true, source: 'AgentLoop' }, label: 'Keyless DSH fixture output',
@@ -94,6 +94,27 @@ async function probe(ctx) {
     assert(typeof service.artifacts === 'function' && typeof service.publish === 'function', 'solarExperience artifact service is incomplete')
     checks.service = true
 
+    const libraryRaw = '\uFEFF# Local file fixture\r\n\r\n| Group | Count |\r\n| --- | ---: |\r\n| A | 12 |\r\n'
+    const imported = await service.publish({source:{sessionId:'library:intelligent-ui:files',kind:'generated',label:'本地导入：scratch.md'},protocol:'content',providerId:'local-import',raw:libraryRaw,payload:libraryRaw})
+    const localFiles = await service.localFiles()
+    assert(localFiles.some(file=>file.id===imported.id && file.raw===libraryRaw && file.payload===libraryRaw), 'global file library did not read its unchanged imported source')
+    const missingInsight = await service.insightPreview({sessionId:'scratch-insight-preview'})
+    assert(missingInsight.formatVersion===1 && missingInsight.sessionId==='scratch-insight-preview' && missingInsight.available===false && missingInsight.runs.length===0, 'optional Insight peers must produce an explicit unavailable snapshot')
+    checks.localFiles = true
+    checks.insightReadonlyUnavailable = true
+
+    const insightSession='scratch-insight-preview'
+    const task={kind:'insight',runId:'readonly-run',title:'Scratch existing analysis',status:'running',updatedAt:1793664000000,outputs:[],stages:[{key:'analysis',label:'Analysis',status:'completed',outputs:[{label:'Report',text:libraryRaw}]},{key:'pptx',label:'Deck pending',status:'pending',outputs:[]}]}
+    const readCalls=[]
+    const removeReadPeer=ctx.provide('solarConversationTasks',{status:async input=>{readCalls.push(input);return {formatVersion:1,sessionId:input.sessionId,tasks:[task]}}})
+    try {
+      const preview=await service.insightPreview({sessionId:insightSession})
+      assert(readCalls.length===1 && readCalls[0].sessionId===insightSession, 'preview did not read the exact current session once')
+      assert(preview.available && preview.runs.length===1 && preview.runs[0].outputs[0].text===libraryRaw, 'built preview lost the existing analysis source')
+      assert(/^preview:[a-f0-9]{64}$/.test(preview.runs[0].outputs[0].documentId) && JSON.stringify(preview.runs[0].raw)===JSON.stringify(task), 'built preview lost stable identity or complete pending-stage provenance')
+      checks.insightReadonlyRead=true
+    } finally { await removeReadPeer() }
+
     let state = await service.settings()
     assert(state.revision === 0 && state.takeover === false, `expected initial off settings revision 0; got ${JSON.stringify(state)}`)
     checks.settingsOff = true
@@ -108,7 +129,7 @@ async function probe(ctx) {
     assert(typeof tools.get('solar_present')?.execute === 'function', 'solar_present has no registered execution handler')
     checks.toolRegistered = true
 
-    const componentNames = ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview']
+    const componentNames = ['solar_ui_search', 'solar_ui_source', 'solar_ui_preview', 'solar_ui_canvas_search']
     const skills = ctx.get('skills')
     const componentService = ctx.get('solarUiComponents')
     assert(componentService, 'integrated component service absent')
@@ -120,7 +141,10 @@ async function probe(ctx) {
       return JSON.parse(result.content.find(block => block.type === 'text').text)
     }
     const loadedSkill = await tools.execute({ callId: randomUUID(), name: 'skill', arguments: { name: 'uiverse-components' }, signal: new AbortController().signal })
-    assert(!loadedSkill.isError && JSON.stringify(loadedSkill.content).includes('solar_ui_search'), 'official loader cannot read integrated component skill')
+    assert(!loadedSkill.isError && JSON.stringify(loadedSkill.content).includes('solar_ui_search') && JSON.stringify(loadedSkill.content).includes('solar_ui_canvas_search'), 'official loader cannot read integrated component skill')
+    const canvas = await executeComponent('solar_ui_canvas_search', { query: 'ink object' })
+    assert(canvas.scope === 'metadata-only' && canvas.items.some(item => item.slug === 'ink-object'), 'Canvas UI discovery did not return the upstream Ink Object reference')
+    checks.canvasDiscovery = true
     const page = await executeComponent('solar_ui_search', { category: 'Buttons', limit: 1 })
     assert(page.archiveTotal === 3802 && page.categories.length === 11, 'integrated archive inventory differs')
     const source = await executeComponent('solar_ui_source', { id: page.items[0].id })

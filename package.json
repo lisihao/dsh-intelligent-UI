@@ -15,6 +15,9 @@
       "default": "./lib/index.js"
     },
     "./client": "./lib/client.cjs",
+    "./public-api": {
+      "types": "./lib/types/public-api.d.ts"
+    },
     "./typert": "./lib/typert.js",
     "./contracts": {
       "types": "./lib/types/contracts.d.ts",
@@ -51,7 +54,10 @@
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-chat"
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-workspace"
       ]
     }
   },
@@ -79,12 +85,15 @@
     "@deepseek-ai/dsh-home-paths": "0.2.1-rc.2",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
     "@deepseek-ai/dsh-session": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.1-rc.2",
     "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
     "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "3.18.5",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "@deepseek-ai/dsh-skill": "0.2.1-rc.2"
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.1-rc.2"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.0.0",
@@ -97,12 +106,16 @@
     "@openuidev/react-ui": "0.18.1",
     "@xyflow/react": "12.12.0",
     "elkjs": "0.12.0",
+    "esbuild-wasm": "0.25.0",
+    "modern-screenshot": "4.7.0",
+    "parse5": "7.3.0",
+    "remark-breaks": "4.0.0",
     "remark-gfm": "4.0.1",
     "remark-parse": "11.0.0",
+    "three": "0.185.1",
     "unified": "11.0.5",
     "zod": "4.6.7",
-    "zustand": "4.5.7",
-    "parse5": "7.3.0"
+    "zustand": "4.5.7"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
@@ -113,13 +126,17 @@
     "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.1-rc.2",
     "@deepseek-ai/dsh-home-paths": "0.2.1-rc.2",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
     "@deepseek-ai/dsh-session": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.1-rc.2",
     "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
     "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "3.18.5",
@@ -133,10 +150,9 @@
     "postcss-prefix-selector": "2.1.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "tailwindcss": "3.4.17",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0",
-    "@deepseek-ai/dsh-skill": "0.2.1-rc.2",
-    "tailwindcss": "3.4.17"
+    "vitest": "^3.2.0"
   },
   "packageManager": "pnpm@10.31.0",
   "repository": {

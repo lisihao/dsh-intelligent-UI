@@ -1,5 +1,12 @@
-import { DenseLinePlot } from './dense-line-plot.js'
+import { isAsciiTheme, isGpuAsciiTheme } from './theme-contracts.js'
+import { AsciiChart, supportsAsciiChart } from './ascii-chart.js'
+import { analyzeExecutionFlow } from './execution-flow.js'
+import { ExecutionFlowView } from './execution-flow-view.js'
+import { DenseLinePlot, requiresDenseLinePlot } from './dense-line-plot.js'
+import { CanvasObjectView, glbSource } from './canvas-object-view.js'
+import { markdownIllustrations } from './markdown-illustrations.js'
 import { ChartViewport, ChartDataTable, PagedTableBody } from './chart-viewport.js'
+import { TableViewport } from './table-viewport.js'
 import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
@@ -13,6 +20,7 @@ import { appearancePreferences, appearanceTokens } from './appearance.js'
 import { themePreferences } from './theme-runtime.js'
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import { planContentSections } from './content-sections.js'
 import { continuousSectionsPlugin, planReadingTable } from './continuous-view.js'
@@ -49,7 +57,7 @@ export const displayModes = new DisplayModes()
 export function useDisplayMode(sessionId: string): DisplayMode { return useSyncExternalStore(displayModes.subscribe, () => displayModes.get(sessionId), () => 'visual') }
 export function DisplayModeControl({ sessionId }: { sessionId: string }): ReactElement {
   const mode = useDisplayMode(sessionId)
-  return h('label', { className: 'dsh-experience iexp-mode-control', style: styles.modeControl, title: '统一切换本会话的智能体验输出' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'panels-top-left', size: 15 })), '显示 ', h('select', { 'aria-label': '输出显示方式', value: mode, style: styles.button, onChange: (event: { currentTarget: HTMLSelectElement }) => displayModes.set(sessionId, event.currentTarget.value as DisplayMode) }, h('option', { value: 'visual' }, '展示'), h('option', { value: 'raw' }, '原文'), h('option', { value: 'compare' }, '对照')))
+  return h('label', { className: 'dsh-experience iexp-mode-control', style: styles.modeControl, title: '统一切换本会话的智能体验输出' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'panels-top-left', size: 15 })), h('span', { className: 'iexp-mode-caption' }, '显示'), h('select', { 'aria-label': '输出显示方式', value: mode, style: styles.button, onChange: (event: { currentTarget: HTMLSelectElement }) => displayModes.set(sessionId, event.currentTarget.value as DisplayMode) }, h('option', { value: 'visual' }, '展示'), h('option', { value: 'raw' }, '原文'), h('option', { value: 'compare' }, '对照')))
 }
 export function OutputView({ sessionId, raw, mode: override, children }: { sessionId: string, raw: unknown, mode?: DisplayMode, children?: ReactNode }): ReactElement {
   const shared = useDisplayMode(sessionId); const mode = override ?? shared; const theme = useExperienceTheme()
@@ -99,12 +107,13 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
   const palette = (theme === 'dark' ? selectedTheme.tokens.paletteDark : selectedTheme.tokens.paletteLight).map((_, index) => colors[`--iexp-series-${index + 1}`]!)
   const compact = selectedTheme.tokens.comparison === 'organic' && isCompactComparison(plan)
   const plot = (view: AutoChartPlan) => {
+    if (isAsciiTheme(selectedTheme) && !isGpuAsciiTheme(selectedTheme) && supportsAsciiChart(plan)) return h(AsciiChart, {plan:view, scalePlan:plan})
     let categoryKey = 'category'
     while (view.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
     const horizontal = view.kind === 'bar'
     const data = view.labels.map((label, i) => Object.fromEntries([[categoryKey, horizontal && view.series.length === 1 ? `${label} · ${view.series[0]!.originals?.[i] ?? `${view.series[0]!.values[i]}${view.series[0]!.unit}`}` : label], ...view.series.map(series => [series.name, series.values[i]!])]))
     const chartProps = { data, categoryKey, height: horizontal ? Math.max(230, view.labels.length * (30 + view.series.length * 26) + 56 + (view.series.length > 1 ? 50 : 0)) : 280, width: '100%', showYAxis: true, legend: view.series.length > 1, grid: true, isAnimationActive: false, customPalette: palette.slice(0, view.series.length), ...(horizontal ? { xAxisLabel: view.series[0]?.unit || '数值' } : { yAxisLabel: view.series[0]?.unit || '数值' }) }
-    if (plan.kind === 'line' && plan.labels.length > 200) return h(DenseLinePlot, { plan: view, palette })
+    if (requiresDenseLinePlot(plan)) return h(DenseLinePlot, { plan: view, palette })
     return compact ? h(ComparisonPlot, { plan: view }) : view.kind === 'line' ? h(LineChart, { ...chartProps, variant: 'linear', showDots: view.labels.length <= 80, crosshair: true, highlight: true }) : h(BarChart, { ...chartProps, orientation: 'horizontal', internalLine: false, barRadius: 3, density: 'compact' })
   }
   const title = plan.title ?? (plan.kind === 'line' ? '时间趋势' : '数值比较')
@@ -118,7 +127,7 @@ export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
 }
 
 function SourceTable({ plans, children, supplemented = false }: { plans: AutoChartPlan[], children?: ReactNode, supplemented?: boolean }): ReactElement {
-  const table = h('div', { className: 'iexp-source-table', style: styles.overflow, tabIndex: 0, role: 'region', 'aria-label': '原始数据表格' }, h(Table, null, children))
+  const table = h(TableViewport, {className:'iexp-source-table',label:'原始数据表格'}, h(Table, {containerStyle:{overflow:'visible'}}, children))
   return plans.length || supplemented ? h('details', { className: 'iexp-full-table' }, h('summary', null, h(IconWrapper, { name: 'database', size: 16 }), '完整原表', h('span', null, '保留全部行列与原文口径')), table) : table
 }
 function headingText(value: ReactNode): string {
@@ -133,10 +142,12 @@ function flowPlan(plan: FlowPlan): FlowViewPlan {
 function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
-function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
+function MarkdownContent({ text, isStreaming, preserveSoftBreaks = false }: { text: string, isStreaming: boolean, preserveSoftBreaks?: boolean }): ReactElement {
   const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
+  const colorScheme = useExperienceTheme()
+  const illustrations = useMemo(() => isStreaming ? [] : markdownIllustrations(text), [text, isStreaming])
   const sections = useMemo(() => !isStreaming && selectedTheme.tokens.composition === 'continuous' ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition])
   const prefix = useId().replaceAll(':', '')
   // Stable renderer types retain native disclosures and nested layout state during polling.
@@ -146,12 +157,21 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
       const heading = h(`h${level}`, { 'data-iexp-source-start': start, 'data-iexp-source-end': (node as { position?: { end?: { offset?: number } } } | undefined)?.position?.end?.offset, id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
       return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
     }]))
-    return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
+    return { remarkPlugins: [remarkGfm, ...(preserveSoftBreaks ? [remarkBreaks] : []), ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
       tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
         const flow = layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
-        return flow ? h(SafeFlow, { plan: flow }) : h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
+        if (flow) return h(SafeFlow, { plan: flow })
+        const illustration = illustrations.find(item => item.start === node?.position?.start.offset)
+        if (illustration) {
+          // Keep ordinary Markdown images as rendered by the host. Its URL filter
+          // removes data: image sources, so use the byte-validated blob for those.
+          const record = { type: illustration.mime, role: 'illustration', url: illustration.url, alt: illustration.alt, title: illustration.title }
+          const source = glbSource(record)
+          if (source) return h('div', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: /^data:/i.test(illustration.url) ? undefined : h('div', { className: 'iexp-markdown-illustration-original' }, children) }))
+        }
+        return h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
       },
       a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
       td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
@@ -167,10 +187,15 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
-  }, [layout, prefix, tables, sections])
+  }, [layout, prefix, tables, sections, illustrations, colorScheme, preserveSoftBreaks])
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
-function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming: boolean }): ReactElement {
+function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {
+  const execution = isStreaming ? { status: 'unrecognized' as const } : analyzeExecutionFlow(value)
+  if (execution.status === 'valid') return h(ChartBoundary, { fallback: h('pre', { style: styles.raw }, rawText(value)) }, h(ExecutionFlowView, { plan: execution.plan, sourceText: rawText(value) }))
+  if (execution.status === 'invalid') return h('div', null, h('p', { role: 'alert' }, `执行流程数据无法显示：${execution.error.message}`), h('pre', { style: styles.raw }, rawText(value)))
+  const model = !isStreaming && glbSource(value)
+  if (model) return h('div', null, h(CanvasObjectView, { value, source: model, dark }), h('details', {className:'iexp-disclosure'}, h('summary',null,'原始模型记录'), h('pre', { style: styles.raw }, rawText(value))))
   const graph = isStreaming ? { status: 'unrecognized' as const } : analyzeGraph(value)
   if (graph.status === 'invalid') return h('div', null, h('p', { role: 'alert' }, '关系图数据不完整或格式不受支持，请查看原始内容。'), h('pre', { style: styles.raw }, rawText(value)))
   if (graph.status === 'valid') return h(ChartBoundary, { fallback: h('pre', { style: styles.raw }, rawText(value)) }, h(FlowView, { plan: { ...graph.plan, title: '原文关系', sourceText: rawText(value), reason: '仅绘制来源明确提供的节点与连线，图示不改变原始数据。' } }))
@@ -187,16 +212,16 @@ function StructuredContent({ value, isStreaming }: { value: unknown, isStreaming
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-export function ContentView({ value, isStreaming = false }: { value: unknown, isStreaming?: boolean }): ReactElement {
+export function ContentView({ value, isStreaming = false, preserveSoftBreaks = false }: { value: unknown, isStreaming?: boolean, preserveSoftBreaks?: boolean }): ReactElement {
   const theme = useExperienceTheme()
   let content: ReactNode
   if (typeof value === 'string') {
     let decoded: unknown, parsed = false
     try { if (/^\s*[\[{]/.test(value)) { decoded = JSON.parse(value); parsed = true } } catch { /* Ordinary Markdown remains unchanged. */ }
-    content = parsed ? h(StructuredContent, { value: decoded, isStreaming }) : h(MarkdownContent, { text: value, isStreaming })
+    content = parsed ? h(StructuredContent, { value: decoded, isStreaming, dark: theme === 'dark' }) : h(MarkdownContent, { text: value, isStreaming, preserveSoftBreaks })
   } else if (Array.isArray(value) && value.length > 0 && value.every(x => x && typeof x === 'object' && (x as { type?: unknown }).type === 'text' && typeof (x as { text?: unknown }).text === 'string')) {
-    content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming }))
-  } else content = h(StructuredContent, { value, isStreaming })
+    content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming, preserveSoftBreaks }))
+  } else content = h(StructuredContent, { value, isStreaming, dark: theme === 'dark' })
   return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, content)))
 }
 

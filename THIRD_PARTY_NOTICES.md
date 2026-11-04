@@ -1,5 +1,9 @@
 # Third-party notices
 
+## Canvas UI, Three.js and esbuild-wasm
+
+Canvas UI is obtained on the user's machine from its fixed upstream commit when an effect is needed; its component sources are not distributed in this package. Its full MIT + Commons Clause notice is in `lib/Canvas-UI-LICENSE.md` and is included with locally generated effect modules. The pinned runtime dependencies Three.js 0.185.1 and esbuild-wasm 0.25.0 retain their MIT license files in their installed packages. Canvas UI terms apply separately to its effects.
+
 This plugin consumes fixed, unmodified npm distributions. OpenUI and MCP Apps adapters are independently replaceable. The browser bundle preserves dependency legal comments. MCP Apps has a licensing transition; the complete distributed license below takes precedence over its manifest shorthand.
 
 ## @openuidev/lang-core 1.0.2
@@ -3380,6 +3384,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## modern-screenshot 4.7.0
+
+Source: <https://github.com/qq15725/modern-screenshot>. MIT license and copyright notice are included in `lib/modern-screenshot-MIT.txt` in the package and `assets/modern-screenshot-MIT.txt` in source.
+
 ## zod 4.6.7
 
 Source: <https://github.com/colinhacks/zod>
@@ -3407,3 +3415,29 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+
+## remark-breaks 4.0.0
+
+(The MIT License)
+
+Copyright (c) 2017 Titus Wormer <tituswormer@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

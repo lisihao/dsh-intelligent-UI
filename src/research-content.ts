@@ -82,11 +82,22 @@ function conditionMatchedPlans(headers: string[], rows: string[][], plans: AutoC
       const condition = group.values.map((value, index) => `${headers[columns[index]!]!}=${value}`).join('；')
       const included = new Set(group.positions)
       const omitted = plan.labels.filter((_label, position) => !included.has(position))
+      const selectedRows = group.positions.map(position => sourceRows[position]!)
+      // Reflect rows excluded by the condition group as well as pre-existing missing rows.
+      // The renderer must not draw a continuous line across either kind of omission.
+      const omittedRowRanges: Array<[number, number]> = []
+      let nextRow = 0
+      for (const row of selectedRows) {
+        if (row > nextRow) omittedRowRanges.push([nextRow, row])
+        nextRow = row + 1
+      }
+      if (nextRow < rows.length) omittedRowRanges.push([nextRow, rows.length])
       return {
         ...plan,
         title: [plan.title, condition].filter(Boolean).join(' · '),
         labels: group.positions.map(position => plan.labels[position]!),
-        sourceRows: group.positions.map(position => sourceRows[position]!),
+        sourceRows: selectedRows,
+        omittedRowRanges,
         series: plan.series.map(series => ({
           ...series,
           values: group.positions.map(position => series.values[position]!),

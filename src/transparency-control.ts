@@ -5,11 +5,12 @@ import { appearanceTokens, type Appearance } from './appearance.js'
 import { resolveTheme } from './theme-contracts.js'
 
 /** A native range previews backgrounds locally; only a completed gesture writes settings. */
-export function TransparencyControl({ store }: { store: ExperienceStore }): ReactElement {
+export function TransparencyControl({ store, available = true, closeRevision = 0 }: { store: ExperienceStore; available?: boolean; closeRevision?: number }): ReactElement {
   const { settings, error, appearancePreview } = useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot)
   const owner = useRef({}).current, id = useId()
   const wrapper = useRef<HTMLDivElement>(null), panel = useRef<HTMLDivElement>(null), anchor = useRef<HTMLLabelElement>(null)
   const dirty = useRef(false), saving = useRef(false), closeTimer = useRef<ReturnType<typeof setTimeout>>()
+  const lastCloseRevision = useRef(closeRevision)
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [failure, setFailure] = useState('')
   const appearance = settings?.appearance ?? defaultAppearance()
   const active = appearancePreview ?? appearance
@@ -22,6 +23,12 @@ export function TransparencyControl({ store }: { store: ExperienceStore }): Reac
   }
   useEffect(() => { dirty.current = false; store.previewAppearance(owner) }, [store, owner, settings?.revision])
   useEffect(() => () => { clearClose(); store.previewAppearance(owner) }, [store, owner])
+  useLayoutEffect(() => {
+    const newlyClosed = closeRevision !== lastCloseRevision.current
+    lastCloseRevision.current = closeRevision
+    if (available && !newlyClosed) return
+    clearClose(); dirty.current = false; store.previewAppearance(owner); setOpen(false)
+  }, [store, owner, available, closeRevision])
   useLayoutEffect(() => {
     const popup = panel.current
     if (!popup) return

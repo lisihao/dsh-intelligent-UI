@@ -104,7 +104,7 @@ ${outlet} {
   --dsw-shadow-lv3: var(--iexp-shadow-focus);
   --dsw-elevation-soft: var(--iexp-shadow-card);
   --dsw-elevation-prominent: var(--iexp-shadow-focus);
-  font-family: var(--iexp-font); color-scheme: var(--iexp-color-scheme);
+  font-family: var(--iexp-font); font-variation-settings:'MONO' var(--iexp-font-mono,0),'CASL' 0; color-scheme: var(--iexp-color-scheme);
 }
 ${outlet} > :is(div,section,main,article):not(.dsh-experience):not([data-slot]) {
   color: var(--iexp-text);

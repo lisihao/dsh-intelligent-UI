@@ -12,7 +12,7 @@ export const useUiverseRenderRole = () => useContext(RenderRole)
 
 /** V2 is authoritative. V1 reuses its own tokens with a bounded compiled adapter only inside owned content. */
 export function resolveUiverseAdapter(theme: ThemePackage, element: UiverseElementRole, role?: UiverseRenderRole, explicit?: ComponentSet | 'native') {
-  const set = explicit ?? (theme.formatVersion === 2 ? theme.componentSet : role ? roleSets[role] : 'native')
+  const set = explicit ?? (theme.formatVersion === 2 ? theme.componentSet : theme.formatVersion === 3 ? 'native' : role ? roleSets[role] : 'native')
   if (set === 'native') return undefined
   const source = sources.sets[set].find(item => item.role === element)!
   return { componentSet: set, mode: theme.formatVersion === 1 && explicit === undefined ? 'contextual' as const : 'theme' as const, role: role ?? 'theme', sourceId: source.file.replace(/\.html$/, ''), sha256: source.sha256 }

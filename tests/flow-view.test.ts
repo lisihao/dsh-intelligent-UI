@@ -7,8 +7,12 @@ import { buildFlowGraph, FlowView, type FlowViewPlan } from '../src/flow-view.js
 import { layoutFlow, roundedRoute } from '../src/flow-layout.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
+  // jsdom has no graphics context; real GPU behavior has its own controller and browser checks.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+})
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 const plan: FlowViewPlan = {
   title: '来源流程', nodes: [{ id: 'a', label: '准备', description: '保留原始说明。' }, { id: 'b', label: '检查' }, { id: 'c', label: '交付' }, { id: 'd', label: '独立项目' }],
   edges: [{ source: 'a', target: 'b', label: '符合条件时' }, { source: 'b', target: 'c' }], sourceText: '准备 → 检查 → 交付\n<script>原文</script>', reason: '只表示原文关系。',
@@ -34,11 +38,37 @@ describe('read-only source flow', () => {
     expect(graph.nodes.filter(node => node.data.related).map(node => node.id)).toEqual(['a', 'b', 'c'])
     expect(graph.nodes.find(node => node.id === 'd')!.className).toBe('iexp-flow-node-muted')
     expect(graph.edges.map(edge => [edge.source, edge.target, edge.label])).toEqual(plan.edges.map(edge => [edge.source, edge.target, edge.label]))
-    expect(graph.edges.every(edge => edge.animated && edge.type === 'routed')).toBe(true)
+    // Motion is a disposable GPU overlay; SVG remains a static source of geometry.
+    expect(graph.edges.every(edge => !edge.animated && edge.type === 'routed')).toBe(true)
     const selectedEnd = buildFlowGraph(plan, geometry, { selectedNodeId: 'a', animate: true })
-    expect(selectedEnd.edges.map(edge => edge.animated)).toEqual([true, false])
+    expect(selectedEnd.edges.map(edge => edge.className)).toEqual(['iexp-flow-edge-active', 'iexp-flow-edge-muted'])
     expect(graph.nodes.every(node => node.draggable === false && node.connectable === false && node.deletable === false && node.focusable)).toBe(true)
     expect(graph.edges.every(edge => edge.reconnectable === false && edge.deletable === false)).toBe(true)
+  })
+
+  it('routes execution forks downwards while preserving progress and state updates without moving nodes', async () => {
+    const execution: FlowViewPlan = { direction: 'DOWN', execution: true,
+      nodes: ['lead', 'worker-a', 'worker-b', 'review'].map(id => ({ id, label: id, execution: { id, label: id, role: id === 'lead' ? 'lead' : 'worker', status: 'running', progress: {current: 3, total: 10} } })),
+      edges: [{source: 'lead', target: 'worker-a', executionStatus: 'active'}, {source: 'lead', target: 'worker-b', executionStatus: 'idle'}, {source: 'worker-a', target: 'review'}, {source: 'worker-b', target: 'review'}] }
+    const original = JSON.stringify(execution), geometry = await layoutFlow(execution)
+    for (const [index, route] of geometry.routes.entries()) {
+      const edge = execution.edges[index]!, from = geometry.nodes.find(node => node.id === edge.source)!, to = geometry.nodes.find(node => node.id === edge.target)!
+      expect(to.y).toBeGreaterThan(from.y)
+      expect(route.points[0]).toEqual({x: from.x + from.width / 2, y: from.y + from.height + 3})
+      expect(route.points.at(-1)).toEqual({x: to.x + to.width / 2, y: to.y - 3})
+    }
+    const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+    await act(async () => root.render(createElement(FlowView, {plan: execution}))); await waitForFlow(host)
+    const first = host.querySelector<HTMLElement>('.react-flow__node')!, position = first.style.transform
+    expect(host.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')).toBe('3')
+    const updated: FlowViewPlan = {...execution, nodes: execution.nodes.map(node => ({...node, execution: {...node.execution!, status: 'succeeded', progress: {current: 10, total: 10}}}))}
+    await act(async () => root.render(createElement(FlowView, {plan: updated})))
+    expect(host.querySelector('.react-flow__node')).toBe(first)
+    expect(first.style.transform).toBe(position)
+    expect(host.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')).toBe('10')
+    expect(host.querySelector('[data-execution-status=succeeded]')).not.toBeNull()
+    expect(JSON.stringify(execution)).toBe(original)
+    await act(async () => root.unmount()); host.remove()
   })
 
   it('lays out cycles, branches and disconnected nodes deterministically without overlap', async () => {
@@ -185,11 +215,11 @@ describe('read-only source flow', () => {
     expect(first.getAttribute('aria-label')).toBe('准备，保留原始说明。')
     await act(async () => first.click())
     expect(activate).toHaveBeenLastCalledWith('a')
-    expect(host.querySelector('[role="status"]')!.textContent).toContain('准备 → 检查')
-    expect(host.querySelector('[role="status"]')!.textContent).not.toContain('检查 → 交付')
+    expect(host.querySelector('.iexp-flow-selection[role="status"]')!.textContent).toContain('准备 → 检查')
+    expect(host.querySelector('.iexp-flow-selection[role="status"]')!.textContent).not.toContain('检查 → 交付')
     await act(async () => second.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
     expect(activate.mock.calls.map(call => call[0])).toEqual(['a', 'b'])
-    expect(host.querySelector('[role="status"]')!.textContent).toContain('检查 → 交付')
+    expect(host.querySelector('.iexp-flow-selection[role="status"]')!.textContent).toContain('检查 → 交付')
     await act(async () => root.unmount()); host.remove()
   })
 
@@ -205,6 +235,6 @@ describe('read-only source flow', () => {
     expect(host.textContent).not.toContain('系统已关闭动效')
     expect(host.textContent).not.toContain('暂停连线动效')
     await act(async () => root.unmount()); host.remove()
-    expect(query.removeEventListener).toHaveBeenCalledOnce()
+    expect(query.removeEventListener.mock.calls).toEqual(query.addEventListener.mock.calls)
   })
 })

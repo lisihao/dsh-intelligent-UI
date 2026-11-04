@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { initialSettings, type ExperienceSettings } from '../src/contracts.js'
-import { builtInThemes, themePackageSchema, themePreferenceSchema, resolveTheme, type ThemePackage, type InstallThemeInput, MAX_THEME_BYTES } from '../src/theme-contracts.js'
+import { builtInThemes, isAsciiTheme, themePackageSchema, themePreferenceSchema, resolveTheme, type ThemePackage, type InstallThemeInput, MAX_THEME_BYTES } from '../src/theme-contracts.js'
 import { ExperienceStore, RevisionConflictError, ThemeIdConflictError, ThemeLimitError, ThemeNotFoundError, ThemePackageTooLargeError, ThemeValidationError, BuiltInThemeRemovalError, StoredDataError } from '../src/store.js'
 import { ExperienceControl } from '../src/control.js'
 import { RPC_REMOTE } from '../src/remote.js'
@@ -13,7 +13,7 @@ import type { McpHost } from '../src/mcp-host.js'
 const roots: string[] = []
 async function fixture() { const path = await mkdtemp(join(tmpdir(), 'experience-theme-')); roots.push(path); return { path, store: new ExperienceStore(path) } }
 afterEach(async () => { await Promise.all(roots.splice(0).map(path => rm(path, { recursive: true, force: true }))) })
-const custom = (id = 'local-study'): ThemePackage => ({ ...structuredClone(builtInThemes[1]!), id, name: 'Local study' })
+const custom = (id = 'local-study'): ThemePackage => ({ ...structuredClone(resolveTheme({ activeId: 'plain', installed: [] })), id, name: 'Local study' })
 const flags = { takeover: true, openui: false, mcpApps: true }
 const read = (path: string) => readFile(join(path, 'settings.json'), 'utf8')
 
@@ -41,6 +41,30 @@ describe('portable theme contracts', () => {
     expect(themePreferenceSchema.safeParse({ activeId: theme.id, installed: [theme] }).success).toBe(true)
     for (const installed of [[theme, theme], [builtInThemes[0]!]]) expect(themePreferenceSchema.safeParse({ activeId: 'empryo', installed }).success).toBe(false)
     expect(themePreferenceSchema.safeParse({ activeId: 'missing', installed: [] }).success).toBe(false)
+  })
+
+  it('validates the ASCII theme as a strict, mono-only V3 while preserving V1 and V2 contracts', () => {
+    expect(builtInThemes.slice(0, 4).map(theme => theme.id)).toEqual(['empryo', 'ascii', 'ascii-gpu', 'plain'])
+    const ascii = resolveTheme({ activeId: 'ascii', installed: [] })
+    expect(isAsciiTheme(ascii)).toBe(true)
+    expect(ascii).toMatchObject({ formatVersion: 3, presentation: 'ascii', id: 'ascii', name: '经典 ASCII', author: 'Solar', license: 'MIT',
+      appearance: { backgroundColor: '#191c19', translucent: true, backgroundOpacity: .85 },
+      tokens: { accentDark: '#b9d985', accentLight: '#405d25', font: 'mono', panelRadius: 12, cardRadius: 8, nodeRadius: 8, controlRadius: 6,
+        density: 'compact', translucentAlpha: .85, hoverLift: 2, shadow: 'soft', comparison: 'standard', composition: 'document' } })
+    expect(new Set(ascii.tokens.paletteDark).size).toBe(4)
+    expect(new Set(ascii.tokens.paletteLight).size).toBe(4)
+    expect(themePreferenceSchema.safeParse({ activeId: 'ascii', installed: [] }).success).toBe(true)
+    for (const invalid of [
+      { ...ascii, presentation: 'standard' }, { ...ascii, presentation: undefined },
+      { ...ascii, css: 'body{display:none}' }, { ...ascii, assets: ['https://example.com/font.woff2'] },
+      { ...ascii, tokens: { ...ascii.tokens, font: 'system' } }, { ...ascii, tokens: { ...ascii.tokens, css: 'display:none' } },
+    ]) expect(themePackageSchema.safeParse(invalid).success).toBe(false)
+    const legacy = builtInThemes[0]!, component = builtInThemes.find(theme => theme.formatVersion === 2)!
+    for (const theme of [legacy, component]) {
+      expect(isAsciiTheme(theme)).toBe(false)
+      expect(themePackageSchema.safeParse({ ...theme, presentation: 'ascii' }).success).toBe(false)
+      expect(themePackageSchema.safeParse({ ...theme, tokens: { ...theme.tokens, font: 'mono' } }).success).toBe(false)
+    }
   })
 })
 

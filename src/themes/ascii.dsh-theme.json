@@ -1,0 +1,48 @@
+{
+  "formatVersion": 3,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Solar",
+  "license": "MIT",
+  "id": "ascii",
+  "name": "经典 ASCII",
+  "description": "经典终端风格：等宽排版、字符比较图和原始数值，不启用 GPU 字符图形投影。",
+  "presentation": "ascii",
+  "appearance": {
+    "backgroundColor": "#191c19",
+    "translucent": true,
+    "backgroundOpacity": 0.85
+  },
+  "tokens": {
+    "accentDark": "#b9d985",
+    "accentLight": "#405d25",
+    "success": "#79bd88",
+    "warning": "#d9b971",
+    "error": "#d78c83",
+    "paletteDark": [
+      "#b9d985",
+      "#89cdd1",
+      "#d8bf91",
+      "#cfafc6"
+    ],
+    "paletteLight": [
+      "#405d25",
+      "#275c61",
+      "#6f511f",
+      "#704b66"
+    ],
+    "panelRadius": 12,
+    "cardRadius": 8,
+    "nodeRadius": 8,
+    "controlRadius": 6,
+    "density": "compact",
+    "font": "mono",
+    "translucentAlpha": 0.85,
+    "blur": 4,
+    "hoverLift": 2,
+    "shadow": "soft",
+    "comparison": "standard",
+    "composition": "document"
+  },
+  "asciiRenderer": "classic"
+}

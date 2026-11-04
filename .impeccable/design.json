@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-31T13:20:13.963583+00:00",
+  "generatedAt": "2026-11-02T23:29:38.885677+00:00",
   "title": "Design System: DSH Intelligent Experience Platform",
   "extensions": {
     "typographyMeta": {
@@ -11,6 +11,10 @@
       "code": {
         "displayName": "Recursive mono axis",
         "purpose": "Code blocks use MONO 1 and CASL 0."
+      },
+      "ascii-body": {
+        "displayName": "ASCII terminal text",
+        "purpose": "Both ASCII modes use local terminal Menlo/SFMono first, bundled Recursive fallback and available CJK fonts; native selectable text, no ligatures, tabular slashed-zero figures."
       }
     },
     "shadows": [
@@ -43,8 +47,8 @@
       },
       {
         "name": "source-relationships",
-        "value": "React Flow animated edges; disabled by pause or prefers-reduced-motion",
-        "purpose": "Source relationship emphasis; never execution evidence."
+        "value": "WebGL2 moving points on source paths, with Canvas2D fallback; disabled by pause or prefers-reduced-motion",
+        "purpose": "Ordinary graphs emphasize supplied relationships. Execution snapshots animate only reported active edges; motion does not advance or infer task state."
       }
     ],
     "breakpoints": [
@@ -55,6 +59,11 @@
       {
         "name": "chapter-text-fallback",
         "value": "760px"
+      },
+      {
+        "name": "compact-header-container",
+        "value": "1100px",
+        "description": "Compact when the nearest existing inline-size or size container is narrower; otherwise use viewport width."
       }
     ],
     "referenceFoundation": {
@@ -92,7 +101,7 @@
     },
     "transparencyShortcut": {
       "label": "开启透明",
-      "placement": "Conversation header beside shared display select",
+      "placement": "Conversation header inline when wide; same mounted control in the 更多显示选项 popover when compact",
       "scope": "IEP-owned content and reversible neutral appearance of conversation-view pages; embedded apps/portals separate",
       "persistence": "Existing appearance service CAS; shared with settings"
     },
@@ -114,15 +123,198 @@
     },
     "themePackages": {
       "contract": "docs/design/experience-themes.md",
-      "format": "Data-only .dsh-theme.json v1; no CSS, JavaScript or remote assets",
+      "format": "Data-only .dsh-theme.json v1, v2 and v3; v2 selects a bundled component set; v3 selects ASCII with optional classic or GPU renderer; no CSS, JavaScript or remote assets",
       "builtIns": [
         "empryo",
-        "plain"
+        "ascii",
+        "ascii-gpu",
+        "plain",
+        "uiverse-soft-relief",
+        "uiverse-clear-glass",
+        "uiverse-mechanical-outline"
       ],
       "downloadableExample": "linen",
       "persistence": "Existing owner settings CAS; import does not activate",
       "restoration": "Remove owned styles on takeover off or plugin disposal; no other plugin modifications",
       "knownFrameException": "Same-origin ThoughtDAG only; original logo font metrics retained"
+    },
+    "colorMeta": {
+      "ascii-gpu-ground": {
+        "role": "neutral",
+        "displayName": "GPU ASCII near-black",
+        "canonical": "#101214",
+        "tonalRamp": [
+          "oklch(15% 0.0013 248.12)",
+          "oklch(26% 0.0027 248.12)",
+          "oklch(37% 0.0042 248.12)",
+          "oklch(48% 0.0052 248.12)",
+          "oklch(60% 0.0052 248.12)",
+          "oklch(72% 0.0040 248.12)",
+          "oklch(84% 0.0022 248.12)",
+          "oklch(95% 0.0006 248.12)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "soft-relief-ground": {
+        "role": "neutral",
+        "displayName": "Soft relief graphite",
+        "canonical": "#34383d",
+        "tonalRamp": [
+          "oklch(15% 0.0026 253.98)",
+          "oklch(26% 0.0054 253.98)",
+          "oklch(37% 0.0083 253.98)",
+          "oklch(48% 0.0103 253.98)",
+          "oklch(60% 0.0103 253.98)",
+          "oklch(72% 0.0080 253.98)",
+          "oklch(84% 0.0044 253.98)",
+          "oklch(95% 0.0012 253.98)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-ground": {
+        "role": "neutral",
+        "displayName": "Graphite ground",
+        "canonical": "#191c19",
+        "tonalRamp": [
+          "oklch(15% 0.0018 145.32)",
+          "oklch(26% 0.0038 145.32)",
+          "oklch(37% 0.0058 145.32)",
+          "oklch(48% 0.0073 145.32)",
+          "oklch(60% 0.0073 145.32)",
+          "oklch(72% 0.0056 145.32)",
+          "oklch(84% 0.0031 145.32)",
+          "oklch(95% 0.0008 145.32)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-primary-dark": {
+        "role": "primary",
+        "displayName": "Pale leaf green",
+        "canonical": "#b9d985",
+        "tonalRamp": [
+          "oklch(15% 0.0287 125.76)",
+          "oklch(26% 0.0603 125.76)",
+          "oklch(37% 0.0918 125.76)",
+          "oklch(48% 0.1148 125.76)",
+          "oklch(60% 0.1148 125.76)",
+          "oklch(72% 0.0885 125.76)",
+          "oklch(84% 0.0492 125.76)",
+          "oklch(95% 0.0131 125.76)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-primary-light": {
+        "role": "primary",
+        "displayName": "Deep leaf green",
+        "canonical": "#405d25",
+        "tonalRamp": [
+          "oklch(15% 0.0224 131.93)",
+          "oklch(26% 0.0470 131.93)",
+          "oklch(37% 0.0717 131.93)",
+          "oklch(48% 0.0896 131.93)",
+          "oklch(60% 0.0896 131.93)",
+          "oklch(72% 0.0691 131.93)",
+          "oklch(84% 0.0384 131.93)",
+          "oklch(95% 0.0102 131.93)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-cyan-dark": {
+        "role": "secondary",
+        "displayName": "Pale cyan series",
+        "canonical": "#89cdd1",
+        "tonalRamp": [
+          "oklch(15% 0.0172 200.57)",
+          "oklch(26% 0.0361 200.57)",
+          "oklch(37% 0.0549 200.57)",
+          "oklch(48% 0.0687 200.57)",
+          "oklch(60% 0.0687 200.57)",
+          "oklch(72% 0.0530 200.57)",
+          "oklch(84% 0.0294 200.57)",
+          "oklch(95% 0.0078 200.57)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-sand-dark": {
+        "role": "secondary",
+        "displayName": "Pale sand series",
+        "canonical": "#d8bf91",
+        "tonalRamp": [
+          "oklch(15% 0.0168 82.54)",
+          "oklch(26% 0.0352 82.54)",
+          "oklch(37% 0.0537 82.54)",
+          "oklch(48% 0.0671 82.54)",
+          "oklch(60% 0.0671 82.54)",
+          "oklch(72% 0.0518 82.54)",
+          "oklch(84% 0.0288 82.54)",
+          "oklch(95% 0.0077 82.54)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-rose-dark": {
+        "role": "secondary",
+        "displayName": "Pale rose series",
+        "canonical": "#cfafc6",
+        "tonalRamp": [
+          "oklch(15% 0.0120 336.17)",
+          "oklch(26% 0.0253 336.17)",
+          "oklch(37% 0.0385 336.17)",
+          "oklch(48% 0.0481 336.17)",
+          "oklch(60% 0.0481 336.17)",
+          "oklch(72% 0.0371 336.17)",
+          "oklch(84% 0.0206 336.17)",
+          "oklch(95% 0.0055 336.17)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-cyan-light": {
+        "role": "secondary",
+        "displayName": "Deep cyan series",
+        "canonical": "#275c61",
+        "tonalRamp": [
+          "oklch(15% 0.0141 203.68)",
+          "oklch(26% 0.0296 203.68)",
+          "oklch(37% 0.0451 203.68)",
+          "oklch(48% 0.0564 203.68)",
+          "oklch(60% 0.0564 203.68)",
+          "oklch(72% 0.0435 203.68)",
+          "oklch(84% 0.0242 203.68)",
+          "oklch(95% 0.0064 203.68)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-sand-light": {
+        "role": "secondary",
+        "displayName": "Deep sand series",
+        "canonical": "#6f511f",
+        "tonalRamp": [
+          "oklch(15% 0.0193 77.26)",
+          "oklch(26% 0.0405 77.26)",
+          "oklch(37% 0.0618 77.26)",
+          "oklch(48% 0.0772 77.26)",
+          "oklch(60% 0.0772 77.26)",
+          "oklch(72% 0.0595 77.26)",
+          "oklch(84% 0.0331 77.26)",
+          "oklch(95% 0.0088 77.26)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      },
+      "ascii-rose-light": {
+        "role": "secondary",
+        "displayName": "Deep rose series",
+        "canonical": "#704b66",
+        "tonalRamp": [
+          "oklch(15% 0.0159 336.94)",
+          "oklch(26% 0.0334 336.94)",
+          "oklch(37% 0.0510 336.94)",
+          "oklch(48% 0.0637 336.94)",
+          "oklch(60% 0.0637 336.94)",
+          "oklch(72% 0.0491 336.94)",
+          "oklch(84% 0.0273 336.94)",
+          "oklch(95% 0.0073 336.94)"
+        ],
+        "description": "Generated preview ramp; the application uses the canonical theme color."
+      }
     }
   },
   "components": [
@@ -204,18 +396,24 @@
   ],
   "narrative": {
     "northStar": "Source-led reading in Undertow",
-    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation, settings and appearance. Plugin content uses the measured Undertow light/dark palette, local Recursive typography and Lucide outlines. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.",
+    "overview": "The user-pinned Empryo reference now informs distinct compositions rather than a uniform card wrapper: unboxed reading, compact direct-label comparisons, maintained charts, explicit relationships, task status groups, object selection and chapter orientation. The [whole-site foundation](docs/design/empryo-foundation.md) and [measured tokens](docs/design/empryo-tokens.json) govern the reference; this document records the implemented subset, not a whole-site feature port.\n\nThe official DSH application owns navigation and native settings chrome. The user’s later refinement explicitly selects a configurable translucent dark-gray content surface, rounded elevated cards and restrained hover lift; it supersedes the earlier square/flat material and host-following content preference. Local Recursive typography, Lucide outlines and the Empryo composition rules remain. OpenUI remains the chart/table/Markdown renderer; React Flow and ELK supply the relationship canvas and layout. Original text, source cells, qualifications and the single conversation display selector remain reachable.\n\nClassic ASCII and GPU ASCII are separate selectable presentations alongside the default Empryo. Classic ASCII retains fixed-width reading and source-backed character comparison bars. GPU ASCII uses the actual Canvas UI Asciify WebGL projection for supported graphics while source geometry, text and values remain intact. Eligible GLB models and validated PNG/JPEG illustrations use the separate ASCII Object effect, with the labeled original illustration protected from the atlas. Candidate h passed the affected native header acceptance at both formerly failing window sizes, with actual pointer, keyboard, slider and cleanup checks. That unchanged header result does not establish native acceptance of candidate k's newer graphics effects, which is pending.",
     "keyCharacteristics": [
-      "Unboxed prose and compact comparisons share quiet Undertow surfaces.",
+      "Continuous prose and compact comparisons share the configurable quiet gray content surface; data cards use rounded elevation.",
       "Composition follows explicit source structure rather than decorative tiles.",
       "Complete tables, records and relationship sources remain inspectable.",
-      "One host-header selector controls presentation, original and comparison modes."
+      "One host-header selector controls presentation, original and comparison modes.",
+      "A separate compact theme selector switches the active presentation for the conversation."
     ],
     "rules": [
       {
-        "name": "Scoped Theme Preference",
-        "body": "User-selected data-only theme controls IEP and compatible scoped surfaces; official application preferences remain owned by DSH.",
+        "name": "The Content Preference Rule",
+        "body": "Plugin Settings → 内容外观 offers 半透明背景, a native color well, editable #RRGGBB and 恢复默认外观. The user explicitly requested this content preference; it does not change official navigation, host theme or credentials. Legacy settings without appearance use the default without an implicit file migration.",
         "section": "colors"
+      },
+      {
+        "name": "The Native Label Rule",
+        "body": "The GPU character effect projects supported graphical geometry; original text, labels, units and exact source values remain native and readable.",
+        "section": "typography"
       },
       {
         "name": "The Source Stays Reachable Rule",
@@ -225,17 +423,29 @@
     ],
     "dos": [
       "Do choose composition from explicit source structure while keeping prose in document order.",
-      "Do use the host's resolved scheme and the single conversation-header selector.",
+      "Do scope configurable surface appearance to plugin content and keep the single conversation-header selector.",
       "Do retain exact source strings, units, exclusions, qualifications and complete sources.",
       "Do keep the local Recursive font and OFL together.",
+      "Do treat ASCII-projected graphics as approximate while keeping exact source values and qualifications visible.",
       "Do distinguish browser review from installed official DSH acceptance."
     ],
     "donts": [
-      "Don't wrap every paragraph or compact comparison in a card.",
+      "Don't wrap every paragraph in a card.",
       "Don't invent data, graph edges, task status or execution success for visual effect.",
-      "Don't add per-output theme or display selectors; use shared Settings and conversation controls.",
+      "Don't alter host theme or introduce per-output appearance/display controls.",
       "Don't promote fixture controls, private report content or detector preferences into product rules.",
       "Don't ship reference screenshots or infer app acceptance from browser captures."
     ]
+  },
+  "sourceTableViewport": {
+    "owner": "src/table-viewport.ts",
+    "default": "fit to available container; table DOM only",
+    "detail": "native size in a focusable local horizontal scrollport",
+    "preserved": [
+      "original cells and anchors",
+      "full rows and columns",
+      "normal-size toolbar and prose"
+    ],
+    "lifecycle": "ResizeObserver disconnects; hidden source measures defer; fit resets horizontal offset"
   }
 }

@@ -1,4 +1,4 @@
-import { resolveTheme, type ThemePackage, type ThemePreference } from './theme-contracts.js'
+import { isAsciiTheme, resolveTheme, type ThemePackage, type ThemePreference } from './theme-contracts.js'
 
 /** Selected theme only. Catalog/revision refreshes never remount existing content. */
 const initial = resolveTheme()
@@ -21,11 +21,15 @@ export const themePreferences = {
 export function themeStyleTokens(theme: ThemePackage, appearance: { variables: Record<string, string> }): Record<string, string> {
   const t = theme.tokens, px = (value: number) => `${value}px`
   const depth = (value: string) => t.shadow === 'none' ? 'none' : value
-  const font = t.font === 'system' ? '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif'
+  const mono = t.font === 'mono'
+  const terminalFont = 'Menlo, "SFMono-Regular", Consolas, "Liberation Mono", "DSH Recursive", "Noto Sans Mono CJK SC", "Sarasa Mono SC", "Heiti SC", monospace'
+  const font = mono ? terminalFont
+    : t.font === 'system' ? '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif'
     : t.font === 'serif' ? 'Georgia, "Songti SC", "Noto Serif CJK SC", serif'
     : '"DSH Recursive", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif'
   return { ...appearance.variables,
-    '--iexp-font': font, '--iexp-code-font': t.font === 'recursive' ? '"DSH Recursive", "SF Mono", monospace' : '"SF Mono", Consolas, monospace', '--iexp-density': t.density === 'compact' ? '1' : '1.18',
+    '--iexp-presentation': isAsciiTheme(theme) ? 'ascii' : 'standard', '--iexp-font-mono': mono ? '1' : '0',
+    '--iexp-font': font, '--iexp-code-font': mono ? terminalFont : t.font === 'recursive' ? '"DSH Recursive", "SF Mono", monospace' : '"SF Mono", Consolas, monospace', '--iexp-density': t.density === 'compact' ? '1' : '1.18',
     '--iexp-panel-radius': px(t.panelRadius), '--iexp-panel-radius-narrow': px(Math.min(t.panelRadius, 24)),
     '--iexp-page-card-radius': px(Math.max(0,t.cardRadius - 2)), '--iexp-card-radius': px(t.cardRadius), '--iexp-node-radius': px(t.nodeRadius),
     '--iexp-small-control-radius': px(t.controlRadius / 2), '--iexp-control-radius': px(t.controlRadius), '--iexp-canvas-radius': px(Math.max(0, t.panelRadius - 4)),

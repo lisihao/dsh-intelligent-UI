@@ -26,11 +26,15 @@ async function settle() {
 }
 afterEach(async () => { for (const dir of temporary.splice(0)) await rm(dir, { recursive: true, force: true }) })
 
-const importedTheme = (): ThemePackage => ({
-  ...structuredClone(builtInThemes[1]!), id: 'linen', name: '亚麻纸', description: '适合长文阅读的暖白背景。',
-  appearance: { backgroundColor: '#f6f1e8', translucent: false },
-  tokens: { ...builtInThemes[1]!.tokens, accentLight: '#476559', paletteLight: ['#476559', '#85652f', '#83465c', '#315d7d'], font: 'serif', density: 'comfortable' },
-})
+const importedTheme = (): ThemePackage => {
+  const plain = resolveTheme({ activeId: 'plain', installed: [] })
+  if (plain.formatVersion !== 1) throw new Error('The Plain fixture must remain V1.')
+  return {
+    ...structuredClone(plain), id: 'linen', name: '亚麻纸', description: '适合长文阅读的暖白背景。',
+    appearance: { backgroundColor: '#f6f1e8', translucent: false },
+    tokens: { ...plain.tokens, accentLight: '#476559', paletteLight: ['#476559', '#85652f', '#83465c', '#315d7d'], font: 'serif', density: 'comfortable' },
+  }
+}
 
 async function setup(fetcher?: typeof fetch) {
   const dir = await mkdtemp(join(tmpdir(), 'iexp-theme-client-')); temporary.push(dir)
@@ -63,6 +67,26 @@ async function upload(element: HTMLElement, text: string) {
 }
 
 describe('downloadable themes through real settings persistence', () => {
+  it('imports and selects a valid V3 ASCII theme through Settings and preserves it after restart', async () => {
+    const s = await setup()
+    try {
+      await act(async () => s.root.render(h(Settings, { store: s.store })))
+      const base = resolveTheme({ activeId: 'ascii', installed: [] })
+      if (base.formatVersion !== 3) throw new Error('The ASCII fixture must use V3.')
+      const imported = { ...structuredClone(base), id: 'ascii-custom', name: 'ASCII Custom' }
+      await upload(s.element, JSON.stringify(imported))
+      expect(s.element.textContent).toContain('已导入「ASCII Custom」')
+      expect((await s.host.settings()).theme?.activeId).toBe('empryo')
+      await selectTheme(s.element, imported.id)
+      const restarted = await new HostStore(s.dir).settings()
+      expect(resolveTheme(restarted.theme)).toEqual(imported)
+      expect(restarted.appearance).toEqual(imported.appearance)
+      expect([restarted.takeover, restarted.openui, restarted.mcpApps]).toEqual([true, true, false])
+      const downloaded = s.element.querySelector<HTMLAnchorElement>('a[download]')!
+      expect(parseThemeFile(decodeURIComponent(downloaded.getAttribute('href')!.split(',')[1]!))).toEqual(imported)
+    } finally { await s.cleanup() }
+  })
+
   it('preserves legacy appearance, imports a real file, selects and survives a new store, then removes it', async () => {
     const s = await setup()
     try {
@@ -114,7 +138,7 @@ describe('downloadable themes through real settings persistence', () => {
       await upload(s.element, '{broken')
       expect(s.element.querySelector('[role=alert]')?.textContent).toContain('不是有效的 JSON')
       expect(await readFile(join(s.dir, 'settings.json'), 'utf8')).toBe(before)
-      await upload(s.element, JSON.stringify({ ...importedTheme(), formatVersion: 3 }))
+      await upload(s.element, JSON.stringify({ ...importedTheme(), formatVersion: 99 }))
       expect(s.element.querySelector('[role=alert]')?.textContent).toContain('不支持这个主题包版本')
       expect(await readFile(join(s.dir, 'settings.json'), 'utf8')).toBe(before)
     } finally { await s.cleanup(); canvas.mockRestore(); vi.unstubAllGlobals() }

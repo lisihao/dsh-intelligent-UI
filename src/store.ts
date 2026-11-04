@@ -1,8 +1,10 @@
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { artifactSchema, initialSettings, saveSettingsSchema, saveWidgetStateSchema, settingsSchema, widgetInputSchema, widgetStateSchema, type ExperienceArtifact, type ExperienceSettings, type PublishInput, type SaveSettingsInput, type SaveWidgetStateInput, type WidgetState } from './contracts.js'
 import { builtInThemes, installThemeSchema, removeThemeSchema, resolveTheme, MAX_IMPORTED_THEMES, MAX_THEME_BYTES, type InstallThemeInput, type RemoveThemeInput } from './theme-contracts.js'
+import { isLocalImport } from './file-library-contracts.js'
 
 const queues = new Map<string, Promise<unknown>>()
 
@@ -108,7 +110,7 @@ export class ExperienceStore {
       const target = parsed.themeId === undefined ? undefined : [...builtInThemes, ...theme!.installed].find(item => item.id === parsed.themeId)
       if (parsed.themeId !== undefined && !target) throw new ThemeNotFoundError(parsed.themeId)
       const appearance = parsed.appearance ?? (target && target.id !== previousId ? { ...target.appearance } : current.appearance)
-      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, appearance, theme, ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
+      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, ...(parsed.settingsNavigation === undefined ? {} : { settingsNavigation: parsed.settingsNavigation }), appearance, theme, ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
     })
   }
 
@@ -166,6 +168,26 @@ export class ExperienceStore {
       if (artifact) records.push(artifact)
     }
     return records
+  }
+
+  /** Enumerate plugin-owned local imports on demand without changing their original buckets. */
+  async localFiles(): Promise<ExperienceArtifact[]> {
+    let entries: Dirent[]
+    try { entries = await readdir(join(this.root, 'artifacts'), { withFileTypes: true }) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
+    const files: ExperienceArtifact[] = []
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      let scope: string
+      try { scope = decodeURIComponent(entry.name) } catch { continue }
+      if (!scope || encodeURIComponent(scope) !== entry.name) continue
+      files.push(...(await this.artifacts({ sessionId: scope })).filter(isLocalImport))
+    }
+    return files.sort((left, right) => {
+      if (left.createdAt !== right.createdAt) return left.createdAt > right.createdAt ? -1 : 1
+      if (left.source.sessionId !== right.source.sessionId) return left.source.sessionId < right.source.sessionId ? -1 : 1
+      return left.id < right.id ? -1 : left.id > right.id ? 1 : 0
+    })
   }
 
   private artifactPath(sessionId: string, artifactId: string): string {

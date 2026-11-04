@@ -8,12 +8,13 @@ export const themeComponentsCss = `
 .dsh-experience .iexp-uiv-button:disabled,.dsh-experience .iexp-uiv-input:disabled { opacity:.5; cursor:default; }
 .dsh-experience :is(.iexp-uiv-button,.iexp-uiv-input):focus-visible { outline:2px solid var(--iexp-accent); outline-offset:4px; }
 /* Praashoo7 button; lenfear23 input; Sashank02 card: paired raised/inset relief. */
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-button { border:1px solid transparent; border-radius:var(--iexp-control-radius); background:var(--iexp-bg); box-shadow:inset 2px 5px 10px #0003; }
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-button:hover:not(:disabled) { background:var(--iexp-text); color:var(--iexp-bg); }
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-button:active:not(:disabled) { box-shadow:inset 4px 6px 12px #0005; }
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-input { background:var(--iexp-bg); border:1px solid var(--iexp-line); border-radius:var(--iexp-control-radius); box-shadow:5px 5px 17px #0002,-5px -5px 17px #fff9; }
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-input:focus { box-shadow:inset 5px 5px 17px #0002,inset -5px -5px 17px #fff9; }
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-card { background:var(--iexp-bg); border:1px solid var(--iexp-line); border-radius:var(--iexp-card-radius); box-shadow:5px 5px 6px #0002,-5px -5px 6px #fff9; }
+.dsh-experience [data-iexp-component-set=soft-relief] { --iexp-relief-shadow:color-mix(in srgb,var(--iexp-bg) 84%,black); --iexp-relief-highlight:color-mix(in srgb,var(--iexp-bg) 90%,white); }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-button { border:1px solid transparent; border-radius:var(--iexp-control-radius); background:var(--iexp-bg); box-shadow:3px 3px 8px var(--iexp-relief-shadow),-3px -3px 8px var(--iexp-relief-highlight); }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-button:hover:not(:disabled) { background:var(--iexp-card-hover); color:var(--iexp-text); }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-button:active:not(:disabled) { box-shadow:inset 3px 3px 8px var(--iexp-relief-shadow),inset -3px -3px 8px var(--iexp-relief-highlight); }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-input { background:var(--iexp-bg); border:1px solid var(--iexp-line); border-radius:var(--iexp-control-radius); box-shadow:4px 4px 12px var(--iexp-relief-shadow),-4px -4px 12px var(--iexp-relief-highlight); }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-input:focus { box-shadow:inset 4px 4px 12px var(--iexp-relief-shadow),inset -4px -4px 12px var(--iexp-relief-highlight); }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-card { background:var(--iexp-bg); border:1px solid var(--iexp-line); border-radius:var(--iexp-card-radius); box-shadow:4px 4px 8px var(--iexp-relief-shadow),-4px -4px 8px var(--iexp-relief-highlight); }
 /* akshat-patel28 glass button retains a separate backplate; Cksunandh rounded inset field. */
 .dsh-experience [data-iexp-component-set=clear-glass].iexp-uiv-button { border:1px solid var(--iexp-line); border-radius:var(--iexp-control-radius); background:color-mix(in srgb,var(--iexp-text) 10%,var(--iexp-bg)); backdrop-filter:blur(10px); box-shadow:0 8px 16px #0004; }
 .dsh-experience .iexp-uiv-backplate { position:absolute; inset:4px; z-index:0; border-radius:inherit; background:color-mix(in srgb,var(--iexp-accent) 15%,var(--iexp-bg)); transition:transform 160ms ease-out; }
@@ -52,8 +53,8 @@ export const themeComponentsCss = `
 .dsh-experience .iexp-uiv-toggle > input:checked + .iexp-uiv-track .iexp-uiv-thumb { transform:translateX(24px); background:var(--iexp-accent); }
 .dsh-experience .iexp-uiv-toggle > input:focus-visible + .iexp-uiv-track { outline:2px solid var(--iexp-accent); outline-offset:4px; }
 .dsh-experience .iexp-uiv-toggle > input:disabled + .iexp-uiv-track { opacity:.5; }
-.dsh-experience [data-iexp-component-set=soft-relief] .iexp-uiv-track { box-shadow:inset 4px 4px 8px #0002,inset -4px -4px 8px #fff9; }
-.dsh-experience [data-iexp-component-set=soft-relief] .iexp-uiv-thumb { box-shadow:-3px -2px 6px #fff9,3px 2px 6px #0003; }
+.dsh-experience [data-iexp-component-set=soft-relief] .iexp-uiv-track { box-shadow:inset 4px 4px 8px var(--iexp-relief-shadow),inset -4px -4px 8px var(--iexp-relief-highlight); }
+.dsh-experience [data-iexp-component-set=soft-relief] .iexp-uiv-thumb { box-shadow:-3px -2px 6px var(--iexp-relief-highlight),3px 2px 6px var(--iexp-relief-shadow); }
 .dsh-experience [data-iexp-component-set=clear-glass] .iexp-uiv-track { border:2px solid var(--iexp-line); background:#0003; box-shadow:inset 2px 2px 6px #0005; }
 .dsh-experience [data-iexp-component-set=clear-glass] .iexp-uiv-thumb { border-radius:12px; background:linear-gradient(var(--iexp-muted),var(--iexp-soft)); border:1px solid var(--iexp-muted); box-shadow:inset 3px 0 4px #0004,inset -3px 0 4px #fff3; }
 .dsh-experience [data-iexp-component-set=clear-glass] .iexp-uiv-thumb::after { content:''; position:absolute; inset:3px 9px; border-inline:1px solid var(--iexp-line); }
@@ -62,7 +63,7 @@ export const themeComponentsCss = `
 /* angelo2004-mateus ring, Mike11jr three dots and G4b413l moving bar. */
 .dsh-experience .iexp-uiv-loading { display:inline-flex; align-items:center; gap:12px; min-height:32px; flex-wrap:wrap; }
 .dsh-experience .iexp-uiv-loader { display:inline-flex; position:relative; flex:none; }
-.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-loader { width:32px; height:32px; align-items:center; justify-content:center; border-radius:50%; box-shadow:-3px -3px 6px #fff9,3px 3px 6px #0002; }
+.dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-loader { width:32px; height:32px; align-items:center; justify-content:center; border-radius:50%; box-shadow:-3px -3px 6px var(--iexp-relief-highlight),3px 3px 6px var(--iexp-relief-shadow); }
 .dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-loader::before { content:''; position:absolute; inset:8px; z-index:1; border-radius:50%; background:var(--iexp-bg); border:1px solid var(--iexp-line); }
 .dsh-experience [data-iexp-component-set=soft-relief].iexp-uiv-loader > span:first-child { width:80%; height:80%; border-radius:50%; background:conic-gradient(var(--iexp-accent),var(--iexp-soft)); animation:iexp-uiv-spin 1s linear infinite; }
 .dsh-experience [data-iexp-component-set=clear-glass].iexp-uiv-loader { gap:8px; padding:8px; }

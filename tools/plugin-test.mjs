@@ -9,6 +9,8 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const CLI_ROOT = ROOT
 const TEMP_ROOT = process.platform === 'darwin' ? '/private/tmp' : tmpdir()
 const PACKAGE = ROOT
+// Optional exact packed candidate; the source tree still supplies fixture and expected metadata.
+const PACKAGE_SPEC = process.env.INTELLIGENT_UI_TEST_PACKAGE_TGZ ? resolve(process.env.INTELLIGENT_UI_TEST_PACKAGE_TGZ) : PACKAGE
 const PROBE = join(ROOT, 'tools', 'fixtures', 'intelligent-experience-probe')
 const PROFILE = 'solar-intelligent-experience-test'
 const TIMEOUT = 120_000
@@ -59,6 +61,18 @@ async function themeProbe(ctx) {
     let state = await rpc('settings')
     assert(flags(state) === input.originalFlags, 'theme probe started with changed original settings flags')
     result.checks.ownerRpc = true
+
+    const libraryRaw = '\uFEFF# Local file fixture\r\n\r\n| Group | Count |\r\n| --- | ---: |\r\n| A | 12 |\r\n'
+    const localFiles = await rpc('localFiles')
+    assert(localFiles.length===1 && localFiles[0].raw===libraryRaw && localFiles[0].payload===libraryRaw, 'real RPC lost the durable library file or exact original')
+    const preview = await rpc('insightPreview',{sessionId:'scratch-insight-preview'})
+    assert(preview.sessionId==='scratch-insight-preview' && preview.available===false && preview.runs.length===0, 'real preview RPC did not preserve unavailable/session identity')
+    let readDenied=0
+    for(const [method,value] of [['localFiles',undefined],['insightPreview',{sessionId:'scratch-insight-preview'}]]) {
+      try{await rpc(method,value,observer)}catch(error){if(/remote-access\/denied|EXPERIENCE_OWNER_REQUIRED/.test(`${error.code??''} ${error.message}`))readDenied++}
+    }
+    assert(readDenied===2, 'non-owner could access private library/preview RPC')
+    result.checks.libraryAndPreviewRpc = true
     if (phase === 'install-select') {
       assert(state.revision === input.originalRevision, 'theme probe did not begin at the acknowledged original revision')
       let denied
@@ -160,7 +174,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
     }
     phases.push(result)
     if (!result.ok || processError) throw Object.assign(new Error(`theme ${phase} failed: ${JSON.stringify(result)}`, { cause: processError }), { themeEvidence: { ok: false, failedPhase: phase, phases, externalModelCalls: 0 } })
-    const required = ['ownerRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback'])]
+    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback'])]
     if (required.some(check => result.checks[check] !== true)) throw new Error(`theme ${phase} is missing acceptance evidence: ${JSON.stringify(result)}`)
   }
   if (phases[0].pid === phases[1].pid) throw new Error('theme restart acceptance reused one Host process')
@@ -190,7 +204,7 @@ async function main() {
   let themes
   try {
     try {
-      for (const packageDir of [PACKAGE, PROBE]) await command(dshCli, ['plugin', '--profile', PROFILE, 'add', packageDir], env)
+      for (const packageDir of [PACKAGE_SPEC, PROBE]) await command(dshCli, ['plugin', '--profile', PROFILE, 'add', packageDir], env)
       const profile = JSON.parse(await readFile(join(profileDir, 'package.json'), 'utf8'))
       const bundles = profile?.dsh?.profile?.bundles
       const expected = [plugin.name, fixture.name]
@@ -198,7 +212,7 @@ async function main() {
       await command(dshCli, ['--profile', PROFILE], env)
       marker = JSON.parse(await readFile(env.SOLAR_PLUGIN_PROBE_MARKER, 'utf8'))
       if (marker?.ok !== true) throw new Error(`keyless fixture reported failure: ${JSON.stringify(marker)}`)
-      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
+      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'canvasDiscovery', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
       const missing = required.filter((key) => marker.checks?.[key] !== true)
       if (missing.length) throw new Error(`probe missing checks ${missing.join(', ')}: ${JSON.stringify(marker)}`)
       const root = join(scratch, 'solar', 'intelligent-experience-platform')

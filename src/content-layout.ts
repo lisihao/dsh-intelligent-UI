@@ -159,7 +159,7 @@ const ordinaryNames = /^(?:title|name|标题|名称)$/i
 const descriptionNames = /^(?:description|detail|details|描述|说明|详情)$/i
 const financialFields = /(?:revenue|income|cash|profit|valuation|amount|price|payment|invoice|balance|财务|营收|收入|现金|利润|估值|金额|价格|付款|账单|余额)/i
 function homogeneousRecords(value: unknown): Array<Record<string, unknown>> | undefined {
-  if (!Array.isArray(value) || value.length < 2 || value.length > 200 || !value.every(isRecord)) return undefined
+  if (!Array.isArray(value) || value.length < 2 || !value.every(isRecord)) return undefined
   const records = value as Array<Record<string, unknown>>, keys = Object.keys(records[0]!)
   if (!keys.length || records.some(record => Object.keys(record).length !== keys.length || keys.some(key => !Object.hasOwn(record, key)))) return undefined
   return records
@@ -191,7 +191,7 @@ export function analyzeTaskRecords(value: unknown): BoardPlan | undefined {
 }
 /** A generic Name/Status table might describe companies or accounts; require an explicit Task header. */
 export function analyzeTaskTable(headers: string[], rows: string[][]): BoardPlan | undefined {
-  if (headers.length < 2 || headers.length > 30 || new Set(headers).size !== headers.length || rows.length < 2 || rows.length > 200 || rows.some(row => row.length !== headers.length)) return undefined
+  if (headers.length < 2 || new Set(headers).size !== headers.length || rows.length < 2 || rows.some(row => row.length !== headers.length)) return undefined
   const title = headers.find(key => taskNames.test(key)), status = headers.find(key => statusNames.test(key))
   if (!title || !status) return undefined
   const records = rows.map(row => Object.fromEntries(headers.map((key, index) => [key, row[index]!])) as Record<string, unknown>)

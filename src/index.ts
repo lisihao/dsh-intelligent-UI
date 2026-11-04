@@ -8,12 +8,15 @@ import type {} from '@deepseek-ai/dsh-skill'
 import { fileURLToPath } from 'node:url'
 import { installUiverse } from './uiverse/host.js'
 import { UI_TOOL_NAMES } from './uiverse/remote.js'
+import { CANVAS_DEVELOPMENT_TOOL, installCanvasDevelopment } from './canvas-dev-host.js'
+import { installCanvasRuntimeHost } from './canvas-runtime-host.js'
 import { installResearch, RESEARCH_TOOL } from './research-host.js'
 import { join } from 'node:path'
 import { z as schema } from 'zod'
 import { ExperienceStore } from './store.js'
 import { ExperienceControl } from './control.js'
 import { artifactSchema } from './contracts.js'
+import { LOCAL_IMPORT_PROVIDER } from './file-library-contracts.js'
 import { McpHost } from './mcp-host.js'
 
 export { UiComponentsControl } from './uiverse/host.js'
@@ -64,7 +67,12 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     const endpoint = new URL(config.mcpEndpoint)
     if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('EXPERIENCE_MCP_ENDPOINT_INVALID: MCP 应用地址必须为不含凭据的 HTTP(S) 地址。')
   }
+  if (ctx.tools.get(CANVAS_DEVELOPMENT_TOOL)) throw new Error('CANVAS_TOOL_REGISTRATION_CONFLICT: Canvas UI discovery tool is already registered.')
   await installUiverse(ctx, fileURLToPath(new URL('./uiverse/assets/', import.meta.url)))
+  installCanvasDevelopment(ctx)
+  // The connection service is optional in non-Web Hosts; let Cordis own this
+  // route only while the service and this plugin are both present.
+  ctx.inject(['connection'], connectionContext => { installCanvasRuntimeHost(connectionContext) })
   const root = join(resolveDshHome(), 'solar', 'intelligent-experience-platform')
   installResearch(ctx, root)
   const store = new ExperienceStore(root, config)
@@ -74,7 +82,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   if (current.takeover && current.mcpApps && config.mcpEndpoint) void control.activateMcp()
   ctx.effect(() => store.subscribe(settings => { current = settings; if (!settings.takeover || !settings.mcpApps) void mcp.closeAll().catch(error => ctx.logger('solar-experience').warn('%s', error)) }))
   ctx.effect(() => () => mcp.dispose())
-  for (const [id, protocol] of [['openui', 'openui'], ['content', 'content'], ['mcp-app', 'mcp-app']] as const) {
+  for (const [id, protocol] of [['openui', 'openui'], ['content', 'content'], [LOCAL_IMPORT_PROVIDER, 'content'], ['mcp-app', 'mcp-app']] as const) {
     ctx.effect(() => control.registry.register({ id, version: '1', capabilities: [protocol] }, value => value))
   }
   const pending = new Set<Promise<unknown>>()
@@ -85,7 +93,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     pending.add(task)
   }
   ctx.on('tools/result', (exec, result) => {
-    if (!exec.agent || exec.name === 'solar_present' || exec.name === RESEARCH_TOOL || (UI_TOOL_NAMES as readonly string[]).includes(exec.name)) return
+    if (!exec.agent || exec.name === 'solar_present' || exec.name === RESEARCH_TOOL || exec.name === CANVAS_DEVELOPMENT_TOOL || (UI_TOOL_NAMES as readonly string[]).includes(exec.name)) return
     const meta = result.meta && typeof result.meta === 'object' && !Array.isArray(result.meta) ? result.meta : undefined
     const app = meta?.type === 'solar-experience' && meta.protocol === 'mcp-app'
     capture(() => store.publish({

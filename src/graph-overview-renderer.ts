@@ -1,4 +1,5 @@
 import { flowBounds } from './flow-scale.js'
+import { publishAsciiVisualFrame, releaseAsciiVisualFrame } from './ascii-visual-frames.js'
 import type { FlowGeometry, FlowViewPlan } from './flow-layout.js'
 export interface OverviewRenderer {
   kind: 'webgl2' | 'canvas2d'
@@ -12,7 +13,7 @@ function color(canvas: HTMLCanvasElement): [number, number, number] {
   canvas.style.color = previous
   return value?.length === 3 ? value.map(channel => channel / 255) as [number, number, number] : [0.58, 0.75, 0.83]
 }
-/** Thin native drawing adapter; layout/interaction remain owned by ELK and React Flow. No capture API. */
+/** Thin native drawing adapter; layout/interaction remain owned by ELK and React Flow. */
 export function createGraphOverviewRenderer(canvas: HTMLCanvasElement): OverviewRenderer {
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false })
   let disposed = false, program: WebGLProgram | null = null, buffer: WebGLBuffer | null = null
@@ -33,7 +34,7 @@ export function createGraphOverviewRenderer(canvas: HTMLCanvasElement): Overview
     buffer = gl.createBuffer(); if (!buffer) throw new Error('无法创建关系图 GPU 缓冲区。')
   }
   // A restored context invalidates its old resources; the next redraw rebuilds only owned resources.
-  const lost = (event: Event) => { event.preventDefault(); canvas.dataset.renderError = 'GPU 上下文暂时丢失；可继续搜索节点和查看完整原文。' }
+  const lost = (event: Event) => { event.preventDefault(); releaseAsciiVisualFrame(canvas); canvas.dataset.renderError = 'GPU 上下文暂时丢失；可继续搜索节点和查看完整原文。' }
   const restored = () => { program = null; buffer = null; delete canvas.dataset.renderError; if (latest) renderer.draw(...latest) }
   canvas.addEventListener('webglcontextlost', lost); canvas.addEventListener('webglcontextrestored', restored)
   const context = gl ? null : canvas.getContext('2d')
@@ -46,10 +47,11 @@ export function createGraphOverviewRenderer(canvas: HTMLCanvasElement): Overview
       const width = canvas.clientWidth || 800, height = canvas.clientHeight || 360, ratio = Math.min(2, globalThis.devicePixelRatio || 1)
       const bounds = flowBounds(geometry), zoom = Math.min((width - 32) / bounds.width, (height - 32) / bounds.height)
       const x = (width - bounds.width * zoom) / 2 - bounds.x * zoom, y = (height - bounds.height * zoom) / 2 - bounds.y * zoom
-      if (disposed || gl?.isContextLost()) return { zoom, x, y }
+      if (disposed) return { zoom, x, y }
+      if (gl?.isContextLost()) { releaseAsciiVisualFrame(canvas); return { zoom, x, y } }
       canvas.width = Math.max(1, Math.round(width * ratio)); canvas.height = Math.max(1, Math.round(height * ratio))
       const positions = new Map(geometry.nodes.map(node => [node.id, node])), accent = color(canvas)
-      if (gl) {
+      try { if (gl) {
         initialize(); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
         gl.useProgram(program); gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
         const attribute = gl.getAttribLocation(program!, 'position'); gl.enableVertexAttribArray(attribute); gl.vertexAttribPointer(attribute, 2, gl.FLOAT, false, 0, 0)
@@ -71,10 +73,14 @@ export function createGraphOverviewRenderer(canvas: HTMLCanvasElement): Overview
         for (const edge of plan.edges) { const from = positions.get(edge.source), to = positions.get(edge.target); if (from && to) { context.moveTo(x + (from.x + from.width / 2) * zoom, y + (from.y + from.height / 2) * zoom); context.lineTo(x + (to.x + to.width / 2) * zoom, y + (to.y + to.height / 2) * zoom) } }
         context.stroke(); context.globalAlpha = 1
         for (const node of geometry.nodes) { context.fillRect(x + node.x * zoom, y + node.y * zoom, Math.max(2, node.width * zoom), Math.max(2, node.height * zoom)); if (node.id === selectedId) context.strokeRect(x + node.x * zoom - 3, y + node.y * zoom - 3, Math.max(2, node.width * zoom) + 6, Math.max(2, node.height * zoom) + 6) }
-      }
+      } } catch (error) { releaseAsciiVisualFrame(canvas); throw error }
+      publishAsciiVisualFrame(canvas)
       return { zoom, x, y }
     },
-    dispose() { disposed = true; latest = undefined; canvas.removeEventListener('webglcontextlost', lost); canvas.removeEventListener('webglcontextrestored', restored); if (gl) { if (buffer) gl.deleteBuffer(buffer); if (program) gl.deleteProgram(program); gl.getExtension('WEBGL_lose_context')?.loseContext() } },
+    dispose() { if (disposed) return; disposed = true; latest = undefined; canvas.removeEventListener('iexp:visual-frame-request', request); releaseAsciiVisualFrame(canvas); canvas.removeEventListener('webglcontextlost', lost); canvas.removeEventListener('webglcontextrestored', restored); if (gl) { if (buffer) gl.deleteBuffer(buffer); if (program) gl.deleteProgram(program); gl.getExtension('WEBGL_lose_context')?.loseContext() } },
   }
+  // A theme may be enabled after the last draw. Repaint the existing geometry on demand.
+  const request = () => { if (!disposed && latest) renderer.draw(...latest) }
+  canvas.addEventListener('iexp:visual-frame-request', request)
   return renderer
 }

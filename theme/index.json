@@ -9,6 +9,20 @@
       "sha256": "1665075d26b5ea40ecb7532de7fba24316c83014c9eb91f0725ed461d411fb27"
     },
     {
+      "id": "ascii",
+      "name": "经典 ASCII",
+      "version": "1.0.0",
+      "file": "ascii.dsh-theme.json",
+      "sha256": "d5a3b366698b7d6c9f972bf0ecbdf1c0ef38380e788e87b5e95e91f691fcc253"
+    },
+    {
+      "id": "ascii-gpu",
+      "name": "GPU ASCII",
+      "version": "1.0.0",
+      "file": "ascii-gpu.dsh-theme.json",
+      "sha256": "5b03aa30479664077290a6e0eecdb98dc2c6868a13429bf23c1cabfb49aafa2e"
+    },
+    {
       "id": "unslop-carbon",
       "name": "炭墨 · Carbon",
       "version": "1.0.0",
@@ -48,7 +62,7 @@
       "name": "柔和浮雕 · Soft relief",
       "version": "1.0.0",
       "file": "uiverse-soft-relief.dsh-theme.json",
-      "sha256": "94536a10e96859d1299c95a373bd6bcd873a22bb196426e9549ad4dc39fd5f84"
+      "sha256": "3b60f5efe31f2f4946291afca0112cab776e8f81471a0a1a080d084b14c590aa"
     },
     {
       "id": "uiverse-clear-glass",

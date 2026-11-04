@@ -8,9 +8,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import sources from '../src/uiverse-sources.json' with { type: 'json' }
+import downloadableRelief from '../theme/uiverse-soft-relief.dsh-theme.json' with { type: 'json' }
 import selectedPin from './fixtures/uiverse-selected-pin.json' with { type: 'json' }
 import { builtInThemes, resolveTheme, themePackageSchema } from '../src/theme-contracts.js'
+import { appearanceTokens } from '../src/appearance.js'
 import { ThemeComponentPreview, ThemeToggle, themeComponentSet } from '../src/theme-components.js'
+import { themeComponentsCss } from '../src/theme-components-style.js'
 import { themePreferences } from '../src/theme-runtime.js'
 import { ExperienceStore } from '../src/store.js'
 
@@ -19,6 +22,32 @@ const components = builtInThemes.filter(theme => theme.formatVersion === 2)
 afterEach(() => themePreferences.reset())
 
 describe('source-backed component packages', () => {
+  it('ships the same dim, readable relief theme as both the built-in and downloadable package', () => {
+    const relief = builtInThemes.find(theme => theme.id === 'uiverse-soft-relief')!
+    expect(themePackageSchema.parse(downloadableRelief)).toEqual(relief)
+    expect(relief.appearance).toEqual({ backgroundColor: '#34383d', translucent: false })
+    const actual = appearanceTokens(undefined, relief)
+    expect(actual.colorScheme).toBe('dark')
+    const channels = (value: string) => value.match(/[\d.]+/g)!.slice(0, 3).map(Number)
+    const luminance = (color: number[]) => color.reduce((sum, value, index) => {
+      const channel = value / 255
+      return sum + (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4) * [0.2126, 0.7152, 0.0722][index]!
+    }, 0)
+    for (const fg of ['--iexp-text', '--iexp-muted', '--iexp-accent']) for (const bg of ['--iexp-bg', '--iexp-card', '--iexp-card-hover', '--iexp-soft']) {
+      const first = luminance(channels(actual.variables[fg]!)), second = luminance(channels(actual.variables[bg]!))
+      expect((Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('keeps relief highlights and hover surfaces subdued across the actual component variants', () => {
+    const relief = themeComponentsCss.split('\n').filter(line => line.includes('[data-iexp-component-set=soft-relief]'))
+    for (const role of ['button', 'input', 'card', 'track', 'thumb', 'loader']) expect(relief.some(line => line.includes(`iexp-uiv-${role}`))).toBe(true)
+    expect(relief.join('\n')).not.toMatch(/#fff9|#ffffff99/i)
+    const hover = relief.find(line => line.includes('.iexp-uiv-button:hover'))!
+    expect(hover).not.toMatch(/background:\s*var\(--iexp-text\)/)
+    expect(hover).toMatch(/background:\s*var\(--iexp-(?:card-hover|soft|bg)\)/)
+  })
+
   it('retains fifteen complete unchanged originals, stable provenance and all five roles', () => {
     expect(sources.commit).toBe('adbd2adde0a299a3956ea288fb444ec01891ca41')
     expect(components).toHaveLength(3)

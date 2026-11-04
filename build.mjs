@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 const elkWorkerSource = await readFile(join(root, 'node_modules/elkjs/lib/elk-worker.min.js'), 'utf8')
 await rm(join(root, 'lib'), { recursive: true, force: true })
 await mkdir(join(root, 'lib'), { recursive: true })
-await build({ absWorkingDir: root, entryPoints: ['src/index.ts', 'src/contracts.ts', 'src/typert.ts'], outdir: 'lib', bundle: true, packages: 'external', platform: 'node', target: 'node22', format: 'esm', sourcemap: true })
+await build({ absWorkingDir: root, entryPoints: ['src/index.ts', 'src/contracts.ts', 'src/typert.ts', 'src/canvas-build-worker.ts'], outdir: 'lib', bundle: true, packages: 'external', platform: 'node', target: 'node22', format: 'esm', sourcemap: true })
 await build({ absWorkingDir: root, entryPoints: ['src/client.ts'], outfile: 'lib/client.cjs', bundle: true, platform: 'browser', target: 'es2022', format: 'cjs', external: ['@deepseek-ai/*', 'react', 'react/*', 'react-dom', 'react-dom/*'], define: { 'process.env.NODE_ENV': '"production"', __IEXP_ELK_WORKER_SOURCE__: JSON.stringify(elkWorkerSource) }, loader: { '.css': 'text', '.woff2': 'dataurl' }, plugins: [openuiCssPlugin],
   banner: { js: 'window.__ModuleLoader__.load({ id: "@lisihao/dsh-solar-intelligent-experience-platform", factory: (require) => { var module = { exports: {} }; var exports = module.exports;' },
   footer: { js: 'return module.exports; } });' }, sourcemap: true,
@@ -19,6 +19,8 @@ execFileSync(join(root, 'node_modules/.bin/tsc'), ['-p', 'tsconfig.build.json'],
 await copyFile(join(root, 'assets/Recursive-OFL.txt'), join(root, 'lib/Recursive-OFL.txt'))
 await copyFile(join(root, 'assets/DM-Sans-OFL.txt'), join(root, 'lib/DM-Sans-OFL.txt'))
 await copyFile(join(root, 'assets/Uiverse-MIT.txt'), join(root, 'lib/Uiverse-MIT.txt'))
+await copyFile(join(root, 'assets/Canvas-UI-LICENSE.md'), join(root, 'lib/Canvas-UI-LICENSE.md'))
+await copyFile(join(root, 'assets/modern-screenshot-MIT.txt'), join(root, 'lib/modern-screenshot-MIT.txt'))
 await mkdir(join(root, 'lib/themes'), { recursive: true })
 await copyFile(join(root, 'src/themes/linen-example.dsh-theme.json'), join(root, 'lib/themes/linen.dsh-theme.json'))
 await mkdir(join(root, 'lib/uiverse/assets'), { recursive: true })
