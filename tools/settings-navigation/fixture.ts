@@ -2,7 +2,7 @@ import React,{createElement as h,useState,useSyncExternalStore} from 'react'
 import {createRoot} from 'react-dom/client'
 import {flushSync} from 'react-dom'
 import {SlotCore,resolveSlotLabel} from '@deepseek-ai/dsh-client-ui-slots'
-import {installSettingsNavigation} from '../../src/settings-navigation.js'
+import {installSettingsNavigation,groupForSettingsSection} from '../../src/settings-navigation.js'
 const names:Record<string,string>={account:'账号与余额',general:'通用设置',models:'模型','dream-skin':'Theme / 外观',plugins:'内置插件','model-subscriptions':'模型订阅','dsh-imagegen':'生图配置','agent-presets':'Agent 预设','agent-persona':'Agent 人设','cost-meter':'费用',market:'插件市场','solar-rlm':'RLM 算子','solar-native-collaboration':'智能协同','deepseek-web-login':'DeepSeek 网页登录','solar-chatgpt-web':'网页与洞察','solar-model-radar':'模型雷达','solar-intelligent-experience':'智能体验','solar-quant-research':'量化研究',bili:'bili设置','session-prefix':'会话前缀'}
 let language='zh',revision=0
 const localeListeners=new Set<()=>void>()
@@ -12,7 +12,10 @@ register({name:'root',children:{'settings.section':{kind:'list',scope:'root'},'s
 Object.entries(names).forEach(([id,label],i)=>register({name:'settings.section',id,order:i,label:()=>language==='zh'?label:'Page '+(i+1)},()=>null))
 const cleanups:Array<()=>void>=[]
 const ctx={slots:{entries:core.entries.bind(core),subscribe:core.subscribe.bind(core),register,inject:(_name:string,callback:()=>()=>void)=>callback()},locale,effect:(callback:()=>()=>void)=>{const f=callback();cleanups.push(f);return f}}
-installSettingsNavigation(ctx as never)
+let preferenceState={settings:{settingsNavigation:false}},preferenceSaves=0
+const preferenceListeners=new Set<()=>void>()
+const preference={snapshot:()=>preferenceState,subscribe:(f:()=>void)=>{preferenceListeners.add(f);return()=>preferenceListeners.delete(f)},setEnabled:async(enabled:boolean)=>{preferenceSaves++;preferenceState={settings:{settingsNavigation:enabled}};preferenceListeners.forEach(f=>f())}}
+installSettingsNavigation(ctx as never,preference)
 const Action=core.entries('settings.action')[0]!.component as React.ComponentType
 let selected='account'
 function Fixture(){
@@ -28,21 +31,26 @@ const delay=()=>new Promise(resolve=>setTimeout(resolve,25))
 const ensure=(ok:unknown,message:string)=>{if(!ok)throw new Error(message)}
 const scope=()=>document.querySelector<HTMLElement>('[data-solar-settings-navigation]')!
 const trigger=()=>scope().querySelector<HTMLButtonElement>('button')!
-const open=async()=>{if(trigger().getAttribute('aria-expanded')!=='true')trigger().click();await delay()}
+const open=async()=>{if(trigger().getAttribute('aria-pressed')!=='true')trigger().click();await delay()}
 const choice=(id:string)=>scope().querySelector<HTMLButtonElement>(`button[data-section-id="${id}"]`)!
+const openGroup=async(id:string)=>{await open();const b=scope().querySelector<HTMLButtonElement>(`button[data-navigation-category="${groupForSettingsSection(id)}"]`)!;if(b.getAttribute('aria-expanded')!=='true')b.click();await delay()}
 setTimeout(()=>{void(async()=>{
- const native=[...document.querySelectorAll<HTMLButtonElement>('nav button')]
+ const native=[...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="原设置菜单"] button')]
  const clicked:string[]=[]
  ensure(native.length===20,'Native fixture did not retain 20 settings')
- for(const id of Object.keys(names)){await open();const b=choice(id);ensure(b,'Missing grouped row '+id);b.click();await delay();ensure(selected===id,'Original handler did not select '+id);clicked.push(id)}
+ for(const id of Object.keys(names)){await openGroup(id);const b=choice(id);ensure(b,'Missing grouped row '+id);b.click();await delay();ensure(selected===id,'Original handler did not select '+id);ensure(trigger().textContent==='取消分类导航','Selection exited grouped mode');ensure(scope().querySelectorAll('button[data-navigation-category]').length===4,'Categories disappeared');ensure(!scope().querySelector('[role=region]'),'Choices cover selected page');clicked.push(id)}
+ ensure(preferenceSaves===1,'Page selection unexpectedly saved or disabled mode')
  ensure(native.every(x=>x.isConnected),'Original navigation nodes were replaced')
- const disposeFuture=register({name:'settings.section',id:'future-unknown',order:999,label:'未来功能'},()=>null);await delay();await open();ensure(choice('future-unknown'),'Unknown page was hidden');choice('future-unknown').click();await delay();ensure(selected==='future-unknown','Unknown original page was unreachable')
- language='en';revision++;localeListeners.forEach(f=>f());await delay();await open();ensure(choice('models').textContent==='Page 3','Locale labels did not refresh');choice('models').click();await delay();ensure(selected==='models','Localized route failed')
- language='zh';revision++;localeListeners.forEach(f=>f());await delay();await open();const target=native.find(x=>x.dataset.nativeId==='models')!;target.disabled=true;choice('models').click();await delay();ensure(!!scope().querySelector('[role=status]')?.textContent,'Missing target did not show a visible error');target.disabled=false
+ const disposeFuture=register({name:'settings.section',id:'future-unknown',order:999,label:'未来功能'},()=>null);await delay();await openGroup('future-unknown');ensure(choice('future-unknown'),'Unknown page was hidden');choice('future-unknown').click();await delay();ensure(selected==='future-unknown','Unknown original page was unreachable')
+ language='en';revision++;localeListeners.forEach(f=>f());await delay();await openGroup('models');ensure(choice('models').textContent==='Page 3','Locale labels did not refresh');choice('models').click();await delay();ensure(selected==='models','Localized route failed')
+ language='zh';revision++;localeListeners.forEach(f=>f());await delay();await openGroup('models');const target=native.find(x=>x.dataset.nativeId==='models')!;target.disabled=true;choice('models').click();await delay();ensure(!!scope().querySelector('[role=status]')?.textContent,'Missing target did not show a visible error');target.disabled=false
  const duplicate=target.cloneNode(true) as HTMLButtonElement;target.parentElement!.append(duplicate);choice('models').click();await delay();ensure(scope().querySelector('[role=status]')?.textContent?.includes('多个'),'Ambiguous target was not rejected');duplicate.remove()
- disposeFuture();await delay();choice('models').click();await delay();await open();const popup=scope().querySelector<HTMLElement>('[role=region]')!;const rect=popup.getBoundingClientRect();const dialogRect=document.querySelector<HTMLElement>('[role=dialog]')!.getBoundingClientRect();ensure(rect.left>=dialogRect.left&&rect.right<=dialogRect.right+1&&rect.bottom<=Math.min(innerHeight,dialogRect.bottom)+1,'Grouped panel escapes or is clipped by the original dialog')
- ensure(document.querySelectorAll('nav button').length===20,'Original row count changed')
- const categories=Object.fromEntries([...scope().querySelectorAll<HTMLElement>('section[aria-label]')].map(section=>[section.getAttribute('aria-label'),section.querySelectorAll('button[data-section-id]').length]));
- const result={categories,ready:true,ok:true,width:innerWidth,nativeRows:20,groupedRows:scope().querySelectorAll('button[data-section-id]').length,clicked,unknownPreserved:true,localeUpdated:true,missingRejected:true,ambiguousRejected:true,originalNodesPreserved:native.every(x=>x.isConnected),popup:{left:rect.left,right:rect.right,bottom:rect.bottom,width:rect.width}}
+ disposeFuture();await delay();choice('models').click();await delay();await openGroup('models');const popup=scope().querySelector<HTMLElement>('[role=region]')!;const rect=popup.getBoundingClientRect();const dialogRect=document.querySelector<HTMLElement>('[role=dialog]')!.getBoundingClientRect();ensure(rect.left>=dialogRect.left&&rect.right<=dialogRect.right+1&&rect.bottom<=Math.min(innerHeight,dialogRect.bottom)+1,'Grouped panel escapes or is clipped by the original dialog')
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await delay();ensure(!scope().querySelector('[role=region]'),'Escape did not collapse choices');ensure(preferenceState.settings.settingsNavigation,'Escape disabled persistent mode')
+ const categories:Record<string,number>={};const groupedIds=new Set<string>()
+ for(const button of [...scope().querySelectorAll<HTMLButtonElement>('button[data-navigation-category]')]){button.click();await delay();const rows=[...scope().querySelectorAll<HTMLButtonElement>('button[data-section-id]')];categories[button.textContent!]=rows.length;rows.forEach(b=>groupedIds.add(b.dataset.sectionId!));button.click();await delay()}
+ trigger().click();await delay();ensure(!preferenceState.settings.settingsNavigation&&!scope().querySelector('nav[aria-label="分类导航"]'),'Explicit cancellation failed');trigger().click();await delay();ensure(preferenceState.settings.settingsNavigation,'Re-enabling failed')
+ ensure(document.querySelectorAll('nav[aria-label="原设置菜单"] button').length===20,'Original row count changed')
+ const result={categories,ready:true,ok:true,width:innerWidth,nativeRows:20,groupedRows:groupedIds.size,clicked,unknownPreserved:true,localeUpdated:true,missingRejected:true,ambiguousRejected:true,originalNodesPreserved:native.every(x=>x.isConnected),persistentMode:true,escapePreservesMode:true,explicitCancel:true,selectedPageUncovered:!scope().querySelector('[role=region]'),popup:{left:rect.left,right:rect.right,bottom:rect.bottom,width:rect.width}}
  document.getElementById('metrics')!.textContent=JSON.stringify(result)
 })().catch(error=>{document.getElementById('metrics')!.textContent=JSON.stringify({ready:true,ok:false,error:String(error),width:innerWidth})})},100)

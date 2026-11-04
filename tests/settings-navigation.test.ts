@@ -36,6 +36,16 @@ function storedEntry(id: string, label: string | (() => string), order: number):
   return { component: null, options: { id, label, order } }
 }
 
+function createPreference() {
+  let state = { settings: { settingsNavigation: false } }
+  const listeners = new Set<() => void>()
+  const setEnabled = vi.fn(async (enabled: boolean) => {
+    state = { settings: { settingsNavigation: enabled } }
+    listeners.forEach(listener => listener())
+  })
+  return { snapshot: () => state, subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }, setEnabled }
+}
+
 function createFixture() {
   const core = new SlotCore()
   const rawRegister = core.register.bind(core) as unknown as Register
@@ -48,6 +58,7 @@ function createFixture() {
     'settings.section': { kind: 'list', scope: 'root' },
     'settings.action': { kind: 'list', scope: 'root' },
   } }, () => null)
+  const preference = createPreference()
   const locale = new Locale()
   const effects: Array<() => void> = []
   const ctx = {
@@ -69,6 +80,7 @@ function createFixture() {
     core,
     ctx,
     locale,
+    preference,
     registrations,
     section,
     dispose: () => { effects.splice(0).reverse().forEach(dispose => dispose()) },
@@ -85,7 +97,7 @@ function addNativeNavButton(nav: HTMLElement, label: string, listener = vi.fn())
 }
 
 async function renderAction(fixture: ReturnType<typeof createFixture>, labels: Array<{ label: string, listener?: ReturnType<typeof vi.fn> }> = []) {
-  installSettingsNavigation(fixture.ctx)
+  installSettingsNavigation(fixture.ctx, fixture.preference)
   const Action = fixture.core.entriesOfSlot('settings.action').find(entry => entry.options.id === SETTINGS_NAVIGATION_ACTION_ID)?.component as ComponentType
   if (!Action) throw new Error('expected grouped settings action')
   const launcher = document.createElement('button')
@@ -118,12 +130,18 @@ async function renderAction(fixture: ReturnType<typeof createFixture>, labels: A
   }
 }
 
+async function openCategory(host: HTMLElement, id = 'models-and-accounts') {
+  const button = host.querySelector<HTMLButtonElement>(`button[data-navigation-category="${id}"]`)
+  if (!button) throw new Error('expected persistent category '+id)
+  await click(button)
+}
+
 async function click(element: HTMLElement) {
   await act(async () => { element.click() })
 }
 
 function actionTrigger(host: HTMLElement): HTMLButtonElement {
-  const button = [...host.querySelectorAll<HTMLButtonElement>('button')].find(candidate => candidate.textContent === '分类导航')
+  const button = [...host.querySelectorAll<HTMLButtonElement>('button')].find(candidate => ['分类导航', '取消分类导航'].includes(candidate.textContent ?? ''))
   if (!button) throw new Error('expected grouped navigation trigger')
   return button
 }
@@ -172,17 +190,19 @@ describe('grouped settings navigation action', () => {
       const beforeNav = mounted.nav.outerHTML
       const beforeLauncher = mounted.launcher.outerHTML
       await click(actionTrigger(mounted.actionHost))
+      await openCategory(mounted.actionHost)
       expect(mounted.actionHost.textContent).toContain('模型')
       modelsLabel = 'Models'
       await act(async () => { fixture.locale.emit() })
       expect(mounted.actionHost.textContent).toContain('Models')
       fixture.section('future-section', () => '未来功能', 20)
       await act(async () => { await Promise.resolve() })
+      await openCategory(mounted.actionHost, 'other')
       expect(mounted.actionHost.textContent).toContain('未来功能')
       expect(mounted.nav.outerHTML).toBe(beforeNav)
       expect(mounted.launcher.outerHTML).toBe(beforeLauncher)
       expect(mounted.native).toHaveLength(1)
-      expect(mounted.dialog.querySelectorAll('nav button')).toHaveLength(1)
+      expect(mounted.nav.querySelectorAll('button')).toHaveLength(1)
       expect(fixture.registrations.filter(name => name === 'sidebar.settings')).toHaveLength(0)
     } finally {
       await mounted.cleanup()
@@ -196,12 +216,23 @@ describe('grouped settings navigation action', () => {
     const mounted = await renderAction(fixture, [{ label: '  模型\n', listener: nativeClick }])
     try {
       await click(actionTrigger(mounted.actionHost))
+      await openCategory(mounted.actionHost)
       const groupedButton = mounted.actionHost.querySelector<HTMLButtonElement>('button[data-section-id="models"]')
       if (!groupedButton) throw new Error('expected model group button')
       await click(groupedButton)
       expect(nativeClick).toHaveBeenCalledOnce()
       expect(document.activeElement).toBe(mounted.native[0])
       expect(mounted.actionHost.querySelector('[role="region"]')).toBeNull()
+      expect(actionTrigger(mounted.actionHost).textContent).toBe('取消分类导航')
+      expect(mounted.actionHost.querySelector('nav[aria-label="分类导航"]')).not.toBeNull()
+      expect(fixture.preference.setEnabled).toHaveBeenCalledExactlyOnceWith(true)
+      await openCategory(mounted.actionHost)
+      await click(mounted.actionHost.querySelector<HTMLButtonElement>('button[data-section-id="models"]')!)
+      expect(nativeClick).toHaveBeenCalledTimes(2)
+      expect(fixture.preference.setEnabled).toHaveBeenCalledTimes(1)
+      await click(actionTrigger(mounted.actionHost))
+      expect(fixture.preference.setEnabled).toHaveBeenLastCalledWith(false)
+      expect(mounted.actionHost.querySelector('nav[aria-label="分类导航"]')).toBeNull()
     } finally {
       await mounted.cleanup()
     }
@@ -213,6 +244,7 @@ describe('grouped settings navigation action', () => {
     const mounted = await renderAction(fixture)
     try {
       await click(actionTrigger(mounted.actionHost))
+      await openCategory(mounted.actionHost)
       const groupedButton = mounted.actionHost.querySelector<HTMLButtonElement>('button[data-section-id="models"]')
       if (!groupedButton) throw new Error('expected model group button')
       await click(groupedButton)
@@ -231,19 +263,40 @@ describe('grouped settings navigation action', () => {
     }
   })
 
-  it('closes only its own region on Escape and cleans up owned registration and subscriptions', async () => {
+  it('reports save failures without pretending that mode changed', async () => {
+    const fixture = createFixture()
+    fixture.section('models', () => '模型')
+    fixture.preference.setEnabled.mockRejectedValueOnce(new Error('disk unavailable'))
+    const mounted = await renderAction(fixture, [{ label: '模型' }])
+    try {
+      await click(actionTrigger(mounted.actionHost))
+      expect(actionTrigger(mounted.actionHost).textContent).toBe('分类导航')
+      expect(mounted.actionHost.querySelector('[role="status"]')?.textContent).toContain('disk unavailable')
+      expect(mounted.native[0]?.isConnected).toBe(true)
+    } finally { await mounted.cleanup() }
+  })
+
+  it('Escape only collapses choices; saved mode survives remount and cancels explicitly', async () => {
     const fixture = createFixture()
     fixture.section('models', () => '模型', 10)
     const mounted = await renderAction(fixture, [{ label: '模型' }])
     try {
       const trigger = actionTrigger(mounted.actionHost)
       await click(trigger)
+      await openCategory(mounted.actionHost)
       const region = mounted.actionHost.querySelector<HTMLElement>('[role="region"]')
       expect(region).not.toBeNull()
       expect(document.activeElement).toBe(region)
       await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
       expect(mounted.actionHost.querySelector('[role="region"]')).toBeNull()
-      expect(document.activeElement).toBe(trigger)
+      expect(document.activeElement).toBe(mounted.actionHost.querySelector('button[data-navigation-category="models-and-accounts"]'))
+      expect(trigger.textContent).toBe('取消分类导航')
+      await act(async () => { mounted.root.render(null) })
+      const Action = fixture.core.entries('settings.action')[0]!.component as ComponentType
+      await act(async () => { mounted.root.render(createElement(Action)) })
+      expect(actionTrigger(mounted.actionHost).textContent).toBe('取消分类导航')
+      await click(actionTrigger(mounted.actionHost))
+      expect(fixture.preference.snapshot().settings.settingsNavigation).toBe(false)
       expect(mounted.dialog.isConnected).toBe(true)
       expect(fixture.locale.count).toBe(1)
     } finally {

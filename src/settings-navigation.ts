@@ -202,88 +202,109 @@ export function activateNativeSettingsSection(input: { root: HTMLElement | null,
   }
 }
 
+export interface SettingsNavigationPreference {
+  snapshot(): { settings?: { settingsNavigation?: boolean }, error?: string }
+  subscribe(listener: () => void): () => void
+  setEnabled(enabled: boolean): Promise<void>
+}
+
 const styles: Record<string, CSSProperties> = {
-  root: { position: 'relative', display: 'inline-flex', minWidth: 0 },
+  root: { position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, minWidth: 0, maxWidth: 'min(30rem, calc(100vw - 120px))' },
   trigger: { minHeight: 32, padding: '4px 9px', borderRadius: 'var(--dsw-radius-sm, 6px)', border: '1px solid var(--dsw-alias-border-l2, currentColor)', background: 'var(--dsw-alias-bg-layer-3, ButtonFace)', color: 'var(--dsw-alias-label-primary, ButtonText)', font: 'inherit', cursor: 'pointer' },
-  panel: { position: 'absolute', zIndex: 2, top: 'calc(100% + 8px)', right: 0, boxSizing: 'border-box', width: 'min(44rem, calc(100vw - 64px))', maxWidth: 'calc(100vw - 64px)', maxHeight: 'min(75vh, 38rem)', overflowY: 'auto', display: 'grid', gap: 12, padding: 12, border: '1px solid var(--dsw-alias-border-l2, currentColor)', borderRadius: 'var(--dsw-radius-md, 8px)', background: 'var(--dsw-alias-bg-layer-2, Canvas)', color: 'var(--dsw-alias-label-primary, CanvasText)', font: 'inherit' },
+  categories: { display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6 },
+  panel: { position: 'absolute', zIndex: 2, top: 'calc(100% + 8px)', right: 0, boxSizing: 'border-box', width: 'min(24rem, calc(100vw - 64px))', maxWidth: 'calc(100vw - 64px)', maxHeight: 'min(60vh, 30rem)', overflowY: 'auto', display: 'grid', gap: 8, padding: 12, border: '1px solid var(--dsw-alias-border-l2, currentColor)', borderRadius: 'var(--dsw-radius-md, 8px)', background: 'var(--dsw-alias-bg-layer-2, Canvas)', color: 'var(--dsw-alias-label-primary, CanvasText)', font: 'inherit' },
   panelHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   title: { margin: 0, fontSize: 14, lineHeight: 1.4, fontWeight: 600 },
-  close: { minHeight: 32, padding: '4px 8px', borderRadius: 'var(--dsw-radius-sm, 6px)', border: '1px solid var(--dsw-alias-border-l2, currentColor)', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer' },
-  groups: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 },
-  group: { minWidth: 0, display: 'grid', alignContent: 'start', gap: 4 },
-  groupLabel: { margin: 0, fontSize: 13, lineHeight: 1.4, fontWeight: 600 },
   sectionButton: { minWidth: 0, minHeight: 36, padding: '6px 8px', borderRadius: 'var(--dsw-radius-sm, 6px)', border: '1px solid var(--dsw-alias-border-l2, currentColor)', background: 'var(--dsw-alias-bg-layer-3, ButtonFace)', color: 'inherit', font: 'inherit', textAlign: 'left', overflowWrap: 'anywhere', cursor: 'pointer' },
   status: { margin: 0, fontSize: 13, lineHeight: 1.45, color: 'var(--dsw-alias-label-secondary, CanvasText)' },
 }
 
-function SettingsNavigationAction({ source }: { source: SettingsSectionSource }): ReactElement {
+function SettingsNavigationAction({ source, preference }: { source: SettingsSectionSource, preference: SettingsNavigationPreference }): ReactElement {
   const sections = useSyncExternalStore(source.subscribe, source.getSnapshot, source.getSnapshot)
+  const saved = useSyncExternalStore(preference.subscribe, preference.snapshot, preference.snapshot)
+  const enabled = saved.settings?.settingsNavigation ?? false
   const groups = groupSettingsSections(sections)
   const root = useRef<HTMLDivElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
+  const categoryButtons = useRef(new Map<string, HTMLButtonElement>())
   const panel = useRef<HTMLElement>(null)
   const panelId = useId()
   const titleId = `${panelId}-title`
-  const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState<SettingsNavigationGroupId>()
+  const [selected, setSelected] = useState<string>()
   const [status, setStatus] = useState('')
-  const close = useCallback((restoreFocus: boolean) => {
-    setOpen(false)
-    if (restoreFocus && trigger.current?.isConnected) {
-      try { trigger.current.focus({ preventScroll: true }) } catch { trigger.current.focus() }
+  const [busy, setBusy] = useState(false)
+  const group = enabled ? groups.find(candidate => candidate.id === expanded) : undefined
+  const closeChoices = useCallback((restoreFocus: boolean) => {
+    setExpanded(undefined)
+    const button = expanded && categoryButtons.current.get(expanded)
+    if (restoreFocus && button?.isConnected) {
+      try { button.focus({ preventScroll: true }) } catch { button.focus() }
     }
-  }, [])
+  }, [expanded])
   useEffect(() => {
-    if (!open) return
+    if (!group) return
     const document = root.current?.ownerDocument
     if (!document) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopPropagation()
-      close(true)
+      closeChoices(true)
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
-  }, [close, open])
+  }, [closeChoices, group])
   useEffect(() => {
-    if (!open || !panel.current) return
+    if (!group || !panel.current) return
     try { panel.current.focus({ preventScroll: true }) } catch { panel.current.focus() }
-  }, [open])
+  }, [group?.id])
+  const toggle = async () => {
+    setBusy(true)
+    setStatus('')
+    try {
+      await preference.setEnabled(!enabled)
+      setExpanded(undefined)
+    } catch (error) {
+      setStatus(`无法保存分类导航模式：${error instanceof Error ? error.message : String(error)}`)
+    } finally { setBusy(false) }
+  }
   const select = (section: SettingsSectionRow) => {
     const result = activateNativeSettingsSection({ root: root.current, label: section.targetLabel })
     if (result.ok) {
       setStatus('')
-      close(false)
+      setSelected(section.id)
+      // Only dismiss this category's choices. The saved navigation mode stays enabled.
+      setExpanded(undefined)
     } else {
       setStatus(result.message ?? '无法打开原生设置项。')
     }
   }
-  return h('div', { ref: root, className: 'dsh-experience', 'data-solar-settings-navigation': '', style: styles.root },
-    h('button', { ref: trigger, type: 'button', style: styles.trigger, 'aria-expanded': open, 'aria-controls': panelId, onClick: () => { setStatus(''); setOpen(value => !value) } }, '分类导航'),
-    open && h('section', { ref: panel, id: panelId, role: 'region', tabIndex: -1, 'aria-labelledby': titleId, style: styles.panel },
-      h('div', { style: styles.panelHeader }, h('h2', { id: titleId, style: styles.title }, '分类导航'), h('button', { type: 'button', style: styles.close, onClick: () => close(true) }, '关闭')),
-      groups.length > 0 ? h('div', { style: styles.groups }, ...groups.map(group => h('section', { key: group.id, 'aria-label': group.label, style: styles.group },
-        h('h3', { style: styles.groupLabel }, group.label),
-        ...group.sections.map(section => h('button', {
-          key: `${section.id}:${section.index}`,
-          type: 'button',
-          style: styles.sectionButton,
-          ...(section.id ? { 'data-section-id': section.id } : {}),
-          onClick: () => select(section),
-        }, section.label)),
-      ))) : h('p', { role: 'status', style: styles.status }, '当前没有可分类的设置项。'),
-      status && h('p', { role: 'status', 'aria-live': 'polite', style: styles.status }, status),
+  return h('div', { ref: root, className: 'dsh-experience', 'data-solar-settings-navigation': '', 'data-navigation-mode': enabled ? 'grouped' : 'original', style: styles.root },
+    h('button', { type: 'button', style: styles.trigger, disabled: busy || !saved.settings, 'aria-pressed': enabled, onClick: () => { void toggle() } }, busy ? '正在保存…' : enabled ? '取消分类导航' : '分类导航'),
+    enabled && h('nav', { 'aria-label': '分类导航', style: styles.categories }, ...groups.map(category => h('button', {
+      key: category.id, ref: (button: HTMLButtonElement | null) => { if (button) categoryButtons.current.set(category.id, button); else categoryButtons.current.delete(category.id) },
+      type: 'button', 'data-navigation-category': category.id, 'aria-expanded': expanded === category.id, 'aria-controls': panelId,
+      style: styles.trigger, onClick: () => { setStatus(''); setExpanded(value => value === category.id ? undefined : category.id) },
+    }, category.label))),
+    group && h('section', { ref: panel, id: panelId, role: 'region', tabIndex: -1, 'aria-labelledby': titleId, style: styles.panel },
+      h('div', { style: styles.panelHeader }, h('h2', { id: titleId, style: styles.title }, group.label), h('button', { type: 'button', style: styles.trigger, onClick: () => closeChoices(true) }, '收起选项')),
+      ...group.sections.map(section => h('button', {
+        key: `${section.id}:${section.index}`, type: 'button', style: styles.sectionButton,
+        ...(section.id ? { 'data-section-id': section.id } : {}), 'aria-current': selected === section.id ? 'page' : undefined,
+        onClick: () => select(section),
+      }, section.label)),
     ),
+    (status || saved.error) && h('p', { role: 'status', 'aria-live': 'polite', style: styles.status }, status || saved.error),
   )
 }
 
 /** Adds one compact action to the host-owned Settings panel; all host navigation remains untouched. */
-export function installSettingsNavigation(ctx: Context): void {
+export function installSettingsNavigation(ctx: Context, preference: SettingsNavigationPreference): void {
   const slots = (ctx as unknown as { slots?: SettingsSlots }).slots
   const locale = (ctx as unknown as { locale?: LocaleObserver }).locale
   if (!slots?.entries || !slots.subscribe || !slots.inject || !slots.register) throw new Error('分类导航需要公开 slots 服务。')
   if (!locale?.subscribe) throw new Error('分类导航需要公开 locale 服务。')
   const source = createSettingsSectionSource(slots, locale)
-  const Action = () => h(SettingsNavigationAction, { source })
+  const Action = () => h(SettingsNavigationAction, { source, preference })
   ctx.effect(() => slots.inject('settings.action', () => slots.register({ name: 'settings.action', id: SETTINGS_NAVIGATION_ACTION_ID, order: 100 }, Action)), 'intelligent-experience: grouped settings navigation')
 }

@@ -292,7 +292,6 @@ export function Workspace({ store, sessionId, onContinue, onOrganize }: { store:
   }))
 }
 export function apply(ctx: Context): void {
-  installSettingsNavigation(ctx)
   const canvasScope = createCanvasClientScope()
   const ScopedDocumentView: typeof DocumentView = props => {
     const active = useSyncExternalStore(canvasScope.subscribe, canvasScope.getSnapshot, canvasScope.getSnapshot)
@@ -322,6 +321,15 @@ export function apply(ctx: Context): void {
   ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
   const store = new ExperienceStore()
+  installSettingsNavigation(ctx, {
+    snapshot: store.snapshot,
+    subscribe: store.subscribe,
+    async setEnabled(settingsNavigation) {
+      const settings = store.snapshot().settings
+      if (!settings) throw new Error('智能体验设置尚未就绪。')
+      await store.save({ expectedRevision: settings.revision, takeover: settings.takeover, openui: settings.openui, mcpApps: settings.mcpApps, settingsNavigation })
+    },
+  })
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
   ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined

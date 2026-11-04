@@ -110,7 +110,7 @@ export class ExperienceStore {
       const target = parsed.themeId === undefined ? undefined : [...builtInThemes, ...theme!.installed].find(item => item.id === parsed.themeId)
       if (parsed.themeId !== undefined && !target) throw new ThemeNotFoundError(parsed.themeId)
       const appearance = parsed.appearance ?? (target && target.id !== previousId ? { ...target.appearance } : current.appearance)
-      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, appearance, theme, ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
+      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, ...(parsed.settingsNavigation === undefined ? {} : { settingsNavigation: parsed.settingsNavigation }), appearance, theme, ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
     })
   }
 
