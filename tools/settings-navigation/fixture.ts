@@ -326,6 +326,12 @@ const run = async () => {
   ensure(denseNativeRows, 'Native menu rows exceed the 32px density target.')
   ensure(categorySidebarGap > 0, 'Category bottom border intersects the first native sidebar row.')
 
+  const modelVisualOrder = visibleNativeButtons().sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top || a.getBoundingClientRect().left - b.getBoundingClientRect().left).map(button => button.dataset.nativeId!)
+  const modelClusterOrder = ['models', 'model-subscriptions', 'cost-meter', 'deepseek-web-login']
+  const clusterStart = modelVisualOrder.indexOf('models')
+  ensure(JSON.stringify(modelVisualOrder.slice(clusterStart, clusterStart + 4)) === JSON.stringify(modelClusterOrder), 'Model, subscription, cost and web-login entries must be consecutive in the requested order.')
+  ensure(getComputedStyle(firstSidebarRow.parentElement!).getPropertyValue('reading-flow') === 'flex-visual', 'Visual sorting must preserve the same accessibility and keyboard reading flow.')
+
   const expectedCounts: Record<string, number> = { '模型与账号': 9, '界面与显示': 4, 'Solar 与工作流': 5, 插件管理: 2 }
   const categoryCounts: Record<string, number> = {}
   for (const [group, ids] of Object.entries(groupIds)) {
@@ -448,6 +454,7 @@ const run = async () => {
     originalNodesPreserved,
     originalNodesVisibleAfterCancel: native.every(button => getComputedStyle(button).display !== 'none') && originalIconsVisibleAfterCancel,
     normalizedNativeIcons,
+    modelClusterOrder,
     nativeIconCount,
     originalDecorativeCount,
     originalDecorativeChildrenHidden,

@@ -62,6 +62,8 @@ def validate_metrics(metrics, width):
     native_row_max_height = metrics.get('nativeRowMaxHeight')
     if not isinstance(native_row_max_height, (int, float)) or isinstance(native_row_max_height, bool) or native_row_max_height > 33:
         return 'native menu rows exceed the 32px density target: ' + repr(native_row_max_height)
+    if metrics.get('modelClusterOrder') != ['models', 'model-subscriptions', 'cost-meter', 'deepseek-web-login']:
+        return 'model cluster order mismatch: ' + repr(metrics.get('modelClusterOrder'))
     required = [
         'unknownOther',
         'fiveCategoryNonOverlap',

@@ -19,6 +19,18 @@ export function buildSettingsNavigationCss(scope: string, hiddenButtonIndices: r
   const variables = { ...appearance.variables, ...themeStyleTokens(theme, appearance) }
   const declarations = Object.entries(variables).map(([key, value]) => `${key}:${value};`).join('')
   const hide = hiddenButtonIndices.map(index => `${scope}>nav>div:last-child>button:nth-child(${index}){display:none;}`).join('\n')
+  // Move only the requested block; all other entries keep their relative order.
+  const cluster = ['models', 'model-subscriptions', 'cost-meter', 'deepseek-web-login']
+  const first = rows.findIndex(row => cluster.includes(row.id))
+  const ordered = [...rows]
+  if (first >= 0) {
+    const block = cluster.flatMap(id => rows.filter(row => row.id === id))
+    const remaining = rows.filter(row => !cluster.includes(row.id))
+    const insertion = rows.slice(0, first).filter(row => !cluster.includes(row.id)).length
+    remaining.splice(insertion, 0, ...block)
+    ordered.splice(0, ordered.length, ...remaining)
+  }
+  const ordering = ordered.map((row, index) => `${scope}>nav>div:last-child>button:nth-child(${row.position}){order:${index};}`).join('\n')
   const icons = rows.map(row => `${scope}>nav>div:last-child>button:nth-child(${row.position})::before{mask-image:url("${settingsSectionIconMask(row.id)}");}`).join('\n')
   return `
 ${scope} {
@@ -71,6 +83,10 @@ ${scope} .solar-settings-category[aria-pressed=true]::after { content:'';positio
 ${scope} .solar-settings-category:hover { color:var(--iexp-text);background:var(--iexp-solid-card); }
 ${scope} .solar-settings-category:focus-visible { outline:2px solid var(--iexp-accent);outline-offset:2px; }
 ${icons}
+@supports(reading-flow:flex-visual) {
+ ${scope}>nav>div:last-child { reading-flow:flex-visual; }
+ ${ordering}
+}
 ${hide}
 @media(max-width:600px) {
  ${scope} { grid-template-columns:minmax(0,1fr);grid-template-rows:56px auto auto minmax(0,1fr); }
