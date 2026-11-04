@@ -103,48 +103,32 @@ async function renderAction(fixture: ReturnType<typeof createFixture>, labels: A
   const launcher = document.createElement('button')
   launcher.setAttribute('data-account-launcher', 'unchanged')
   launcher.setAttribute('aria-label', '账户启动器')
-  launcher.textContent = '账户启动器'
   const dialog = document.createElement('div')
   dialog.setAttribute('role', 'dialog')
-  dialog.setAttribute('aria-modal', 'true')
-  const nav = document.createElement('nav')
-  const native = labels.map(({ label, listener }) => addNativeNavButton(nav, label, listener))
-  const actionHost = document.createElement('div')
-  dialog.append(nav, actionHost)
+  dialog.setAttribute('data-shortcut-modal', 'settings')
+  const nav = document.createElement('nav'), title = document.createElement('div'), list = document.createElement('div')
+  title.textContent = '设置'
+  const native = labels.map(({ label, listener }, index) => {
+    const button = addNativeNavButton(list, label, listener)
+    if (index === 0) button.setAttribute('aria-current', 'true')
+    button.addEventListener('click', () => { native.forEach(row => row.removeAttribute('aria-current')); button.setAttribute('aria-current', 'true') })
+    return button
+  })
+  nav.append(title, list)
+  const content = document.createElement('div'), header = document.createElement('div'), actions = document.createElement('div'), options = document.createElement('div'), close = document.createElement('button')
+  close.textContent = '关闭'
+  const field = document.createElement('input');field.setAttribute('aria-label', '原设置字段');options.append(field)
+  const actionHost = document.createElement('div');actions.append(actionHost);header.append(actions, close);content.append(header, options);dialog.append(nav, content)
   document.body.append(launcher, dialog)
   const root = createRoot(actionHost)
   await act(async () => { root.render(createElement(Action)) })
-  return {
-    dialog,
-    launcher,
-    nav,
-    native,
-    root,
-    actionHost,
-    async cleanup() {
-      await act(async () => { root.unmount() })
-      fixture.dispose()
-      dialog.remove()
-      launcher.remove()
-    },
+  return { dialog, launcher, nav, list, native, root, actionHost, field, Action,
+    async cleanup() { await act(async () => { root.unmount() }); fixture.dispose(); dialog.remove(); launcher.remove() },
   }
 }
-
-async function openCategory(host: HTMLElement, id = 'models-and-accounts') {
-  const button = host.querySelector<HTMLButtonElement>(`button[data-navigation-category="${id}"]`)
-  if (!button) throw new Error('expected persistent category '+id)
-  await click(button)
-}
-
-async function click(element: HTMLElement) {
-  await act(async () => { element.click() })
-}
-
-function actionTrigger(host: HTMLElement): HTMLButtonElement {
-  const button = [...host.querySelectorAll<HTMLButtonElement>('button')].find(candidate => ['分类导航', '取消分类导航'].includes(candidate.textContent ?? ''))
-  if (!button) throw new Error('expected grouped navigation trigger')
-  return button
-}
+async function click(element: HTMLElement) { await act(async () => { element.click(); await Promise.resolve() }) }
+function actionTrigger(host: HTMLElement): HTMLButtonElement { const b=host.querySelector<HTMLButtonElement>('button');if(!b)throw new Error('expected navigation trigger');return b }
+function category(dialog: HTMLElement,id: string) { const b=dialog.querySelector<HTMLButtonElement>(`[data-navigation-category="${id}"]`);if(!b)throw new Error('Missing category '+id);return b }
 
 afterEach(() => {
   document.body.replaceChildren()
@@ -158,6 +142,8 @@ describe('grouped settings navigation metadata', () => {
     expect(groupForSettingsSection('cost-meter')).toBe('models-and-accounts')
     expect(groupForSettingsSection('market')).toBe('plugins')
     expect(groupForSettingsSection('future-section')).toBe('other')
+    expect(groupForSettingsSection('constructor')).toBe('other')
+    expect(groupForSettingsSection('toString')).toBe('other')
   })
 
   it('retains every known and future section exactly once in sorted groups', () => {
@@ -180,133 +166,128 @@ describe('grouped settings navigation metadata', () => {
   })
 })
 
-describe('grouped settings navigation action', () => {
-  it('refreshes both slot rows and localized labels without replacing native navigation', async () => {
+describe('tabbed settings navigation action', () => {
+  it('uses original handlers, keeps all nodes and mode, and restores the original shell on cancellation', async () => {
     const fixture = createFixture()
-    let modelsLabel = '模型'
-    fixture.section('models', () => modelsLabel, 10)
-    const mounted = await renderAction(fixture, [{ label: '模型' }])
+    fixture.section('models', '模型');fixture.section('dream-skin', 'Theme / 外观')
+    const called = vi.fn()
+    const mounted = await renderAction(fixture, [{ label: '模型' }, { label: 'Theme / 外观', listener: called }])
     try {
-      const beforeNav = mounted.nav.outerHTML
-      const beforeLauncher = mounted.launcher.outerHTML
+      const original = mounted.nav.outerHTML, launcher = mounted.launcher.outerHTML
       await click(actionTrigger(mounted.actionHost))
-      await openCategory(mounted.actionHost)
-      expect(mounted.actionHost.textContent).toContain('模型')
-      modelsLabel = 'Models'
-      await act(async () => { fixture.locale.emit() })
-      expect(mounted.actionHost.textContent).toContain('Models')
-      fixture.section('future-section', () => '未来功能', 20)
-      await act(async () => { await Promise.resolve() })
-      await openCategory(mounted.actionHost, 'other')
-      expect(mounted.actionHost.textContent).toContain('未来功能')
-      expect(mounted.nav.outerHTML).toBe(beforeNav)
-      expect(mounted.launcher.outerHTML).toBe(beforeLauncher)
-      expect(mounted.native).toHaveLength(1)
-      expect(mounted.nav.querySelectorAll('button')).toHaveLength(1)
-      expect(fixture.registrations.filter(name => name === 'sidebar.settings')).toHaveLength(0)
-    } finally {
-      await mounted.cleanup()
-    }
-  })
-
-  it('uses the one native button with an exact normalized label and its existing click handler', async () => {
-    const fixture = createFixture()
-    fixture.section('models', () => '模型', 10)
-    const nativeClick = vi.fn()
-    const mounted = await renderAction(fixture, [{ label: '  模型\n', listener: nativeClick }])
-    try {
-      await click(actionTrigger(mounted.actionHost))
-      await openCategory(mounted.actionHost)
-      const groupedButton = mounted.actionHost.querySelector<HTMLButtonElement>('button[data-section-id="models"]')
-      if (!groupedButton) throw new Error('expected model group button')
-      await click(groupedButton)
-      expect(nativeClick).toHaveBeenCalledOnce()
-      expect(document.activeElement).toBe(mounted.native[0])
-      expect(mounted.actionHost.querySelector('[role="region"]')).toBeNull()
+      expect(category(mounted.dialog,'models-and-accounts').getAttribute('aria-pressed')).toBe('true')
+      await click(category(mounted.dialog,'appearance-and-display'))
+      expect(called).toHaveBeenCalledOnce()
+      expect(category(mounted.dialog,'appearance-and-display').getAttribute('aria-pressed')).toBe('true')
+      expect(mounted.native.every(button=>button.isConnected)).toBe(true)
+      expect(mounted.nav.querySelectorAll('button')).toHaveLength(2)
+      expect(mounted.dialog.querySelectorAll('select')).toHaveLength(0)
       expect(actionTrigger(mounted.actionHost).textContent).toBe('取消分类导航')
-      expect(mounted.actionHost.querySelector('nav[aria-label="分类导航"]')).not.toBeNull()
       expect(fixture.preference.setEnabled).toHaveBeenCalledExactlyOnceWith(true)
-      await openCategory(mounted.actionHost)
-      await click(mounted.actionHost.querySelector<HTMLButtonElement>('button[data-section-id="models"]')!)
-      expect(nativeClick).toHaveBeenCalledTimes(2)
-      expect(fixture.preference.setEnabled).toHaveBeenCalledTimes(1)
+      expect(mounted.launcher.outerHTML).toBe(launcher)
       await click(actionTrigger(mounted.actionHost))
-      expect(fixture.preference.setEnabled).toHaveBeenLastCalledWith(false)
-      expect(mounted.actionHost.querySelector('nav[aria-label="分类导航"]')).toBeNull()
-    } finally {
-      await mounted.cleanup()
-    }
-  })
-
-  it('keeps the original Settings menu usable and reports missing or ambiguous native targets', async () => {
-    const fixture = createFixture()
-    fixture.section('models', () => '模型', 10)
-    const mounted = await renderAction(fixture)
-    try {
-      await click(actionTrigger(mounted.actionHost))
-      await openCategory(mounted.actionHost)
-      const groupedButton = mounted.actionHost.querySelector<HTMLButtonElement>('button[data-section-id="models"]')
-      if (!groupedButton) throw new Error('expected model group button')
-      await click(groupedButton)
-      expect(mounted.actionHost.querySelector('[role="status"]')?.textContent).toContain('未找到原生设置项')
-      const first = addNativeNavButton(mounted.nav, '模型')
-      const second = addNativeNavButton(mounted.nav, '模型')
-      await click(groupedButton)
-      expect(mounted.actionHost.querySelector('[role="status"]')?.textContent).toContain('多个匹配项')
-      expect(first.isConnected).toBe(true)
-      expect(second.isConnected).toBe(true)
-      mounted.dialog.remove()
-      await click(groupedButton)
-      expect(mounted.actionHost.querySelector('[role="status"]')?.textContent).toContain('不在当前设置窗口')
-    } finally {
-      await mounted.cleanup()
-    }
-  })
-
-  it('reports save failures without pretending that mode changed', async () => {
-    const fixture = createFixture()
-    fixture.section('models', () => '模型')
-    fixture.preference.setEnabled.mockRejectedValueOnce(new Error('disk unavailable'))
-    const mounted = await renderAction(fixture, [{ label: '模型' }])
-    try {
-      await click(actionTrigger(mounted.actionHost))
-      expect(actionTrigger(mounted.actionHost).textContent).toBe('分类导航')
-      expect(mounted.actionHost.querySelector('[role="status"]')?.textContent).toContain('disk unavailable')
-      expect(mounted.native[0]?.isConnected).toBe(true)
+      expect(mounted.dialog.querySelector('[data-solar-settings-categories]')).toBeNull()
+      expect(document.querySelector('style[data-solar-settings-layout]')).toBeNull()
+      expect(mounted.nav.outerHTML.replace(/ aria-current="true"/g,'')).toBe(original.replace(/ aria-current="true"/g,''))
     } finally { await mounted.cleanup() }
   })
 
-  it('Escape only collapses choices; saved mode survives remount and cancels explicitly', async () => {
-    const fixture = createFixture()
-    fixture.section('models', () => '模型', 10)
-    const mounted = await renderAction(fixture, [{ label: '模型' }])
+  it('refreshes locale, follows original navigation and preserves the focused original form across settings polling', async () => {
+    const fixture=createFixture();let label='模型';fixture.section('models',()=>label);fixture.section('dream-skin','Theme / 外观')
+    const mounted=await renderAction(fixture,[{label:'模型'},{label:'Theme / 外观'}])
     try {
-      const trigger = actionTrigger(mounted.actionHost)
-      await click(trigger)
-      await openCategory(mounted.actionHost)
-      const region = mounted.actionHost.querySelector<HTMLElement>('[role="region"]')
-      expect(region).not.toBeNull()
-      expect(document.activeElement).toBe(region)
-      await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-      expect(mounted.actionHost.querySelector('[role="region"]')).toBeNull()
-      expect(document.activeElement).toBe(mounted.actionHost.querySelector('button[data-navigation-category="models-and-accounts"]'))
-      expect(trigger.textContent).toBe('取消分类导航')
-      await act(async () => { mounted.root.render(null) })
-      const Action = fixture.core.entries('settings.action')[0]!.component as ComponentType
-      await act(async () => { mounted.root.render(createElement(Action)) })
-      expect(actionTrigger(mounted.actionHost).textContent).toBe('取消分类导航')
+      await click(actionTrigger(mounted.actionHost));await click(mounted.native[1]!)
+      expect(category(mounted.dialog,'appearance-and-display').getAttribute('aria-pressed')).toBe('true')
+      mounted.field.focus()
+      await act(async()=>{fixture.locale.emit();await Promise.resolve()})
+      expect(document.activeElement).toBe(mounted.field)
+      label='Models'
+      await act(async()=>{mounted.native[0]!.textContent=label;fixture.locale.emit();await Promise.resolve()})
+      await click(category(mounted.dialog,'models-and-accounts'))
+      expect(mounted.native[0]!.getAttribute('aria-current')).toBe('true')
+      expect(mounted.native[0]!.textContent).toBe('Models')
+    }finally{await mounted.cleanup()}
+  })
+
+  it('puts future pages in Other and removes stale positional maps before returning to the original navigation on mismatch', async()=>{
+    const fixture=createFixture();fixture.section('models','模型')
+    const mounted=await renderAction(fixture,[{label:'模型'}])
+    try{
       await click(actionTrigger(mounted.actionHost))
-      expect(fixture.preference.snapshot().settings.settingsNavigation).toBe(false)
-      expect(mounted.dialog.isConnected).toBe(true)
-      expect(fixture.locale.count).toBe(1)
-    } finally {
-      await act(async () => { mounted.root.unmount() })
-      expect(fixture.locale.count).toBe(0)
-      fixture.dispose()
-      expect(fixture.core.entries('settings.action')).toHaveLength(0)
-      mounted.dialog.remove()
-      mounted.launcher.remove()
-    }
+      await act(async()=>{fixture.section('future-page','未来功能');addNativeNavButton(mounted.list,'未来功能');await Promise.resolve()})
+      expect(category(mounted.dialog,'other')).not.toBeNull()
+      const original=mounted.nav
+      await act(async()=>{addNativeNavButton(mounted.list,'重复多余项');await Promise.resolve();await Promise.resolve()})
+      expect(mounted.dialog.querySelector('[data-solar-settings-categories]')).toBeNull()
+      expect(mounted.actionHost.querySelector('[role=status]')?.textContent).toContain('原始导航')
+      expect((document.querySelector('style[data-solar-settings-layout]') as HTMLStyleElement).disabled).toBe(true)
+      expect(mounted.nav).toBe(original)
+      expect(mounted.nav.querySelectorAll('button')).toHaveLength(3)
+    }finally{await mounted.cleanup()}
+  })
+
+  it('rejects disabled native destinations and ambiguous labels without replacing any original node', async()=>{
+    const fixture=createFixture();fixture.section('models','模型');fixture.section('dream-skin','Theme / 外观')
+    const mounted=await renderAction(fixture,[{label:'模型'},{label:'Theme / 外观'}])
+    try{
+      await click(actionTrigger(mounted.actionHost));mounted.native[1]!.disabled=true
+      await click(category(mounted.dialog,'appearance-and-display'))
+      expect(mounted.actionHost.querySelector('[role=status]')?.textContent).toContain('原生设置项')
+      expect(mounted.native[0]!.getAttribute('aria-current')).toBe('true')
+      await act(async()=>{mounted.native[1]!.textContent='模型';await Promise.resolve()})
+      expect(mounted.dialog.querySelector('[data-solar-settings-categories]')).toBeNull()
+      expect(mounted.actionHost.querySelector('[role=status]')?.textContent).toContain('重复')
+      expect(mounted.native.every(x=>x.isConnected)).toBe(true)
+    }finally{await mounted.cleanup()}
+  })
+
+  it('never activates a same-labelled button in a settings page when the original destination is disabled',async()=>{
+    const fixture=createFixture();fixture.section('models','模型');fixture.section('dream-skin','Theme / 外观');const mounted=await renderAction(fixture,[{label:'模型'},{label:'Theme / 外观'}]);const foreignClick=vi.fn()
+    try{
+      const pageNav=document.createElement('nav');addNativeNavButton(pageNav,'Theme / 外观',foreignClick);mounted.field.parentElement!.append(pageNav)
+      await click(actionTrigger(mounted.actionHost));mounted.native[1]!.disabled=true
+      await click(category(mounted.dialog,'appearance-and-display'))
+      expect(foreignClick).not.toHaveBeenCalled()
+      expect(mounted.native[0]!.getAttribute('aria-current')).toBe('true')
+      expect(mounted.actionHost.querySelector('[role=status]')?.textContent).toContain('原生设置项')
+    }finally{await mounted.cleanup()}
+  })
+
+  it('keeps category focus on keyboard navigation and does not disturb a native field when preferences refresh',async()=>{
+    const fixture=createFixture();fixture.section('models','模型');fixture.section('dream-skin','Theme / 外观');const mounted=await renderAction(fixture,[{label:'模型'},{label:'Theme / 外观'}])
+    try{
+      await click(actionTrigger(mounted.actionHost));category(mounted.dialog,'models-and-accounts').focus()
+      await act(async()=>{category(mounted.dialog,'models-and-accounts').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));await Promise.resolve()})
+      expect(document.activeElement).toBe(category(mounted.dialog,'appearance-and-display'))
+      expect(mounted.native[1]!.getAttribute('aria-current')).toBe('true')
+      mounted.field.focus();mounted.field.value='unsaved native draft'
+      await act(async()=>{await fixture.preference.setEnabled(true)})
+      expect(document.activeElement).toBe(mounted.field)
+      expect(mounted.field.value).toBe('unsaved native draft')
+      const mount=mounted.dialog.querySelector('[data-solar-settings-categories]')!
+      expect([...mounted.dialog.children].indexOf(mount)).toBeLessThan([...mounted.dialog.children].indexOf(mounted.nav))
+    }finally{await mounted.cleanup()}
+  })
+
+  it('preserves saved mode across remount and disposes its portal, style and subscriptions on unload',async()=>{
+    const fixture=createFixture();fixture.section('models','模型');const mounted=await renderAction(fixture,[{label:'模型'}])
+    try{
+      await click(actionTrigger(mounted.actionHost))
+      await act(async()=>{mounted.root.render(null)})
+      expect(document.querySelector('[data-solar-settings-categories]')).toBeNull()
+      expect(document.querySelector('style[data-solar-settings-layout]')).toBeNull()
+      await act(async()=>{mounted.root.render(createElement(mounted.Action))})
+      expect(actionTrigger(mounted.actionHost).textContent).toBe('取消分类导航')
+      expect(category(mounted.dialog,'models-and-accounts')).not.toBeNull()
+      expect(fixture.registrations.filter(name=>name==='sidebar.settings')).toHaveLength(0)
+    }finally{await mounted.cleanup()}
+    expect(fixture.locale.count).toBe(0)
+  })
+
+  it('reports save failures without pretending that mode changed',async()=>{
+    const fixture=createFixture();fixture.section('models','模型');fixture.preference.setEnabled.mockRejectedValueOnce(new Error('disk unavailable'))
+    const mounted=await renderAction(fixture,[{label:'模型'}])
+    try{await click(actionTrigger(mounted.actionHost));expect(actionTrigger(mounted.actionHost).textContent).toBe('分类导航');expect(mounted.actionHost.querySelector('[role=status]')?.textContent).toContain('disk unavailable')}finally{await mounted.cleanup()}
   })
 })
 
