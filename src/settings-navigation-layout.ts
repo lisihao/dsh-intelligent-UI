@@ -43,6 +43,13 @@ export interface SettingsLayoutSnapshot {
   activeGroup?: SettingsNavigationGroupId
   error?: string
 }
+const layoutOwners = new WeakMap<HTMLElement, SettingsLayoutController>()
+const modelCenterOriginalSections = new Set(['account', 'models', 'model-subscriptions', 'cost-meter', 'deepseek-web-login'])
+/** Original owner pages stay available through the center's explicit advanced actions. */
+export function openOriginalSettingsSection(root: HTMLElement, id: string): NativeSettingsNavigationResult | undefined {
+  const dialog = root.closest<HTMLElement>('[role="dialog"][data-shortcut-modal="settings"]')
+  return dialog ? layoutOwners.get(dialog)?.openOriginal(id) : undefined
+}
 let occurrence = 0
 
 /** Owns only its portal mount, stylesheet and observers. No host node is moved or rewritten. */
@@ -92,7 +99,9 @@ export class SettingsLayoutController {
   updateAppearance(settings?: Pick<ExperienceSettings, 'appearance' | 'theme'>) { this.settings = settings; if (this.layout) this.writeStyle(this.value.activeGroup) }
   private writeStyle(group?: SettingsNavigationGroupId) {
     if (!this.layout || !this.style || !this.mount) return
-    const hidden = this.layout.rows.filter(row => group && groupForSettingsSection(row.section.id) !== group).map(row => row.position)
+    const centerPresent = this.layout.rows.some(row => row.section.id === 'solar-model-center')
+    const originalActive = this.layout.activeId !== undefined && modelCenterOriginalSections.has(this.layout.activeId)
+    const hidden = this.layout.rows.filter(row => (group && groupForSettingsSection(row.section.id) !== group) || (centerPresent && !originalActive && modelCenterOriginalSections.has(row.section.id))).map(row => row.position)
     const scope = `[role="dialog"][data-shortcut-modal="settings"]:has(> [data-solar-settings-categories="${this.token}"])`
     this.style.textContent = buildSettingsNavigationCss(scope, hidden, this.settings, this.layout.rows.map(row => ({ id: row.section.id, position: row.position })))
     this.style.disabled = false
@@ -109,11 +118,13 @@ export class SettingsLayoutController {
         else this.root.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
       }
       this.mount?.remove()
+      if (this.layout && layoutOwners.get(this.layout.dialog) === this) layoutOwners.delete(this.layout.dialog)
       this.layout = undefined
       this.publish({ error: result.message })
       return
     }
     this.layout = result.value
+    layoutOwners.set(this.layout.dialog, this)
     const document = this.root.ownerDocument
     if (!this.style) { this.style = document.createElement('style'); this.style.setAttribute('data-solar-settings-layout', this.token); document.head.append(this.style) }
     if (!this.mount) { this.mount = document.createElement('div'); this.mount.setAttribute('data-solar-settings-categories', this.token); }
@@ -137,10 +148,26 @@ export class SettingsLayoutController {
     this.schedule()
     return result
   }
+  openOriginal(id: string): NativeSettingsNavigationResult {
+    this.reconcile()
+    if (!this.layout || !this.style || !this.mount) return { ok: false, message: '当前分类导航不可用，请使用原始设置入口。' }
+    const target = this.layout.rows.find(row => row.section.id === id)
+    if (!target) return { ok: false, message: '原设置页当前不可用，请检查对应插件是否已启用。' }
+    // Reveal the verified original button before using the normal activation guard.
+    const group = groupForSettingsSection(id)
+    const hidden = this.layout.rows.filter(row => groupForSettingsSection(row.section.id) !== group).map(row => row.position)
+    const scope = `[role="dialog"][data-shortcut-modal="settings"]:has(> [data-solar-settings-categories="${this.token}"])`
+    this.style.textContent = buildSettingsNavigationCss(scope, hidden, this.settings, this.layout.rows.map(row => ({ id: row.section.id, position: row.position })))
+    const result = activateNativeSettingsSection({ root: this.root, label: target.section.targetLabel, focus: true, target: target.button })
+    if (!result.ok) this.writeStyle(this.value.activeGroup)
+    this.schedule()
+    return result
+  }
   dispose() {
     if (this.stopped) return
     this.stopped = true
     this.observer?.disconnect()
+    if (this.layout && layoutOwners.get(this.layout.dialog) === this) layoutOwners.delete(this.layout.dialog)
     this.style?.remove()
     if (this.mount?.contains(this.root.ownerDocument.activeElement)) {
       const active = this.layout?.rows.find(row => row.section.id === this.value.activeId)?.button

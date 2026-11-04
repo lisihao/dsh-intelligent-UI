@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, createElement, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
+import { openOriginalSettingsSection } from '../src/settings-navigation-layout.js'
 import { SlotCore, type StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Context } from '@deepseek-ai/cordis'
 import {
@@ -298,4 +299,28 @@ describe('native target validation', () => {
     expect(result).toMatchObject({ ok: false })
     expect(result.message).toContain('不在当前设置窗口')
   })
+})
+
+
+describe('model center original settings path', () => {
+ it('keeps native owner actions reachable and returns to the consolidated entry without changing the saved mode', async () => {
+  const fixture=createFixture()
+  fixture.section('solar-model-center','模型中心',-100)
+  fixture.section('models','模型',0)
+  fixture.section('cost-meter','费用',10)
+  fixture.section('general','通用设置',20)
+  const models=vi.fn()
+  const view=await renderAction(fixture,[{label:'模型中心'},{label:'模型',listener:models},{label:'费用'},{label:'通用设置'}])
+  await click(actionTrigger(view.actionHost))
+  expect(document.querySelector('style[data-solar-settings-layout]')?.textContent).toContain('button:nth-child(2){display:none;}')
+  await act(async()=>{expect(openOriginalSettingsSection(view.actionHost,'models')).toEqual({ok:true});await Promise.resolve()})
+  expect(models).toHaveBeenCalledOnce()
+  expect(fixture.preference.snapshot().settings.settingsNavigation).toBe(true)
+  expect(view.native[1]?.getAttribute('aria-current')).toBe('true')
+  await click(view.native[0]!)
+  expect(document.querySelector('style[data-solar-settings-layout]')?.textContent).toContain('button:nth-child(2){display:none;}')
+  expect(view.native.every(row=>row.parentElement===view.list)).toBe(true)
+  await view.cleanup()
+  expect(openOriginalSettingsSection(view.actionHost,'models')).toBeUndefined()
+ })
 })

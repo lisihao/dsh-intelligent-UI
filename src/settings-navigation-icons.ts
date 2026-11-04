@@ -1,5 +1,6 @@
 /** Owned outline icons; native labels and handlers remain untouched. */
 const paths: Readonly<Record<string, string>> = {
+  'solar-model-center': '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18m-12 0v12"/>',
   account: '<circle cx="12" cy="8" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
   general: '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/>',
   models: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',

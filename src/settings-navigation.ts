@@ -41,6 +41,7 @@ const navigationGroups: ReadonlyArray<Pick<SettingsNavigationGroup, 'id' | 'labe
  */
 const groupByConfirmedId: Readonly<Record<string, SettingsNavigationGroupId>> = {
   account: 'models-and-accounts',
+  'solar-model-center': 'models-and-accounts',
   'cost-meter': 'models-and-accounts',
   'cost-meter-usage': 'models-and-accounts',
   general: 'appearance-and-display',

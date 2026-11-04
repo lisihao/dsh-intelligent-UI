@@ -1,3 +1,4 @@
+import { installModelCenter } from './model-center.js'
 import { installSettingsNavigation } from './settings-navigation.js'
 import { DataBrowser, type DataBrowserApi } from './data-browser.js'
 import { installDataBrowserNavigation } from './data-browser-navigation.js'
@@ -330,6 +331,7 @@ export function apply(ctx: Context): void {
       await store.save({ expectedRevision: settings.revision, takeover: settings.takeover, openui: settings.openui, mcpApps: settings.mcpApps, settingsNavigation })
     },
   })
+  installModelCenter(ctx)
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
   ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined

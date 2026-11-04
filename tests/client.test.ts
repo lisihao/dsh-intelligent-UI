@@ -59,7 +59,7 @@ describe('chat takeover', () => {
       await vi.advanceTimersByTimeAsync(0)
       const readers = core.entriesOfSlot('conversation.view')
       expect(readers.map(entry => entry.options.id).sort()).toEqual(['solar-intelligent-experience', 'solar-intelligent-insight-preview'])
-      expect(inject.mock.calls[0]?.[0]).toEqual(['layout'])
+      expect(inject.mock.calls.map(call => call[0])).toContainEqual(['layout'])
       const Generated = readers.find(entry => entry.options.id === 'solar-intelligent-experience')!.component as ComponentType<{ sessionId: string }>
       await act(async () => root.render(createElement(Generated, { sessionId: 'generated-session' })))
       expect(host.textContent).toContain('生成内容')
