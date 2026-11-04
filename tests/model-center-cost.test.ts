@@ -39,7 +39,7 @@ function fixture() {
       },
     },
     config: {
-      locale: 'en', currency: 'USD', symbol: '$', exchangeRate: 7.2,
+      locale: 'en', currency: 'USD', symbol: '$', exchangeRate: 1,
       prices: { models: { secretModel: { output: 1 } }, default: { output: 1 } },
       customBalance: { request: { headers: { Authorization: 'Bearer HEADER_SECRET' } } },
       budget: { enabled: true, amount: 120, period: 'month', customStart: null, customEnd: null, detail: true },
@@ -49,6 +49,20 @@ function fixture() {
 }
 
 describe('model-center cost projection', () => {
+  it('uses frozen CNY amounts and the owner budget exchange formula, never labels raw USD as CNY', () => {
+    const raw=fixture();raw.config.currency='CNY';raw.config.exchangeRate=7.2
+    const output=normalizeCostSnapshot(raw)
+    expect(output.today.apiEstimate).toEqual({amount:30.6,currency:'CNY',meaning:'api-estimate'})
+    expect(output.budget.used).toBeCloseTo(11.75*7.2)
+    const legacy=JSON.parse(JSON.stringify(raw));delete legacy.today.costCny;delete legacy.today.apiCostCny
+    expect(normalizeCostSnapshot(legacy).today.apiEstimate).toEqual({amount:4.25,currency:'USD',meaning:'api-estimate'})
+  })
+  it('supports the owner custom currency without guessing a conversion for historical API charges', () => {
+    const raw=fixture();raw.config.currency='custom';raw.config.symbol='¤';raw.config.exchangeRate=2
+    const value=normalizeCostSnapshot(raw)
+    expect(value.today.apiEstimate).toEqual({amount:4.25,currency:'USD',meaning:'api-estimate'})
+    expect(value.budget).toMatchObject({currency:'自定义币种（¤）',used:23.5,amount:120})
+  })
   it('separates API estimate, Plan equivalent, and combined equivalent', () => {
     const output = normalizeCostSnapshot(fixture())
     expect(output.today.apiEstimate).toEqual({ amount: 4.25, currency: 'USD', meaning: 'api-estimate' })

@@ -61,7 +61,7 @@ export interface ModelCenterBudget {
   enabled: boolean
   amount: number
   period: ModelCenterCostPeriod
-  currency: ModelCenterMoneyCurrency
+  currency: string
   used?: number
   customStart?: string | null
   customEnd?: string | null
@@ -105,7 +105,6 @@ export type ModelCenterCostRemoteResult =
   | { ok: false, error?: unknown }
 
 type SourceRecord = Record<string, unknown>
-const MONEY_CURRENCIES: readonly ModelCenterMoneyCurrency[] = ['USD', 'CNY', 'EUR']
 const QUOTA_STATUSES: readonly ModelCenterQuotaStatus[] = ['off', 'ok', 'error']
 const COST_PERIODS: readonly ModelCenterCostPeriod[] = ['day', 'month', 'all', 'custom']
 const hasOwn = (value: SourceRecord, key: string): boolean => Object.prototype.hasOwnProperty.call(value, key)
@@ -154,11 +153,11 @@ function optionalString(value: unknown, path: string, { allowNull = false } = {}
   return value
 }
 
-function requiredCurrency(value: unknown, path: string): ModelCenterMoneyCurrency {
-  if (typeof value !== 'string' || !MONEY_CURRENCIES.includes(value as ModelCenterMoneyCurrency)) {
-    fail('MODEL_CENTER_COST_SNAPSHOT_INVALID', `${path} must be USD, CNY, or EUR`)
+function requiredCurrency(value: unknown, path: string): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > 64) {
+    fail('MODEL_CENTER_COST_SNAPSHOT_INVALID', `${path} must be a non-empty currency name`)
   }
-  return value as ModelCenterMoneyCurrency
+  return value
 }
 
 function quotaStatus(value: unknown, path: string): ModelCenterQuotaStatus {
@@ -173,14 +172,14 @@ function optionalFetchedAt(value: unknown, path: string): number | undefined {
   return result !== undefined && result !== 0 ? result : undefined
 }
 
-function moneySource(row: SourceRecord, path: string, displayCurrency: ModelCenterMoneyCurrency): { currency: ModelCenterMoneyCurrency, total: number, api: number } {
+function moneySource(row: SourceRecord, path: string, displayCurrency: string): { currency: ModelCenterMoneyCurrency, total: number, api: number } {
   const totalUsd = finiteNumber(row.cost, `${path}.cost`)
   const rawApi = hasOwn(row, 'apiCost') ? row.apiCost : undefined
   const apiUsd = rawApi === undefined
     ? totalUsd
     : finiteNumber(rawApi, `${path}.apiCost`)
 
-  if (displayCurrency === 'USD') return { currency: 'USD', total: totalUsd, api: apiUsd }
+  if (displayCurrency !== 'CNY' && displayCurrency !== 'EUR') return { currency: 'USD', total: totalUsd, api: apiUsd }
   const suffix = displayCurrency === 'CNY' ? 'Cny' : 'Eur'
   const frozenTotal = optionalFiniteNumber(row[`cost${suffix}`], `${path}.cost${suffix}`)
   const frozenApi = rawApi === undefined
@@ -190,7 +189,7 @@ function moneySource(row: SourceRecord, path: string, displayCurrency: ModelCent
   // state omitted them, retain the canonical USD amount instead of applying a
   // current exchange rate to a historical record.
   if (frozenTotal !== undefined && frozenApi !== undefined) {
-    return { currency: displayCurrency, total: frozenTotal, api: frozenApi }
+    return { currency: displayCurrency as ModelCenterMoneyCurrency, total: frozenTotal, api: frozenApi }
   }
   return { currency: 'USD', total: totalUsd, api: apiUsd }
 }
@@ -199,7 +198,7 @@ function estimated(amount: number, currency: ModelCenterMoneyCurrency, meaning: 
   return { amount, currency, meaning }
 }
 
-function periodCost(value: unknown, path: string, displayCurrency: ModelCenterMoneyCurrency): ModelCenterPeriodCost {
+function periodCost(value: unknown, path: string, displayCurrency: string): ModelCenterPeriodCost {
   const row = snapshotRecord(value, path)
   const source = moneySource(row, path, displayCurrency)
   const plan = source.total - source.api
@@ -277,7 +276,7 @@ function normalizeBalance(value: unknown): ModelCenterBalance {
   return result
 }
 
-function normalizeBudget(config: SourceRecord, budgetUsed: unknown, currency: ModelCenterMoneyCurrency): ModelCenterBudget {
+function normalizeBudget(config: SourceRecord, budgetUsed: unknown, currency: string): ModelCenterBudget {
   const source = snapshotRecord(config.budget, 'config.budget')
   const period = source.period
   if (typeof period !== 'string' || !COST_PERIODS.includes(period as ModelCenterCostPeriod)) {
@@ -287,10 +286,13 @@ function normalizeBudget(config: SourceRecord, budgetUsed: unknown, currency: Mo
     enabled: requiredBoolean(source.enabled, 'config.budget.enabled'),
     amount: finiteNumber(source.amount, 'config.budget.amount'),
     period: period as ModelCenterCostPeriod,
-    currency,
+    currency: currency === 'custom' ? (typeof config.symbol === 'string' && config.symbol.trim() ? `自定义币种（${config.symbol.slice(0,16)}）` : '自定义币种') : currency,
   }
   const used = optionalFiniteNumber(budgetUsed, 'budgetUsed')
-  if (used !== undefined) result.used = used
+  // Owner getLocalState returns displayUsd; its UI multiplies by exchangeRate.
+  // This keeps historical frozen display amounts and the configured budget unit aligned.
+  const rate = optionalFiniteNumber(config.exchangeRate, 'config.exchangeRate')
+  if (used !== undefined) result.used = used * (rate !== undefined && rate > 0 ? rate : 1)
   const customStart = optionalString(source.customStart, 'config.budget.customStart', { allowNull: true })
   const customEnd = optionalString(source.customEnd, 'config.budget.customEnd', { allowNull: true })
   if (customStart !== undefined) result.customStart = customStart
