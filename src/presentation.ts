@@ -20,6 +20,7 @@ import { appearancePreferences, appearanceTokens } from './appearance.js'
 import { themePreferences } from './theme-runtime.js'
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import { planContentSections } from './content-sections.js'
 import { continuousSectionsPlugin, planReadingTable } from './continuous-view.js'
@@ -141,7 +142,7 @@ function flowPlan(plan: FlowPlan): FlowViewPlan {
 function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
-function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
+function MarkdownContent({ text, isStreaming, preserveSoftBreaks = false }: { text: string, isStreaming: boolean, preserveSoftBreaks?: boolean }): ReactElement {
   const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
@@ -156,7 +157,7 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
       const heading = h(`h${level}`, { 'data-iexp-source-start': start, 'data-iexp-source-end': (node as { position?: { end?: { offset?: number } } } | undefined)?.position?.end?.offset, id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
       return !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
     }]))
-    return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
+    return { remarkPlugins: [remarkGfm, ...(preserveSoftBreaks ? [remarkBreaks] : []), ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
       tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
@@ -186,7 +187,7 @@ function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boo
         return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
       },
     } }
-  }, [layout, prefix, tables, sections, illustrations, colorScheme])
+  }, [layout, prefix, tables, sections, illustrations, colorScheme, preserveSoftBreaks])
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
 function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {
@@ -211,15 +212,15 @@ function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStr
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-export function ContentView({ value, isStreaming = false }: { value: unknown, isStreaming?: boolean }): ReactElement {
+export function ContentView({ value, isStreaming = false, preserveSoftBreaks = false }: { value: unknown, isStreaming?: boolean, preserveSoftBreaks?: boolean }): ReactElement {
   const theme = useExperienceTheme()
   let content: ReactNode
   if (typeof value === 'string') {
     let decoded: unknown, parsed = false
     try { if (/^\s*[\[{]/.test(value)) { decoded = JSON.parse(value); parsed = true } } catch { /* Ordinary Markdown remains unchanged. */ }
-    content = parsed ? h(StructuredContent, { value: decoded, isStreaming, dark: theme === 'dark' }) : h(MarkdownContent, { text: value, isStreaming })
+    content = parsed ? h(StructuredContent, { value: decoded, isStreaming, dark: theme === 'dark' }) : h(MarkdownContent, { text: value, isStreaming, preserveSoftBreaks })
   } else if (Array.isArray(value) && value.length > 0 && value.every(x => x && typeof x === 'object' && (x as { type?: unknown }).type === 'text' && typeof (x as { text?: unknown }).text === 'string')) {
-    content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming }))
+    content = value.map((part, i) => h(ContentView, { key: i, value: (part as { text: string }).text, isStreaming, preserveSoftBreaks }))
   } else content = h(StructuredContent, { value, isStreaming, dark: theme === 'dark' })
   return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, content)))
 }

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { act, createElement, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ExperienceStore } from '../src/client.js'
+import { ContentView } from '../src/presentation.js'
 import type { ExperienceApi, ExperienceSettings } from '../src/contracts.js'
 const base: ExperienceSettings = { formatVersion: 1, revision: 0, takeover: false, openui: true, mcpApps: false }
 describe('settings client', () => {
@@ -149,13 +150,49 @@ describe('chat takeover', () => {
       expect(core.factory('conversation.user.text')?.component).toBe(officialUserText)
       expect(core.factory('conversation.chat.user.content')?.component).toBe(officialUserContent)
       expect(SmartText).not.toBe(officialText)
-      const raw = '<iframe src="https://untrusted.example"></iframe>\n\n```openui\nroot = TextContent("用户原文，不执行")\n```'
-      await act(async () => root.render(createElement(SmartText, { raw })))
+      const unsafeRaw = '<iframe src="https://untrusted.example"></iframe>\n\n```openui\nroot = TextContent("用户原文，不执行")\n```'
+      await act(async () => root.render(createElement(SmartText, { raw: unsafeRaw })))
       expect(host.textContent).toContain('用户原文，不执行')
       expect(host.querySelector('iframe')).toBeNull()
+      const raw = '首行\r\n保留软换行与 [链接](https://example.com)\r\n\r\n- 第一项\r\n  - 嵌套项\r\n\r\n| 名称 | 值 |\r\n| --- | --- |\r\n| 表格 | 1 |\r\n\r\n```ts\r\n  const exact = "间距";\r\n\r\n  // 保留空行\r\n```'
+      await act(async () => root.render(createElement(SmartText, { raw })))
+      expect(host.querySelector('.iexp-user-message-text')).not.toBeNull()
+      expect(host.querySelector('p[data-iexp-source-start="0"]')?.getAttribute('data-iexp-source-end')).toBe(String(raw.indexOf('\r\n\r\n')))
+      expect(host.querySelector('a')?.getAttribute('href')).toBe('https://example.com')
+      expect(host.querySelectorAll('li')).toHaveLength(2)
+      expect(host.querySelector('table')).not.toBeNull()
+      expect(host.querySelector('pre')?.textContent).toContain('const exact = "间距";\r\n\r\n  // 保留空行')
+      const softLines = '第一行\r\n第二行\r\n第三行'
+      await act(async () => root.render(createElement(SmartText, { raw: softLines })))
+      const softParagraph = host.querySelector('p[data-iexp-source-start="0"]')
+      expect(softParagraph?.getAttribute('data-iexp-source-end')).toBe(String(softLines.length))
+      expect(softParagraph?.querySelectorAll('br')).toHaveLength(2)
+      const hardLines = '第一行  \r\n第二行\\\r\n第三行'
+      await act(async () => root.render(createElement(SmartText, { raw: hardLines })))
+      const hardParagraph = host.querySelector('p[data-iexp-source-start="0"]')
+      expect(hardParagraph?.getAttribute('data-iexp-source-end')).toBe(String(hardLines.length))
+      expect(hardParagraph?.querySelectorAll('br')).toHaveLength(2)
+      const whitespaceOnly = ' \r\n\t '
+      await act(async () => root.render(createElement(SmartText, { raw: whitespaceOnly })))
+      const whitespace = host.querySelector('.iexp-user-message-whitespace')
+      expect(whitespace?.firstChild?.nodeValue).toBe(whitespaceOnly)
+      expect(host.querySelector('.dsh-experience.iexp-content')).toBeNull()
     } finally {
       await act(async () => root.unmount())
       host.remove(); cleanups.reverse().forEach(dispose => dispose()); vi.useRealTimers()
+    }
+  })
+
+  it('keeps soft line breaks opt-in to the user text renderer', async () => {
+    ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    const host = document.createElement('div'), root = createRoot(host)
+    document.body.append(host)
+    try {
+      await act(async () => root.render(createElement(ContentView, { value: '第一行\n第二行\n第三行' })))
+      expect(host.querySelectorAll('.openui-markdown-renderer br')).toHaveLength(0)
+    } finally {
+      await act(async () => root.unmount())
+      host.remove()
     }
   })
 
