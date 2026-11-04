@@ -51,6 +51,17 @@ def validate_metrics(metrics, width):
     expected = {'模型与账号': 9, '界面与显示': 4, 'Solar 与工作流': 5, '插件管理': 2}
     if metrics.get('categoryCounts') != expected:
         return 'category counts mismatch: ' + repr(metrics.get('categoryCounts'))
+    if metrics.get('nativeIconCount') != 20:
+        return 'expected one normalized pseudo icon for every native row: ' + repr(metrics.get('nativeIconCount'))
+    original_decorative_count = metrics.get('originalDecorativeCount')
+    if not isinstance(original_decorative_count, (int, float)) or isinstance(original_decorative_count, bool) or original_decorative_count < 1:
+        return 'native fixture did not expose legacy decorative children: ' + repr(original_decorative_count)
+    category_sidebar_gap = metrics.get('categorySidebarGap')
+    if not isinstance(category_sidebar_gap, (int, float)) or isinstance(category_sidebar_gap, bool) or category_sidebar_gap <= 0:
+        return 'category bottom border has no positive sidebar gap: ' + repr(category_sidebar_gap)
+    native_row_max_height = metrics.get('nativeRowMaxHeight')
+    if not isinstance(native_row_max_height, (int, float)) or isinstance(native_row_max_height, bool) or native_row_max_height > 33:
+        return 'native menu rows exceed the 32px density target: ' + repr(native_row_max_height)
     required = [
         'unknownOther',
         'fiveCategoryNonOverlap',
@@ -59,6 +70,12 @@ def validate_metrics(metrics, width):
         'ambiguousRejected',
         'originalNodesPreserved',
         'originalNodesVisibleAfterCancel',
+        'normalizedNativeIcons',
+        'originalDecorativeChildrenHidden',
+        'nativeLabelsVisible',
+        'nativeLabelsFit',
+        'denseNativeRows',
+        'originalIconsVisibleAfterCancel',
         'explicitCancel',
         'noSelect',
         'noNestedDialog',

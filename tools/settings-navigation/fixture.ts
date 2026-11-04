@@ -37,6 +37,19 @@ const groupIds: Record<string, string[]> = {
   plugins: ['plugins', 'market'],
 }
 
+// The native shell has mixed legacy decoration: some rows carry an SVG and
+// one carries a non-SVG wrapper. The adapter must hide these children and
+// supply one normalized pseudo-element without replacing the native nodes.
+const nativeDecorativeIconIds = new Set(['account', 'models', 'dream-skin', 'plugins', 'solar-native-collaboration', 'bili'])
+const nativeDecorativeIcon = (id: string) => {
+  if (!nativeDecorativeIconIds.has(id)) return null
+  if (id === 'models') {
+    return h('span', { className: 'fixture-native-icon-wrapper', 'data-native-decorative': id, 'aria-hidden': true })
+  }
+  return h('svg', { className: 'fixture-native-icon', 'data-native-decorative': id, 'aria-hidden': true, viewBox: '0 0 16 16', width: 16, height: 16 },
+    h('path', { d: 'M2 2h12v12H2z', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 }))
+}
+
 let language = 'zh'
 let revision = 0
 const localeListeners = new Set<() => void>()
@@ -130,7 +143,7 @@ function FixtureHost() {
           selected = id
           setActive(id)
         },
-      }, resolveSlotLabel(row.options.label))
+      }, nativeDecorativeIcon(id), h('span', { className: 'fixture-native-label' }, resolveSlotLabel(row.options.label)))
     })),
   ),
   h('div', { className: 'fixture-content' },
@@ -152,14 +165,14 @@ function FixtureHost() {
 const style = document.createElement('style')
 style.textContent = [
   ':root { --dsw-alias-bg-layer-2: #2d2f34; --dsw-alias-bg-layer-3: #34373e; --dsw-alias-label-primary: #eceef2; --dsw-alias-label-secondary: #b9bdc4; --dsw-alias-border-l2: #50545b; color-scheme: dark; }',
-  '* { box-sizing: border-box; }',
   'body { margin: 0; min-width: 0; background: #24262b; color: var(--dsw-alias-label-primary); font: 14px system-ui, sans-serif; }',
   '#root { min-height: 100vh; padding: 16px; }',
   '.fixture-dialog { position: relative; display: flex; width: min(800px, calc(100vw - 32px)); height: min(760px, calc(100vh - 32px)); margin: 0 auto; overflow: hidden; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; background: var(--dsw-alias-bg-layer-2); }',
   '.fixture-native-nav { flex: 0 0 188px; width: 188px; min-height: 0; display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-2); }',
   '.fixture-nav-title { flex: 0 0 40px; padding: 12px 12px 8px; font-weight: 600; }',
   '.fixture-nav-list { min-height: 0; flex: 1 1 auto; overflow-y: auto; padding: 4px 8px 12px; }',
-  '.fixture-nav-list button { display: block; width: 100%; min-height: 32px; margin: 2px 0; padding: 6px 8px; overflow-wrap: anywhere; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }',
+  '.fixture-nav-list button { box-sizing: content-box; display: block; width: 100%; height: 40px; min-height: 40px; margin: 2px 0; padding: 6px 8px; overflow-wrap: anywhere; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }',
+  '.fixture-native-icon-wrapper { display: inline-block; width: 16px; height: 16px; background: currentColor; }',
   '.fixture-nav-list button[aria-current=\"true\"] { background: var(--dsw-alias-bg-layer-3); }',
   '.fixture-content { min-width: 0; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }',
   '.fixture-header { flex: 0 0 54px; height: 54px; padding: 20px 14px 8px 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }',
@@ -199,11 +212,29 @@ const visible = (element: HTMLElement) => {
   const rect = element.getBoundingClientRect()
   return rect.width > 0 && rect.height > 0
 }
+const rendered = (element: Element) => {
+  let current: Element | null = element
+  while (current && current !== document.body) {
+    if (current instanceof HTMLElement && current.hidden) return false
+    const computed = getComputedStyle(current)
+    if (computed.display === 'none' || computed.visibility === 'hidden' || computed.getPropertyValue('content-visibility') === 'hidden') return false
+    current = current.parentElement
+  }
+  const rect = element.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0
+}
 const nativeButtons = () => [...dialog().querySelectorAll<HTMLButtonElement>('nav[aria-label="原设置菜单"] .fixture-nav-list button')]
 const categoryButton = (id: string) => categoryNav()?.querySelector<HTMLButtonElement>('button[data-navigation-category="' + id + '"]')
 const visibleNativeButtons = () => nativeButtons().filter(visible)
 const nativeButton = (id: string) => nativeButtons().find(button => button.dataset.nativeId === id)
 const statusText = () => scope().querySelector<HTMLElement>('[role="status"]')?.textContent?.trim() ?? ''
+const nativeLabel = (button: HTMLButtonElement) => button.lastElementChild?.tagName === 'SPAN' ? button.lastElementChild as HTMLElement : undefined
+const hasNormalizedPseudoIcon = (button: HTMLButtonElement) => {
+  const before = getComputedStyle(button, '::before')
+  const after = getComputedStyle(button, '::after')
+  const mask = before.getPropertyValue('mask-image') || before.getPropertyValue('-webkit-mask-image')
+  return before.content !== 'none' && before.display !== 'none' && Number.parseFloat(before.width) === 16 && Number.parseFloat(before.height) === 16 && mask !== '' && mask !== 'none' && after.content === 'none'
+}
 
 const openGroupedMode = async () => {
   await waitUntil(() => Boolean(scope() && toggle()), 'Grouped-settings action did not mount in the slot anchor.')
@@ -224,9 +255,25 @@ const selectCategory = async (id: string) => {
 const run = async () => {
   const native = nativeButtons()
   const nativeParent = native[0]?.parentElement
+  const originalChildrenById = new Map<string, Element[]>()
+  const originalDecorativeById = new Map<string, Element[]>()
+  const originalLabelsById = new Map<string, HTMLElement>()
   ensure(native.length === 20, 'Native fixture did not retain 20 settings; found ' + native.length + '.')
   ensure(native.every(button => button.isConnected), 'Native settings buttons are not connected.')
   ensure(native.find(button => button.dataset.nativeId === 'account')?.getAttribute('aria-current') === 'true', 'Native current marker is not aria-current="true".')
+  for (const button of native) {
+    const id = button.dataset.nativeId
+    const label = nativeLabel(button)
+    ensure(id && label?.classList.contains('fixture-native-label'), 'Native row ' + (id ?? '(unknown)') + ' must end with a span label.')
+    const children = [...button.children]
+    const decorative = children.slice(0, -1)
+    originalChildrenById.set(id, children)
+    originalDecorativeById.set(id, decorative)
+    originalLabelsById.set(id, label)
+  }
+  const originalDecorativeCount = [...originalDecorativeById.values()].reduce((total, children) => total + children.length, 0)
+  ensure(originalDecorativeCount > 0, 'Native fixture must include legacy decorative children.')
+  ensure(native.some(button => [...(originalDecorativeById.get(button.dataset.nativeId!) ?? [])].some(child => child.tagName === 'SPAN' && child.getAttribute('aria-hidden') === 'true')), 'Native fixture must include a non-SVG aria-hidden icon wrapper.')
 
   await openGroupedMode()
   const nav = categoryNav()!
@@ -236,6 +283,48 @@ const run = async () => {
   ensure(!scope().querySelector('select'), 'Grouped navigation must not render a select dropdown.')
   ensure(!scope().querySelector('[role="tablist"],[role="tab"],[role="tabpanel"]'), 'Grouped navigation must not use tablist/tab/tabpanel roles.')
   ensure(document.querySelectorAll('[role="dialog"]').length === 1, 'Grouped navigation rendered an old nested large popup.')
+
+  await waitUntil(() => Boolean(visibleNativeButtons()[0]), 'Native sidebar did not expose a visible row after grouped mode mounted.')
+  const normalizedIconFailures = nativeButtons().filter(button => !hasNormalizedPseudoIcon(button)).map(button => button.dataset.nativeId ?? '(unknown)')
+  ensure(normalizedIconFailures.length === 0, 'Native rows missing one normalized 16px masked ::before icon: ' + normalizedIconFailures.join(', '))
+  const denseStyleFailures = nativeButtons().filter(button => {
+    const style = getComputedStyle(button)
+    return !['none', 'flex'].includes(style.display) || Number.parseFloat(style.height) > 33 || Number.parseFloat(style.minHeight) > 33
+  }).map(button => button.dataset.nativeId ?? '(unknown)')
+  ensure(denseStyleFailures.length === 0, 'Native rows exceed the 32px density target: ' + denseStyleFailures.join(', '))
+  const hiddenDecorationFailures = nativeButtons().filter(button => {
+    const label = nativeLabel(button)
+    const decorative = originalDecorativeById.get(button.dataset.nativeId!) ?? []
+    return !label || getComputedStyle(label).display === 'none' || (visible(button) && !rendered(label)) || decorative.some(child => getComputedStyle(child).display !== 'none')
+  }).map(button => button.dataset.nativeId ?? '(unknown)')
+  ensure(hiddenDecorationFailures.length === 0, 'Native rows did not hide legacy decoration while keeping labels visible: ' + hiddenDecorationFailures.join(', '))
+  const firstSidebarRow = visibleNativeButtons()[0]!
+  const categoryRect = nav.getBoundingClientRect()
+  const firstRowRect = firstSidebarRow.getBoundingClientRect()
+  const categorySidebarGap = firstRowRect.top - categoryRect.bottom
+  ensure(categorySidebarGap > 0, 'Category bottom border intersects the first native sidebar row (gap=' + categorySidebarGap + ').')
+  const nativeRowMaxHeight = Math.max(...visibleNativeButtons().map(button => button.getBoundingClientRect().height))
+  const normalizedNativeIcons = nativeButtons().every(hasNormalizedPseudoIcon)
+  const nativeIconCount = nativeButtons().filter(hasNormalizedPseudoIcon).length
+  const originalDecorativeChildrenHidden = native.every(button => (originalDecorativeById.get(button.dataset.nativeId!) ?? []).every(child => getComputedStyle(child).display === 'none'))
+  const nativeLabelsVisible = native.every(button => {
+    const label = nativeLabel(button)
+    return Boolean(label && getComputedStyle(label).display !== 'none' && (!visible(button) || rendered(label)))
+  })
+  const nativeLabelsFit = native.every(button => {
+    const label = nativeLabel(button)
+    return Boolean(label && label.scrollWidth <= label.clientWidth)
+  })
+  const denseNativeRows = nativeButtons().every(button => {
+    const style = getComputedStyle(button)
+    return ['none', 'flex'].includes(style.display) && Number.parseFloat(style.height) <= 33 && Number.parseFloat(style.minHeight) <= 33
+  }) && nativeRowMaxHeight <= 33
+  ensure(normalizedNativeIcons, 'Each native row must expose exactly one normalized 16px masked ::before icon.')
+  ensure(originalDecorativeChildrenHidden, 'Legacy native decorative children were not hidden.')
+  ensure(nativeLabelsVisible, 'Native row labels were hidden or replaced.')
+  ensure(nativeLabelsFit, 'A native row label is clipped inside its sidebar cell.')
+  ensure(denseNativeRows, 'Native menu rows exceed the 32px density target.')
+  ensure(categorySidebarGap > 0, 'Category bottom border intersects the first native sidebar row.')
 
   const expectedCounts: Record<string, number> = { '模型与账号': 9, '界面与显示': 4, 'Solar 与工作流': 5, 插件管理: 2 }
   const categoryCounts: Record<string, number> = {}
@@ -324,7 +413,11 @@ const run = async () => {
   await delay(180)
   ensure(document.activeElement === input, 'Input focus was interrupted by the settings polling/update path.')
 
-  const originalNodesPreserved = native.every(button => button.isConnected && button.parentElement === nativeParent)
+  const originalNodesPreserved = native.every(button => {
+    const id = button.dataset.nativeId!
+    const originalChildren = originalChildrenById.get(id) ?? []
+    return button.isConnected && button.parentElement === nativeParent && nativeLabel(button) === originalLabelsById.get(id) && [...button.children].length === originalChildren.length && [...button.children].every((child, index) => child === originalChildren[index])
+  })
   ensure(originalNodesPreserved, 'Original native navigation nodes were moved or replaced.')
 
   toggle().click()
@@ -332,6 +425,12 @@ const run = async () => {
   await waitUntil(() => !categoryNav(), 'Category navigation remained mounted after cancellation.')
   ensure(native.every(button => button.isConnected && button.parentElement === nativeParent && !button.hidden && getComputedStyle(button).display !== 'none'), 'Cancellation did not restore all twenty native buttons.')
   ensure(!scope().querySelector('button[data-section-id]'), 'Grouped rows remained after cancellation.')
+  const originalIconsVisibleAfterCancel = native.every(button => {
+    const expected = originalDecorativeById.get(button.dataset.nativeId!) ?? []
+    const current = [...button.children].slice(0, -1)
+    return current.length === expected.length && current.every((child, index) => child === expected[index] && rendered(child))
+  })
+  ensure(originalIconsVisibleAfterCancel, 'Cancellation did not restore the original native decorative icons.')
 
   const result = {
     ready: true,
@@ -347,7 +446,17 @@ const run = async () => {
     missingRejected: true,
     ambiguousRejected: true,
     originalNodesPreserved,
-    originalNodesVisibleAfterCancel: native.every(button => getComputedStyle(button).display !== 'none'),
+    originalNodesVisibleAfterCancel: native.every(button => getComputedStyle(button).display !== 'none') && originalIconsVisibleAfterCancel,
+    normalizedNativeIcons,
+    nativeIconCount,
+    originalDecorativeCount,
+    originalDecorativeChildrenHidden,
+    nativeLabelsVisible,
+    nativeLabelsFit,
+    denseNativeRows,
+    nativeRowMaxHeight,
+    categorySidebarGap,
+    originalIconsVisibleAfterCancel,
     persistentModeUntilCancel: preferenceSaves === 2,
     explicitCancel: true,
     noSelect: !document.querySelector('select'),

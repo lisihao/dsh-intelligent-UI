@@ -261,7 +261,7 @@ function SettingsNavigationAction({ source, preference }: { source: SettingsSect
   return h('div', { ref: root, className: 'solar-settings-navigation-control', 'data-solar-settings-navigation': '', style: { display: 'inline-flex', alignItems: 'center', gap: 8 } },
     h('style', { 'data-solar-settings-control': '' }, settingsNavigationControlCss),
     h('button', { type: 'button', className: 'solar-settings-navigation-trigger', disabled: busy || !saved.settings, 'aria-pressed': enabled, onClick: () => { void toggle() },
-      style: { minHeight: layout.mount ? 36 : 26, padding: '2px 8px', border: layout.mount ? '0' : '1px solid var(--dsw-alias-border-l2, currentColor)', borderRadius: layout.mount ? 10 : 6, color: 'inherit', background: 'transparent', font: 'inherit', cursor: busy ? 'wait' : 'pointer', whiteSpace: 'nowrap' },
+      style: { minHeight: layout.mount ? 32 : 26, padding: '2px 8px', border: layout.mount ? '0' : '1px solid var(--dsw-alias-border-l2, currentColor)', borderRadius: layout.mount ? 10 : 6, color: 'inherit', background: 'transparent', font: 'inherit', cursor: busy ? 'wait' : 'pointer', whiteSpace: 'nowrap' },
     }, busy ? '正在保存…' : enabled ? '取消分类导航' : '分类导航'),
     message && h('span', { role: 'status', title: message, className: 'solar-settings-navigation-error', style: { fontSize: 12 } }, message),
     enabled && layout.mount && createPortal(h('nav', { 'aria-label': '设置分类', className: 'solar-settings-categories' },

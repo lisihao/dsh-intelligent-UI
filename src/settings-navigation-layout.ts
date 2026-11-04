@@ -94,7 +94,7 @@ export class SettingsLayoutController {
     if (!this.layout || !this.style || !this.mount) return
     const hidden = this.layout.rows.filter(row => group && groupForSettingsSection(row.section.id) !== group).map(row => row.position)
     const scope = `[role="dialog"][data-shortcut-modal="settings"]:has(> [data-solar-settings-categories="${this.token}"])`
-    this.style.textContent = buildSettingsNavigationCss(scope, hidden, this.settings)
+    this.style.textContent = buildSettingsNavigationCss(scope, hidden, this.settings, this.layout.rows.map(row => ({ id: row.section.id, position: row.position })))
     this.style.disabled = false
   }
   private reconcile() {
