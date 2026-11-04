@@ -275,6 +275,8 @@ function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetS
   return h('details', { open: true, className: 'dsh-experience', style: styles.section }, h('summary', null, `${tool.name || '工具调用'} · ${tool.isError ? '失败' : tool.kind === 'tool-result' ? '已完成' : '执行中'}`), tool.isError && h('pre', { role: 'alert', style: styles.raw }, rawText(tool.error)), artifact ? h(ArtifactView, { artifact: artifact as Parameters<typeof ArtifactView>[0]['artifact'], displayMode: 'visual', openuiEnabled, onContinue, stateApi: widgetStateApi }) : tool.content !== undefined && h(ContentView, { value: tool.content }), tool.kind === 'tool-result' && h(McpInline, { api, sessionId, callId: tool.callId, enabled: !!mcpEnabled, onContinue }), inspect && h(ThemeButton, { type: 'button', style: styles.button, onClick: () => inspect(tool.callId as never) }, '查看调用详情'), h('details', null, h('summary', null, '原始调用与结果'), h('pre', { style: styles.raw }, rawText(tool))), ...tool.subCalls.map((child, i) => h(ToolTree, { key: i, tool: child, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled })))
 }
 function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps })) }
+/** The Chat-owned user row keeps attachments, timestamps, copy, and actions; only its raw text node is visualized. */
+function UserTextNode({ raw }: PropsRuntime<'conversation.user.text.node', 'text'>): ReactElement { return h(ContentView, { value: raw }) }
 export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState('')
   const refreshEpoch = useRef(0)
@@ -318,17 +320,54 @@ export function apply(ctx: Context): void {
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
   ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined
-  let injectionDispose: (() => void) | undefined
-  let registrationDisposers: Array<() => void> = []
+  let injectionDisposers: Array<() => void> = []
+  let chatRegistrationDisposers: Array<() => void> = []
+  let userTextRegistrationDisposers: Array<() => void> = []
   let failed = false; let syncing = false
   const assistantView = (props: PropsRuntime<'conversation.chat.node', 'assistant-step'>) => h(AssistantNode, { store, nodeProps: props, onOrganize: (text, signal) => submitResearchPrompt(sessionContext, props.sessionId, text, signal), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })
   const toolView = (props: PropsRuntime<'conversation.chat.node', 'tool-call'>) => h(ToolNode, { store, nodeProps: props, onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) })
-  const retract = () => { const owned = registrationDisposers; registrationDisposers = []; for (const dispose of owned.reverse()) dispose() }
+  const userTextView = (props: PropsRuntime<'conversation.user.text.node', 'text'>) => h(UserTextNode, props)
+  const retract = () => {
+    const owned = [...userTextRegistrationDisposers, ...chatRegistrationDisposers]
+    userTextRegistrationDisposers = []; chatRegistrationDisposers = []
+    for (const dispose of owned.reverse()) dispose()
+  }
+  const retractInjections = () => { const owned = injectionDisposers; injectionDisposers = []; for (const dispose of owned.reverse()) dispose() }
   const fail = (error: unknown) => { failed = true; retract(); console.warn('智能体验聊天接管失败：', error); store.setTakeoverError('聊天显示位置发生冲突或尚未就绪。') }
   const checkWinners = () => {
-    if (!registrationDisposers.length || failed) return
-    const winners = ctx.slots.entriesOfSlot('conversation.chat.node')
-    if (winners.find(entry => entry.options.key === 'assistant-step')?.component !== assistantView || winners.find(entry => entry.options.key === 'tool-call')?.component !== toolView) fail('其他插件占用了聊天显示位置')
+    if (failed || !chatRegistrationDisposers.length || !userTextRegistrationDisposers.length) return
+    const chatWinners = ctx.slots.entriesOfSlot('conversation.chat.node')
+    const userTextWinners = ctx.slots.entriesOfSlot('conversation.user.text.node')
+    if (chatWinners.find(entry => entry.options.key === 'assistant-step')?.component !== assistantView || chatWinners.find(entry => entry.options.key === 'tool-call')?.component !== toolView || userTextWinners.find(entry => entry.options.key === 'text')?.component !== userTextView) fail('其他插件占用了聊天显示位置')
+  }
+  const registerChatNodes = () => {
+    if (failed) return () => {}
+    const owned: Array<() => void> = []
+    try {
+      owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -100 }, assistantView))
+      owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'tool-call', priority: -100 }, toolView))
+      chatRegistrationDisposers = owned
+      checkWinners()
+    } catch (error) {
+      for (const dispose of owned.reverse()) dispose()
+      chatRegistrationDisposers = []
+      fail(error)
+    }
+    return () => { for (const dispose of owned.reverse()) dispose(); if (chatRegistrationDisposers === owned) chatRegistrationDisposers = [] }
+  }
+  const registerUserText = () => {
+    if (failed) return () => {}
+    const owned: Array<() => void> = []
+    try {
+      owned.push(ctx.slots.register({ name: 'conversation.user.text.node', key: 'text', priority: -100 }, userTextView))
+      userTextRegistrationDisposers = owned
+      checkWinners()
+    } catch (error) {
+      for (const dispose of owned.reverse()) dispose()
+      userTextRegistrationDisposers = []
+      fail(error)
+    }
+    return () => { for (const dispose of owned.reverse()) dispose(); if (userTextRegistrationDisposers === owned) userTextRegistrationDisposers = [] }
   }
   const syncTakeover = () => {
     if (syncing) return
@@ -336,34 +375,24 @@ export function apply(ctx: Context): void {
     try {
       if (!store.snapshot().settings?.takeover) {
         researchModes.clear()
-        injectionDispose?.(); injectionDispose = undefined; retract(); failed = false; store.setTakeoverError(undefined); return
+        retractInjections(); retract(); failed = false; store.setTakeoverError(undefined); return
       }
-      if (injectionDispose || failed) return
+      if (injectionDisposers.length || failed) return
+      const ownedInjections: Array<() => void> = []
       try {
-        injectionDispose = ctx.slots.inject('conversation.chat.node', () => {
-          if (failed) return () => {}
-          const owned: Array<() => void> = []
-          try {
-            owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -100 }, assistantView))
-            owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'tool-call', priority: -100 }, toolView))
-            registrationDisposers = owned
-            checkWinners()
-          } catch (error) {
-            for (const dispose of owned.reverse()) dispose()
-            registrationDisposers = []
-            fail(error)
-          }
-          return () => { for (const dispose of owned.reverse()) dispose(); if (registrationDisposers === owned) registrationDisposers = [] }
-        })
-      } catch (error) { fail(error) }
+        ownedInjections.push(ctx.slots.inject('conversation.chat.node', registerChatNodes))
+        ownedInjections.push(ctx.slots.inject('conversation.user.text.node', registerUserText))
+        injectionDisposers = ownedInjections
+      } catch (error) { for (const dispose of ownedInjections.reverse()) dispose(); fail(error) }
     } finally { syncing = false }
   }
   const unsubscribeSlots = ctx.slots.subscribe('conversation.chat.node', checkWinners)
+  const unsubscribeUserTextSlots = ctx.slots.subscribe('conversation.user.text.node', checkWinners)
   const unsubscribe = store.subscribe(syncTakeover)
   ctx.effect(() => {
     void ctx.remote.$mount({ ...RPC_REMOTE, descriptors: [...RPC_REMOTE.descriptors, ...RESEARCH_REMOTE.descriptors] }).then(async dispose => { if (disposed) { await dispose(); return }; remoteDispose = dispose; const wire = ctx.get('remote.solarExperience') as unknown as Wire | undefined; if (!wire) { store.update({ error: '本机没有提供智能体验服务。' }); return }; store.update({ api: apiFromWire(wire, ctx.get('remote.solarResearch') as unknown as ResearchWire | undefined) }); await store.refresh() }).catch(e => { if (!disposed) store.update({ error: message(e) }) })
     const timer = setInterval(() => { void store.refresh() }, 5000)
-    return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); injectionDispose?.(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
+    return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); unsubscribeUserTextSlots(); retractInjections(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
   }, 'intelligent-experience: remote')
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'solar-intelligent-experience-mode', order: 47 }, (props: PropsRuntime<'conversation.session.header.utilities'>) => h(HeaderControls, { store, sessionId: String(props.sessionId) })))
   function BrowserPanel(): ReactElement {
