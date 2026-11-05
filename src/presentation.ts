@@ -1,6 +1,6 @@
 import {normalizeCompositionSource} from './adaptive-ui/source-contracts.js'
 import { AdaptiveCompositionView, CompositionRuntimeContext } from './adaptive-ui/view.js'
-import { useCompositionSelection } from './adaptive-ui/scope.js'
+import { CompositionSelectionContext, ExperimentalBlockDispatchContext, useCompositionSelection, useExperimentalBlockDispatch } from './adaptive-ui/scope.js'
 import { HistoricalChart, LiveSeriesView, recognizeLiveSeries, AdaptiveLoading, AdaptiveText } from './adaptive-ui/components.js'
 import { isAsciiTheme, isGpuAsciiTheme } from './theme-contracts.js'
 import { AsciiChart, supportsAsciiChart } from './ascii-chart.js'
@@ -19,6 +19,7 @@ import { Renderer, type LibraryExtension, type ActionEvent } from '@openuidev/re
 import { ThemeProvider, MarkDownRenderer, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, LineChart, BarChart, IconWrapper } from '@openuidev/react-ui'
 import { openuiLibrary } from '@openuidev/react-ui/genui-lib'
 import { widgetStateSchema, saveWidgetStateSchema, type ExperienceArtifact, type WidgetStateApi, type SaveWidgetStateInput } from './contracts.js'
+import type { CompositionSelection } from './adaptive-ui/contracts.js'
 import { styles } from './style.js'
 import { appearancePreferences, appearanceTokens } from './appearance.js'
 import { themePreferences, usePresentationTheme } from './theme-runtime.js'
@@ -105,12 +106,13 @@ function ChartSource({ plan }: { plan: AutoChartPlan }): ReactElement { return p
 
 /** Charts are derived locally; the unmodified table remains the accessible data source. */
 export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
-  const theme = useExperienceTheme(), selectedTheme = useSelectedTheme(), composition = useCompositionSelection()
+  const theme = useExperienceTheme(), selectedTheme = useSelectedTheme(), composition = useCompositionSelection(), experimentalBlockDispatch = useExperimentalBlockDispatch()
   const colors = appearanceTokens(appearancePreferences.getSnapshot(), selectedTheme).variables
   const palette = (theme === 'dark' ? selectedTheme.tokens.paletteDark : selectedTheme.tokens.paletteLight).map((_, index) => colors[`--iexp-series-${index + 1}`]!)
   const compact = selectedTheme.tokens.comparison === 'organic' && isCompactComparison(plan)
   const plot = (view: AutoChartPlan) => {
-    if ((composition?.chart === 'ascii' || composition?.chart !== 'openui' && composition?.chart !== 'visx' && isAsciiTheme(selectedTheme) && !isGpuAsciiTheme(selectedTheme)) && supportsAsciiChart(plan)) return h(AsciiChart, {plan:view, scalePlan:plan})
+    const explicitExperimentalChart = experimentalBlockDispatch && composition?.chart !== undefined && composition.chart !== 'auto'
+    if ((composition?.chart === 'ascii' || !explicitExperimentalChart && composition?.chart !== 'openui' && composition?.chart !== 'visx' && isAsciiTheme(selectedTheme) && !isGpuAsciiTheme(selectedTheme)) && supportsAsciiChart(plan)) return h(AsciiChart, {plan:view, scalePlan:plan})
     let categoryKey = 'category'
     while (view.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
     const horizontal = view.kind === 'bar'
@@ -146,57 +148,186 @@ function flowPlan(plan: FlowPlan): FlowViewPlan {
 function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
-function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
-  const composition = useCompositionSelection(), semanticCharts = !composition || !['document','table','records'].includes(composition.layout), semanticFlows = !composition || composition.layout === 'auto' || composition.layout === 'flow'
+type BlockLayoutPlan = NonNullable<CompositionSelection['blockLayout']>
+type BlockComposition = BlockLayoutPlan['blocks'][number]
+type BlockSelection = BlockComposition['selection']
+const EMPTY_COMPOSITION_PATH: readonly number[] = []
+
+function sameCompositionPath(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((part, index) => part === right[index])
+}
+function blocksAtPath(program: CompositionSelection | undefined, path: readonly number[]): readonly BlockComposition[] {
+  return program?.blockLayout?.blocks.filter(block => sameCompositionPath(block.path, path)) ?? []
+}
+/** A block targets one compiler-reconstructed source node, never a sliced Markdown fragment. */
+function markdownBlockAt(program: CompositionSelection | undefined, path: readonly number[], start?: number, end?: number): BlockComposition | undefined {
+  if (start === undefined || end === undefined) return undefined
+  const matches = blocksAtPath(program, path).filter(block => block.start !== undefined && block.end !== undefined && block.start <= start && block.end >= end)
+  return matches.length === 1 ? matches[0] : undefined
+}
+function structuredBlockAt(program: CompositionSelection | undefined, path: readonly number[]): BlockComposition | undefined {
+  const matches = blocksAtPath(program, path).filter(block => block.start === undefined && block.end === undefined)
+  return matches.length === 1 ? matches[0] : undefined
+}
+function scopedSelection(selection: BlockSelection | undefined, content: ReactNode): ReactNode {
+  return selection ? h(ExperimentalBlockDispatchContext.Provider, { value: true }, h(CompositionSelectionContext.Provider, { value: selection }, content)) : content
+}
+/** Global reading aids do not turn off a source-bound table, board, chart, or flow choice. */
+function localLayout(selection: { layout: CompositionSelection['layout'] } | undefined, preserveGlobalReadingAids = false): CompositionSelection['layout'] {
+  const layout = selection?.layout ?? 'auto'
+  return preserveGlobalReadingAids && (layout === 'continuous' || layout === 'heading-index' || layout === 'research') ? 'auto' : layout
+}
+function allowsSemanticCharts(selection: { layout: CompositionSelection['layout'], surface?: CompositionSelection['surface'] } | undefined, preserveGlobalReadingAids = false): boolean {
+  if (selection?.surface === 'source') return false
+  return !['document', 'table', 'records'].includes(localLayout(selection, preserveGlobalReadingAids))
+}
+function allowsSemanticFlows(selection: { layout: CompositionSelection['layout'], surface?: CompositionSelection['surface'] } | undefined, preserveGlobalReadingAids = false): boolean {
+  if (selection?.surface === 'source') return false
+  const layout = localLayout(selection, preserveGlobalReadingAids)
+  return layout === 'auto' || layout === 'flow'
+}
+const layoutLabels: Record<CompositionSelection['layout'], string> = {
+  auto: '保留原文结构', board: '任务看板', records: '记录详情', flow: '步骤或关系图', table: '完整表格',
+  research: '研究阅读', document: '文档阅读', 'heading-index': '章节索引', continuous: '连续阅读',
+}
+const chartLabels: Record<CompositionSelection['chart'], string> = {
+  auto: '自动图表', openui: 'OpenUI 图表', compact: '紧凑比较图', dense: '密集趋势图', ascii: 'ASCII 图表', visx: 'Visx 图表',
+}
+const componentLabels: Readonly<Record<string, string>> = {
+  native: '原生组件', 'soft-relief': '柔和浮雕组件', 'clear-glass': '清透玻璃组件', 'mechanical-outline': '机械描边组件',
+}
+const objectEffectLabels: Readonly<Record<string, string>> = {
+  'ink-object': '墨绘对象效果', 'ascii-object': 'ASCII 对象效果', 'glass-object': '玻璃对象效果',
+}
+const blockKindLabels: Readonly<Record<string, string>> = {
+  prose: '正文', paragraph: '段落', 'markdown-paragraph': '段落', table: '表格', 'markdown-table': '表格',
+  code: '代码块', 'ordered-list': '有序列表', list: '列表', flow: '步骤或关系', structured: '结构化内容',
+  'structured-array': '结构化列表', 'structured-record': '结构化记录', scalar: '文本值',
+}
+const evidenceLabels: Readonly<Record<string, string>> = {
+  'source:markdown': '来源是当前 Markdown 原文',
+  'source:table': '来源是完整 Markdown 表格',
+  'source:flow:arrow-chain': '原文包含明确的箭头步骤',
+  'source:flow:ordered-list': '原文包含明确的有序步骤',
+  'source:list': '来源是列表',
+  'source:ordered-list': '来源是有序列表',
+  'source:illustration': '来源包含可验证的插图',
+  'source:code': '来源是代码块',
+  'source:structured': '来源是结构化内容',
+  'source:passive-markdown': '来源保持普通 Markdown 阅读',
+  'markdown-paragraph': '来源是 Markdown 段落',
+  'markdown-table': '来源是完整 Markdown 表格',
+  'ordered-list': '来源是有序列表',
+  'arrow-chain': '原文包含明确的箭头步骤',
+  'explicit-flow': '原文包含明确的步骤或关系',
+  'numeric-table': '表格包含可比较的数值列',
+  'task-table': '表格包含明确的任务和状态字段',
+  'task-records': '结构化记录包含明确的任务和状态字段',
+  'record-list': '结构化记录可保持完整详情',
+  'validated-chart-plan': '表格已通过图表结构核验',
+  'historical-time-series': '时间序列已通过趋势图结构核验',
+  'validated-task-status-records': '任务和状态字段已通过结构核验',
+  'validated-explicit-graph-or-flow': '原文关系或步骤已通过结构核验',
+  'source-bound-ordered-list-flow': '有序步骤已与当前原文逐项对应',
+}
+function readableEvidence(value: string): string {
+  const key = value.trim().toLowerCase().replace(/[ _]+/g, '-')
+  if (evidenceLabels[key]) return evidenceLabels[key]
+  if (key.startsWith('node:')) return '来源节点类型已与当前原文核验'
+  if (key.startsWith('range:')) return '来源范围已与当前原文核验'
+  if (key.startsWith('contains:')) return '内容结构已与当前原文核验'
+  if (key.startsWith('source:')) return '来源类型已与当前原文核验'
+  return '该内容块已通过与当前原文结构相符的本地核验'
+}
+function readableSourceScope(block: BlockComposition, path: readonly number[]): string {
+  const kind = blockKindLabels[block.kind] ?? '内容块'
+  return path.length ? `第 ${path.map(index => index + 1).join('.')} 个内容块中的${kind}` : `当前文档中的${kind}`
+}
+function readableChoice(selection: BlockSelection): string {
+  const parts = [layoutLabels[selection.layout], chartLabels[selection.chart], componentLabels[selection.componentSet] ?? '已选组件样式']
+  if (selection.objectEffect !== 'auto' && selection.objectEffect !== 'none') parts.push(objectEffectLabels[selection.objectEffect] ?? '已选对象效果')
+  return parts.join('；')
+}
+/** Source evidence is local verification metadata, not a model-authored explanation. */
+function BlockLayoutBasis({ program, path }: { program: CompositionSelection | undefined, path: readonly number[] }): ReactElement | null {
+  const blocks = blocksAtPath(program, path)
+  if (!blocks.length) return null
+  return h('details', { className: 'iexp-disclosure', 'data-iexp-block-layout-basis': 'true' },
+    h('summary', null, '内容块布局依据'),
+    h('p', null, '展示已选方式与本地核验的适用条件，不代表模型返回的文字理由。'),
+    h('ul', null, ...blocks.map(block => {
+      const evidence = [...new Set(block.evidence.map(readableEvidence))]
+      const evidenceList = h('ul', null, ...evidence.map((item, index) => h('li', { key: index }, `本地核验：${item}`)))
+      return h('li', { key: block.id },
+        h('strong', null, `${blockKindLabels[block.kind] ?? '内容块'}：${readableChoice(block.selection)}`),
+        h('div', null, `来源位置：${readableSourceScope(block, path)}`),
+        evidenceList,
+      )
+    })),
+  )
+}
+function MarkdownContent({ text, isStreaming, path, program }: { text: string, isStreaming: boolean, path: readonly number[], program: CompositionSelection | undefined }): ReactElement {
+  const composition = program
   const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
   const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
   const selectedTheme = useSelectedTheme()
   const colorScheme = useExperienceTheme()
   const illustrations = useMemo(() => isStreaming ? [] : markdownIllustrations(text), [text, isStreaming])
-  const sections = useMemo(() => !isStreaming && (composition?.layout==='continuous'||(!composition||composition.layout==='auto')&&selectedTheme.tokens.composition === 'continuous') ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition,composition?.layout])
+  const experimentalProgram = !!composition?.blockLayout
+  const rootLayout = composition?.layout ?? 'auto'
+  const globalReadingAids = experimentalProgram && (rootLayout === 'continuous' || rootLayout === 'heading-index' || rootLayout === 'research')
+  const semanticFallback = !composition || rootLayout === 'auto' || experimentalProgram && rootLayout === 'research'
+  const headingIndexEligible = !composition || rootLayout === 'auto' || rootLayout === 'heading-index' || experimentalProgram && rootLayout === 'research'
+  const sections = useMemo(() => !isStreaming && (rootLayout === 'continuous' || semanticFallback && selectedTheme.tokens.composition === 'continuous') ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition, rootLayout, semanticFallback])
   const prefix = useId().replaceAll(':', '')
   // Stable renderer types retain native disclosures and nested layout state during polling.
   const markdownOptions = useMemo<ComponentProps<typeof MarkDownRenderer>['options']>(() => {
-    const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number } } } }) => {
-      const start = node?.position?.start.offset, icon = selectIcon(headingText(children))
+    const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number }, end?: { offset?: number } } } }) => {
+      const start = node?.position?.start.offset, end = node?.position?.end?.offset, block = markdownBlockAt(program, path, start, end), icon = selectIcon(headingText(children))
       const heading = h(`h${level}`, { 'data-iexp-source-start': start, 'data-iexp-source-end': (node as { position?: { end?: { offset?: number } } } | undefined)?.position?.end?.offset, id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
-      return (!composition||composition.layout==='auto'||composition.layout==='heading-index') && !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
+      const output = headingIndexEligible && !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
+      return scopedSelection(block?.selection, output)
     }]))
     return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
       ...headings,
       tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
-        const flow = semanticFlows && layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
-        if (flow) return h(SafeFlow, { plan: flow })
-        const illustration = illustrations.find(item => item.start === node?.position?.start.offset)
+        const start = node?.position?.start.offset, end = node?.position?.end.offset, block = markdownBlockAt(program, path, start, end), effective = block?.selection ?? composition
+        const flow = allowsSemanticFlows(effective, !block && globalReadingAids) && layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === start)
+        if (flow) return scopedSelection(block?.selection, h(SafeFlow, { plan: flow }))
+        const illustration = effective?.surface === 'source' ? undefined : illustrations.find(item => item.start === node?.position?.start.offset)
         if (illustration) {
           // Keep ordinary Markdown images as rendered by the host. Its URL filter
           // removes data: image sources, so use the byte-validated blob for those.
           const record = { type: illustration.mime, role: 'illustration', url: illustration.url, alt: illustration.alt, title: illustration.title }
           const source = glbSource(record)
-          if (source) return h('div', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: /^data:/i.test(illustration.url) ? undefined : h('div', { className: 'iexp-markdown-illustration-original' }, children) }))
+          if (source) return scopedSelection(block?.selection, h('div', { 'data-iexp-source-start': start, 'data-iexp-source-end': end }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: /^data:/i.test(illustration.url) ? undefined : h('div', { className: 'iexp-markdown-illustration-original' }, children) })))
         }
-        return h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
+        return scopedSelection(block?.selection, h('p', { 'data-iexp-source-start': start, 'data-iexp-source-end': end }, children))
       },
       a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
       td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       th: ({ children, node, align }) => h(TableHead, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       ol: ({ children, node, start }) => {
-        const flow = semanticFlows && layout.flows.find(plan => plan.sourceKind === 'ordered-list' && plan.start === node?.position?.start.offset)
-        return flow ? h(SafeFlow, { plan: flow }) : h('ol', { start }, children)
+        const sourceStart = node?.position?.start.offset, sourceEnd = node?.position?.end.offset, block = markdownBlockAt(program, path, sourceStart, sourceEnd), effective = block?.selection ?? composition
+        const flow = allowsSemanticFlows(effective, !block && globalReadingAids) && layout.flows.find(plan => plan.sourceKind === 'ordered-list' && plan.start === sourceStart)
+        return scopedSelection(block?.selection, flow ? h(SafeFlow, { plan: flow }) : h('ol', { start }, children))
       },
       table: ({ children, node }) => {
-        const table = tables.find(table => table.start === node?.position?.start.offset), plans = semanticCharts ? table?.plans ?? [] : []
-        const board = table && (!composition || composition.layout === 'auto' || composition.layout === 'board') ? analyzeTaskTable(table.headers, table.rows) : undefined
-        const detail = (composition?.layout==='records'||sections&&(!composition||composition.layout==='auto')) && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
-        return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
+        const sourceStart = node?.position?.start.offset, sourceEnd = node?.position?.end.offset, block = markdownBlockAt(program, path, sourceStart, sourceEnd), effective = block?.selection ?? composition, layoutChoice = localLayout(effective, !block && globalReadingAids)
+        if (effective?.surface === 'source') return scopedSelection(block?.selection, h('div', { className: 'iexp-table-group', 'data-iexp-source-start': sourceStart, 'data-iexp-source-end': sourceEnd }, h(SourceTable, { plans: [] }, children)))
+        const table = tables.find(table => table.start === sourceStart), plans = allowsSemanticCharts(effective, !block && globalReadingAids) ? table?.plans ?? [] : []
+        const board = table && (layoutChoice === 'auto' || layoutChoice === 'board') ? analyzeTaskTable(table.headers, table.rows) : undefined
+        const detail = (layoutChoice === 'records' || sections && layoutChoice === 'auto') && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
+        return scopedSelection(block?.selection, h('div', { className: 'iexp-table-group', 'data-iexp-source-start': sourceStart, 'data-iexp-source-end': sourceEnd }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children)))
       },
     } }
-  }, [layout, prefix, tables, sections, illustrations, colorScheme, semanticCharts, semanticFlows, composition?.layout])
-  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
+  }, [layout, prefix, tables, sections, illustrations, colorScheme, composition, program, path, rootLayout, globalReadingAids, headingIndexEligible])
+  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, h(BlockLayoutBasis, { program, path }), sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
 }
 function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {
   const composition = useCompositionSelection(), layout = composition?.layout ?? 'auto'
+  if (composition?.surface === 'source') return h('pre', { style: styles.raw }, rawText(value))
   const live = !isStreaming && recognizeLiveSeries(value)
   if (live) return h(LiveSeriesView, {source:live,dark,animate:composition?.live!=='native'})
   const record=value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:undefined
@@ -230,13 +361,22 @@ function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStr
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-function ContentBody({ value, isStreaming = false }: { value: unknown, isStreaming?: boolean }): ReactElement {
+function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH, program }: { value: unknown, isStreaming?: boolean, path?: readonly number[], program?: CompositionSelection }): ReactElement {
   const theme = useExperienceTheme()
-  const normalized=normalizeCompositionSource(value)
-  const content:ReactNode=normalized.kind==='blocks'?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming})):normalized.kind==='markdown'
-    ?h(MarkdownContent,{text:normalized.markdown,isStreaming})
-    :h(StructuredContent,{value:normalized.kind==='structured'||normalized.kind==='scalar'?normalized.value:value,isStreaming,dark:theme==='dark'})
-  return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, content)))
+  const contextualProgram = useCompositionSelection() as CompositionSelection | undefined
+  const rootProgram = program ?? contextualProgram
+  const normalized = normalizeCompositionSource(value)
+  const childCount = normalized.kind === 'blocks' ? normalized.values.length : 0
+  const childPaths = useMemo(() => Array.from({ length: childCount }, (_part, index) => [...path, index]), [path, childCount])
+  const structured = normalized.kind === 'structured' || normalized.kind === 'scalar' || normalized.kind === 'empty'
+  const block = structured ? structuredBlockAt(rootProgram, path) : undefined
+  const content:ReactNode=normalized.kind==='blocks'
+    ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram}))
+    :normalized.kind==='markdown'
+      ?h(MarkdownContent,{text:normalized.markdown,isStreaming,path,program:rootProgram})
+      :scopedSelection(block?.selection, h(StructuredContent,{value:normalized.kind==='structured'||normalized.kind==='scalar'?normalized.value:value,isStreaming,dark:theme==='dark'}))
+  const basis = structured ? h(BlockLayoutBasis, { program: rootProgram, path }) : undefined
+  return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, basis, content)))
 }
 
 /** One composition boundary per actual source output; nested renderers share its decision. */

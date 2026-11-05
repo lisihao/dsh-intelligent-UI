@@ -58,6 +58,7 @@ const fixtureDocuments = new Map([
   ['synthetic-strategy-flow', { scenario: 'strategy-flow', kind: 'graph' }],
   ['synthetic-comparison-records', { scenario: 'comparison-records', kind: 'records' }],
   ['synthetic-cited-report-index', { scenario: 'cited-report-index', kind: 'markdown' }],
+  ['synthetic-mixed-block-layout', { scenario: 'mixed-block-layout', kind: 'markdown', blockLayout: true }],
 ])
 
 const scenarioChoices = {
@@ -88,10 +89,94 @@ function safeSchema(bundle, questions) {
 function questionShape(questions) {
   return JSON.stringify(questions.map(question => ({ id: question.id, kind: question.kind, options: question.options.map(option => option.id) })))
 }
+function isBlockReference(value) {
+  return isRecord(value) && typeof value.id === 'string' && Array.isArray(value.path) && value.path.every(item => Number.isInteger(item) && item >= 0)
+}
+function blockBindings(bundle) {
+  const blocks = isRecord(bundle?.blockLayout) && Array.isArray(bundle.blockLayout.blocks) ? bundle.blockLayout.blocks : []
+  if (!blocks.length || !blocks.every(binding => isRecord(binding) && isBlockReference(binding.reference) && Array.isArray(binding.questionIds))) throw new Error('SYNTHETIC_BLOCK_CANDIDATE_BINDINGS_INVALID')
+  return blocks
+}
+function blockReferences(bundle) {
+  return blockBindings(bundle).map(binding => binding.reference)
+}
+function sourceRole(value) {
+  const encoded = typeof value === 'string' ? value : JSON.stringify(value) ?? ''
+  const text = encoded.toLowerCase()
+  if (/(?:task|board|status|任务|状态|validated-task)/.test(text)) return 'board'
+  if (/(?:flow|arrow|sequence|relationship|流程|关系|箭头|arrow-chain|->|→)/.test(text)) return 'flow'
+  if (/(?:chart|histor|numeric|line|visx|table|历史|数值|延迟|chart-plan)/.test(text)) return 'chart'
+  if (/(?:prose|paragraph|document|text|ordinary|普通|说明|正文)/.test(text)) return 'prose'
+  return undefined
+}
+function questionField(question) {
+  const prompt = isRecord(question.prompt) ? question.prompt : undefined
+  if (typeof prompt?.field === 'string') return prompt.field
+  return ['theme', 'surface', 'chart', 'component-set', 'layout', 'object-effect', 'live', 'loading', 'text-motion'].includes(question.id) ? question.id : undefined
+}
+function blockBindingForQuestion(question, bundle) {
+  const binding = blockBindings(bundle).find(item => item.questionIds.includes(question.id))
+  return binding?.reference
+}
+function optionId(question, desired, fallback = question.options[0]?.id) {
+  const options = Array.isArray(question.options) ? question.options : []
+  const exact = desired === undefined ? undefined : options.find(option => option.id === desired || option.id === `${questionField(question)}:${desired}`)
+  return exact?.id ?? fallback
+}
+function requiredOption(question, desired, context) {
+  const selected = Array.isArray(question.options) ? question.options.find(option => option.id === desired || option.id === `${questionField(question)}:${desired}`)?.id : undefined
+  if (!selected) throw new Error(`SYNTHETIC_REQUIRED_OPTION_MISSING_${context}_${desired}`)
+  return selected
+}
+function mixedAnswers(request, bundle) {
+  const blocks = blockReferences(bundle)
+  if (blocks.length < 3) throw new Error('SYNTHETIC_BLOCK_CANDIDATES_MISSING')
+  const byRole = new Map()
+  const state = asRecord(request.state, 'SYNTHETIC_REQUEST_STATE_INVALID')
+  const source = asRecord(state.source, 'SYNTHETIC_REQUEST_SOURCE_INVALID')
+  for (const block of [...blocks].sort((left, right) => JSON.stringify(left.path).localeCompare(JSON.stringify(right.path)))) {
+    const blockSource = typeof source.value === 'string' && block.start !== undefined && block.end !== undefined ? source.value.slice(block.start, block.end) : block
+    const role = sourceRole(blockSource)
+    if (role && !byRole.has(role)) byRole.set(role, block)
+  }
+  for (const role of ['chart', 'board', 'flow']) if (!byRole.has(role)) throw new Error(`SYNTHETIC_BLOCK_ROLE_MISSING_${role}`)
+  const blockQuestions = request.questions.filter(question => blockBindingForQuestion(question, bundle))
+  const answers = { ...bundle.defaultAnswers }
+  const seenRoles = new Set()
+  for (const question of request.questions) {
+    if (!Array.isArray(question.options) || question.options.length < 2) throw new Error('SYNTHETIC_DECISIONS_REQUIRES_TWO_CHOICES')
+    const field = questionField(question)
+    const block = blockBindingForQuestion(question, bundle)
+    const promptRole = sourceRole({ id: question.id, prompt: question.prompt, options: question.options })
+    const blockSource = block && typeof source.value === 'string' && block.start !== undefined && block.end !== undefined ? source.value.slice(block.start, block.end) : block
+    const role = sourceRole(blockSource) ?? promptRole
+    const blockSpecific = !!block || blockQuestions.includes(question)
+    let desired
+    if (blockSpecific && field === 'surface' && (role === 'chart' || role === 'board' || role === 'flow')) desired = 'semantic'
+    else if (blockSpecific && field === 'chart' && role === 'chart') desired = 'visx'
+    else if (blockSpecific && field === 'layout' && role === 'board') desired = 'board'
+    else if (blockSpecific && field === 'layout' && role === 'flow') desired = 'flow'
+    else if (blockSpecific && field === 'layout' && role === 'prose') desired = 'document'
+    else if (!blockSpecific && field === 'theme') desired = 'uiverse-soft-relief'
+    else if (!blockSpecific && field === 'surface') desired = 'semantic'
+    else if (!blockSpecific && field === 'component-set') desired = 'soft-relief'
+    else if (!blockSpecific && (field === 'chart' || field === 'layout')) desired = field === 'chart' ? 'auto' : 'auto'
+    if (desired && ((role === 'chart' && field === 'chart') || (role === 'board' && field === 'layout') || (role === 'flow' && field === 'layout'))) {
+      answers[question.id] = requiredOption(question, desired, `${role}_${field}`)
+    } else {
+      answers[question.id] = optionId(question, desired, question.options[0]?.id)
+    }
+    if (role) seenRoles.add(role)
+  }
+  if (blockQuestions.length === 0) throw new Error('SYNTHETIC_BLOCK_QUESTIONS_MISSING')
+  if (!['chart', 'board', 'flow'].every(role => seenRoles.has(role))) throw new Error('SYNTHETIC_BLOCK_QUESTION_ROLE_MISSING')
+  return answers
+}
 function plannerBundleFromRequest(request) {
   const state = asRecord(request.state, 'SYNTHETIC_REQUEST_STATE_INVALID')
   const source = asRecord(state.source, 'SYNTHETIC_REQUEST_SOURCE_INVALID')
   const composition = asRecord(state.composition, 'SYNTHETIC_REQUEST_COMPOSITION_INVALID')
+  const fixture = fixtureDocuments.get(source.documentId)
   const rebuilt = buildCompositionCandidates({
     value: source.value,
     themes: composition.themes,
@@ -99,6 +184,7 @@ function plannerBundleFromRequest(request) {
     styleMode: composition.styleMode,
     capabilities: composition.capabilities,
     isStreaming: composition.isStreaming,
+    ...(fixture?.blockLayout === true ? { blockLayout: true } : {}),
   })
   if (questionShape(rebuilt.questions.filter(question => question.options.length > 1)) !== questionShape(request.questions)) throw new Error('SYNTHETIC_CANDIDATE_SCHEMA_MISMATCH')
   return rebuilt
@@ -124,13 +210,18 @@ function fixtureForInput(input, endpoint) {
   return fixture
 }
 
-const serverSettings = {
+const legacyServerSettings = {
   takeover: true,
   adaptive: { enabled: true, styleMode: 'automatic' },
   theme: { activeId: 'empryo', installed: [] },
 }
+const blockLayoutServerSettings = {
+  ...legacyServerSettings,
+  adaptive: { enabled: true, styleMode: 'automatic', blockLayout: true },
+}
 
 const operationEvidence = new Map()
+const decisionCallsByDocument = new Map()
 let operationCount = 0
 class SyntheticJevPort {
   registerFeature(feature) {
@@ -159,39 +250,61 @@ class SyntheticJevPort {
     const fixture = fixtureDocuments.get(documentId)
     if (!fixture) return { kind: 'not-adopted', operationId, reason: 'SYNTHETIC_DOCUMENT_UNKNOWN' }
     const bundle = plannerBundleFromRequest(request)
+    if (fixture.blockLayout === true && (decisionCallsByDocument.get(documentId) ?? 0) > 0) throw new Error('SYNTHETIC_BLOCK_DECISION_CALL_DUPLICATE')
     const preferred = scenarioChoices[fixture.scenario]
-    const answers = { ...bundle.defaultAnswers }
+    const answers = fixture.blockLayout === true ? mixedAnswers(request, bundle) : { ...bundle.defaultAnswers }
     for (const question of request.questions) {
       if (question.options.length < 2) throw new Error('SYNTHETIC_DECISIONS_REQUIRES_TWO_CHOICES')
-      const desired = preferred[question.id]
+      const desired = fixture.blockLayout === true ? answers[question.id] : preferred[question.id]
       const option = desired === undefined ? question.options[0]?.id : question.options.find(candidate => candidate.id === desired)?.id
       if (!option) throw new Error(`SYNTHETIC_OPTION_NOT_ALLOWED_${question.id}`)
       answers[question.id] = option
     }
     const selection = validateCompositionChoices(bundle, answers)
+    if (fixture.blockLayout === true) {
+      const selectedBlocks = selection.blockLayout?.blocks ?? []
+      const candidates = blockReferences(bundle)
+      const candidateById = new Map(candidates.map(block => [block.id, block]))
+      if (selection.blockLayout?.version !== 1 || selection.blockLayout.inspection !== 'none' || selectedBlocks.length < 3) throw new Error('SYNTHETIC_BLOCK_LAYOUT_SELECTION_INVALID')
+      for (const block of selectedBlocks) {
+        const candidate = candidateById.get(block.id)
+        if (!candidate || JSON.stringify(candidate.path) !== JSON.stringify(block.path) || candidate.start !== block.start || candidate.end !== block.end || candidate.kind !== block.kind) throw new Error(`SYNTHETIC_BLOCK_REFERENCE_INVALID_${block.id}`)
+        if (!Array.isArray(block.evidence) || block.evidence.length === 0) throw new Error(`SYNTHETIC_BLOCK_EVIDENCE_MISSING_${block.id}`)
+      }
+      if (!selectedBlocks.some(block => block.selection.chart === 'visx')) throw new Error('SYNTHETIC_BLOCK_CHART_NOT_SELECTED')
+      if (!selectedBlocks.some(block => block.selection.layout === 'board')) throw new Error('SYNTHETIC_BLOCK_BOARD_NOT_SELECTED')
+      if (!selectedBlocks.some(block => block.selection.layout === 'flow')) throw new Error('SYNTHETIC_BLOCK_FLOW_NOT_SELECTED')
+      decisionCallsByDocument.set(documentId, (decisionCallsByDocument.get(documentId) ?? 0) + 1)
+    }
     const response = { answers: request.questions.map(question => ({ id: question.id, kind: 'choice', optionId: answers[question.id] })) }
     const interpreted = await options.interpret?.(response, options.signal ?? new AbortController().signal)
     if (interpreted && !interpreted.usable) return { kind: 'not-adopted', operationId, reason: interpreted.reason }
     const adoption = await options.canAdopt?.(response, options.signal ?? new AbortController().signal)
     if (adoption !== undefined && adoption !== true) return { kind: 'not-adopted', operationId, reason: adoption }
-    operationEvidence.set(operationId, { documentId, scenario: fixture.scenario, schema: safeSchema(bundle, request.questions), selection, observed: false })
+    operationEvidence.set(operationId, { documentId, scenario: fixture.scenario, schema: safeSchema(bundle, request.questions), selection, observed: false, decisionCalls: fixture.blockLayout === true ? 1 : undefined })
     return { kind: 'ok', operationId, attemptId: `synthetic-attempt-${operationCount}`, response }
   }
   async writeReceipt(operationId) {
     const evidence = operationEvidence.get(operationId)
     if (!evidence) throw new Error('SYNTHETIC_RECEIPT_OPERATION_UNKNOWN')
     evidence.observed = true
-    process.stdout.write(`ADAPTIVE_UI_EVENT=${JSON.stringify({ type: 'receipt', documentId: evidence.documentId, operationId, schema: evidence.schema, selection: evidence.selection, observed: true, externalModelCalls: 0 })}\n`)
+    process.stdout.write(`ADAPTIVE_UI_EVENT=${JSON.stringify({ type: 'receipt', documentId: evidence.documentId, operationId, schema: evidence.schema, selection: evidence.selection, decisionCalls: evidence.decisionCalls, observed: true, externalModelCalls: 0 })}\n`)
     return { synthetic: true, externalModelCalls: 0 }
   }
 }
 
 const syntheticJev = new SyntheticJevPort()
-const coordinator = new AdaptiveCompositionCoordinator({
-  getSettings: async () => serverSettings,
+const legacyCoordinator = new AdaptiveCompositionCoordinator({
+  getSettings: async () => legacyServerSettings,
   getJev: () => syntheticJev,
   now: () => new Date('2026-11-05T00:00:00.000Z'),
 })
+const blockLayoutCoordinator = new AdaptiveCompositionCoordinator({
+  getSettings: async () => blockLayoutServerSettings,
+  getJev: () => syntheticJev,
+  now: () => new Date('2026-11-05T00:00:00.000Z'),
+})
+function coordinatorFor(fixture) { return fixture.blockLayout === true ? blockLayoutCoordinator : legacyCoordinator }
 
 function json(res, status, value, headers = {}) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers })
@@ -232,7 +345,8 @@ const server = createServer(async (req, res) => {
     }
     const input = await requestBody(req)
     const endpoint = path === '/api/composition' ? 'composition' : path === '/api/compositionCancel' ? 'compositionCancel' : 'compositionReceipt'
-    fixtureForInput(input, endpoint)
+    const fixture = fixtureForInput(input, endpoint)
+    const coordinator = coordinatorFor(fixture)
     if (endpoint === 'composition') {
       const result = await coordinator.compose(input)
       const evidence = result.operationId ? operationEvidence.get(result.operationId) : undefined
@@ -244,7 +358,9 @@ const server = createServer(async (req, res) => {
       return
     }
     if (endpoint === 'compositionCancel') return json(res, 200, coordinator.cancel(input))
-    return json(res, 200, await coordinator.receipt(input))
+    const receipt = await coordinator.receipt(input)
+    const evidence = operationEvidence.get(receipt.operationId)
+    return json(res, 200, receipt, evidence?.decisionCalls === undefined ? undefined : { 'x-adaptive-decision-calls': String(evidence.decisionCalls) })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     json(res, 400, { error: message })
@@ -263,7 +379,8 @@ let shuttingDown = false
 async function shutdown(exitCode = 0) {
   if (shuttingDown) return
   shuttingDown = true
-  coordinator.dispose()
+  legacyCoordinator.dispose()
+  blockLayoutCoordinator.dispose()
   await new Promise(resolveClose => server.close(resolveClose))
   await rm(runtimeDirectory, { recursive: true, force: true })
   process.exit(exitCode)

@@ -26,7 +26,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateApi, ThemeApi } from './contracts.js'
+import type { AdaptiveSettings, ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateApi, ThemeApi } from './contracts.js'
 import { resolveTheme, type ThemePackage } from './theme-contracts.js'
 import { type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
 import { HeaderExtras } from './header-extras.js'
@@ -43,6 +43,7 @@ import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
 import { installAsciiVisualTheme } from './ascii-visual-theme.js'
 import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contracts.js'
+import { blockLayoutEnabled, blockLayoutShortcutFromKeyboardEvent, blockLayoutShortcutLabel, isBlockLayoutShortcutCaptureTarget, matchesBlockLayoutShortcut, resolveBlockLayoutShortcut } from './layout-shortcut.js'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
 
@@ -75,6 +76,56 @@ function stateApi(api?: ClientApi): WidgetStateApi | undefined { return api?.wid
 
 function sameSettings(a: ExperienceSettings, b: ExperienceSettings): boolean { return JSON.stringify(a) === JSON.stringify(b) }
 function copySettings(value: ExperienceSettings): ExperienceSettings { return JSON.parse(JSON.stringify(value)) as ExperienceSettings }
+function hasOwn(value: object, key: PropertyKey): boolean { return Object.prototype.hasOwnProperty.call(value, key) }
+
+/** Keeps unrelated adaptive fields intact when one settings control changes. */
+export function mergeAdaptiveSettings(current: AdaptiveSettings | undefined, patch: Partial<AdaptiveSettings>): AdaptiveSettings {
+  const next: AdaptiveSettings = {
+    enabled: current?.enabled ?? false,
+    styleMode: current?.styleMode ?? 'automatic',
+  }
+  if (current?.blockLayout !== undefined) next.blockLayout = current.blockLayout
+  if (current?.blockLayoutShortcut !== undefined) next.blockLayoutShortcut = current.blockLayoutShortcut
+  if (hasOwn(patch, 'enabled') && patch.enabled !== undefined) next.enabled = patch.enabled
+  if (hasOwn(patch, 'styleMode') && patch.styleMode !== undefined) next.styleMode = patch.styleMode
+  if (hasOwn(patch, 'blockLayout')) {
+    if (patch.blockLayout === undefined) delete next.blockLayout
+    else next.blockLayout = patch.blockLayout
+  }
+  if (hasOwn(patch, 'blockLayoutShortcut')) {
+    if (patch.blockLayoutShortcut === undefined) delete next.blockLayoutShortcut
+    else next.blockLayoutShortcut = patch.blockLayoutShortcut
+  }
+  return next
+}
+
+function rebaseAdaptiveSettings(input: AdaptiveSettings, baseline: AdaptiveSettings | undefined, current: AdaptiveSettings | undefined): AdaptiveSettings {
+  const baselineEnabled = baseline?.enabled ?? false
+  const baselineStyleMode = baseline?.styleMode ?? 'automatic'
+  const next = mergeAdaptiveSettings(current, {
+    enabled: input.enabled === baselineEnabled ? current?.enabled ?? false : input.enabled,
+    styleMode: input.styleMode === baselineStyleMode ? current?.styleMode ?? 'automatic' : input.styleMode,
+  })
+  if (hasOwn(input, 'blockLayout') && input.blockLayout !== (baseline?.blockLayout ?? false)) {
+    next.blockLayout = input.blockLayout
+  }
+  if (hasOwn(input, 'blockLayoutShortcut') &&
+      resolveBlockLayoutShortcut(input.blockLayoutShortcut) !== resolveBlockLayoutShortcut(baseline?.blockLayoutShortcut)) {
+    next.blockLayoutShortcut = input.blockLayoutShortcut
+  }
+  return next
+}
+
+function adaptiveSaveInput(settings: ExperienceSettings, adaptive: AdaptiveSettings): SaveSettingsInput {
+  return {
+    expectedRevision: settings.revision,
+    takeover: settings.takeover,
+    openui: settings.openui,
+    mcpApps: settings.mcpApps,
+    adaptive,
+  }
+}
+
 /** Preserve only the caller's edits when an earlier local save completed first. */
 function rebaseSettings(input: SaveSettingsInput, baseline: ExperienceSettings, current: ExperienceSettings): SaveSettingsInput {
   const next: SaveSettingsInput = {
@@ -94,12 +145,12 @@ function rebaseSettings(input: SaveSettingsInput, baseline: ExperienceSettings, 
     }
     next.appearance = appearance
   }
-  if (input.adaptive && JSON.stringify(input.adaptive)===JSON.stringify(baseline.adaptive) && current.adaptive) next.adaptive=current.adaptive
+  if (input.adaptive) next.adaptive = rebaseAdaptiveSettings(input.adaptive, baseline.adaptive, current.adaptive)
   return next
 }
 
 export class ExperienceStore {
-  private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
+  private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, shortcutError?: string, shortcutStatus?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
   private listeners = new Set<() => void>()
   private generation = 0
   private saves: Promise<void> = Promise.resolve()
@@ -114,6 +165,8 @@ export class ExperienceStore {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   update(value: typeof this.value) { if (this.value.api !== value.api) this.transitions.clear(); this.value = value; this.listeners.forEach(listener => listener()) }
   setTakeoverError(error?: string) { if (this.value.takeoverError !== error) this.update({ ...this.value, takeoverError: error }) }
+  setShortcutError(error?: string) { if (this.value.shortcutError !== error) this.update({ ...this.value, shortcutError: error }) }
+  setShortcutStatus(status?: string) { if (this.value.shortcutStatus !== status) this.update({ ...this.value, shortcutStatus: status }) }
   async refresh() { const api = this.value.api; if (!api) return; const generation = this.generation; try { const settings = await api.settings(); if (this.value.api === api && generation === this.generation) this.update({ ...this.value, api, settings }) } catch (e) { if (this.value.api === api) this.update({ ...this.value, error: message(e) }) } }
   async save(input: SaveSettingsInput) {
     this.generation++
@@ -162,6 +215,76 @@ export class ExperienceStore {
   async downloadTheme(input: Omit<DownloadThemeInput, 'expectedRevision'>) { this.generation++; const { api, settings: current } = this.value; if (!api?.downloadTheme || !current) throw new Error('主题来源服务不可用，请重新加载插件。'); const settings = await api.downloadTheme({ ...input, expectedRevision: current.revision }); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
   async removeTheme(id: string) { this.generation++; const { api, settings: current } = this.value; if (!api?.removeTheme || !current) throw new Error('主题管理服务不可用，请重新加载插件。'); const settings = await api.removeTheme({ expectedRevision: current.revision, id }); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
 }
+
+function blockLayoutPrerequisiteError(settings: ExperienceSettings | undefined): string | undefined {
+  if (!settings) return '设置尚未读取，内容块智能布局快捷键未执行。'
+  if (settings.takeover && settings.adaptive?.enabled) return undefined
+  return '内容块智能布局快捷键未执行：请先开启“接管输出与兼容页面外观”和“使用 Jev 选择内容布局与组件”；快捷键不会自动开启它们。'
+}
+
+const blockLayoutShortcutInstallations = new WeakMap<Window, WeakMap<ExperienceStore, () => void>>()
+const blockLayoutShortcutCaptureAttributes = { 'data-iexp-layout-shortcut-capture': 'true' } as { readonly [key: `data-${string}`]: string }
+
+/**
+ * One plugin-lifetime capture listener. It follows current settings without
+ * being recreated for conversation output or a rendered Settings component.
+ */
+export function installBlockLayoutShortcut(store: ExperienceStore, target: Window | undefined = typeof window === 'undefined' ? undefined : window): () => void {
+  if (!target) return () => undefined
+  let stores = blockLayoutShortcutInstallations.get(target)
+  if (!stores) {
+    stores = new WeakMap()
+    blockLayoutShortcutInstallations.set(target, stores)
+  }
+  const existing = stores.get(store)
+  if (existing) return existing
+  let disposed = false
+  let queued: Promise<void> = Promise.resolve()
+  const onKeyDown = (event: KeyboardEvent) => {
+    const settings = store.snapshot().settings
+    if (!matchesBlockLayoutShortcut(event, settings?.adaptive?.blockLayoutShortcut)) return
+    if (isBlockLayoutShortcutCaptureTarget(event.target)) return
+    event.preventDefault()
+    const prerequisite = blockLayoutPrerequisiteError(settings)
+    if (prerequisite) {
+      store.setShortcutStatus(undefined)
+      store.setShortcutError(prerequisite)
+      return
+    }
+    queued = queued.then(async () => {
+      if (disposed) return
+      const current = store.snapshot().settings
+      const currentPrerequisite = blockLayoutPrerequisiteError(current)
+      if (currentPrerequisite) {
+        store.setShortcutStatus(undefined)
+        store.setShortcutError(currentPrerequisite)
+        return
+      }
+      const enabled = !blockLayoutEnabled(current!.adaptive?.blockLayout)
+      const adaptive = mergeAdaptiveSettings(current!.adaptive, {
+        blockLayout: enabled,
+      })
+      await store.save(adaptiveSaveInput(current!, adaptive))
+      store.setShortcutError(undefined)
+      store.setShortcutStatus('内容块智能布局已' + (enabled ? '开启。' : '关闭。'))
+    }).catch(error => {
+      if (!disposed) {
+        store.setShortcutStatus(undefined)
+        store.setShortcutError('内容块智能布局快捷键保存失败：' + message(error))
+      }
+    })
+  }
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    target.removeEventListener('keydown', onKeyDown, true)
+    stores?.delete(store)
+  }
+  stores.set(store, dispose)
+  target.addEventListener('keydown', onKeyDown, true)
+  return dispose
+}
+
 function useStore(store: ExperienceStore) { return useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot) }
 function CompositionScope({store,sessionId,children}:{store:ExperienceStore,sessionId?:string,children?:ReactNode}):ReactElement {
   const {api,settings}=useStore(store)
@@ -171,7 +294,7 @@ function CompositionScope({store,sessionId,children}:{store:ExperienceStore,sess
 
 /** One global appearance shortcut beside the existing conversation display control. */
 export function HeaderControls({ store, sessionId }: { store: ExperienceStore, sessionId: string }): ReactElement {
-  const { settings } = useStore(store)
+  const { settings, shortcutError, shortcutStatus } = useStore(store)
   const root = useRef<HTMLDivElement>(null)
   const beforeWide = useRef<() => void>(() => {})
   const compactRef = useRef(true)
@@ -201,10 +324,16 @@ export function HeaderControls({ store, sessionId }: { store: ExperienceStore, s
   }, [])
   return h('div', { ref: root, className: 'dsh-experience iexp-header-controls', 'data-compact': compact },
     h(DisplayModeControl, { sessionId }), h(ThemeQuickSwitch, { store }),
-    h(HeaderExtras, { store, sessionId, compact, showResearch: !!settings?.takeover, beforeWide }))
+    h(HeaderExtras, { store, sessionId, compact, showResearch: !!settings?.takeover, beforeWide }),
+    (shortcutError || shortcutStatus) && h('span', {
+      role: shortcutError ? 'alert' : 'status',
+      'aria-live': 'polite',
+      title: shortcutError ?? shortcutStatus,
+      style: { maxWidth: '26ch', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+    }, shortcutError ?? shortcutStatus))
 }
 export function Settings({ store }: { store: ExperienceStore }): ReactElement {
-  const { api, settings, error, takeoverError } = useStore(store)
+  const { api, settings, error, takeoverError, shortcutError, shortcutStatus } = useStore(store)
   const [mcpStatus, setMcpStatus] = useState<McpStatus>()
   const [mcpStatusError, setMcpStatusError] = useState('')
   useEffect(() => { let live = true; setMcpStatus(undefined); setMcpStatusError(''); if (!settings?.mcpApps || !api?.mcpStatus) return; const refresh = () => { void api.mcpStatus!().then(value => { if (live) { setMcpStatus(value); setMcpStatusError('') } }, e => { if (live) setMcpStatusError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, settings?.mcpApps])
@@ -222,20 +351,106 @@ export function Settings({ store }: { store: ExperienceStore }): ReactElement {
     setBusy(true); setFailure('')
     try { await operation() } catch (error) { await store.refresh(); throw error } finally { setBusy(false) }
   }
-  async function changeAdaptive(enabled:boolean,styleMode:'automatic'|'selected'=settings?.adaptive?.styleMode??'automatic') {
+  async function changeAdaptive(patch: Partial<AdaptiveSettings>) {
     if(!settings||busy)return
     setBusy(true);setFailure('')
-    try{await store.save({expectedRevision:settings.revision,takeover:settings.takeover,openui:settings.openui,mcpApps:settings.mcpApps,adaptive:{enabled,styleMode}})}catch(error){setFailure(message(error));await store.refresh()}finally{setBusy(false)}
+    try {
+      await store.save(adaptiveSaveInput(settings, mergeAdaptiveSettings(settings.adaptive, patch)))
+      store.setShortcutError(undefined)
+      store.setShortcutStatus(undefined)
+    } catch (error) {
+      setFailure(message(error))
+      await store.refresh()
+    } finally {
+      setBusy(false)
+    }
   }
+  function captureBlockLayoutShortcut(event: { currentTarget: HTMLInputElement, nativeEvent: KeyboardEvent, preventDefault(): void, stopPropagation(): void }) {
+    const native = event.nativeEvent
+    if (native.defaultPrevented || native.isComposing || native.keyCode === 229 || native.repeat || native.key === 'Tab') return
+    if (native.key === 'Escape') {
+      event.currentTarget.blur()
+      return
+    }
+    if (['AltLeft', 'AltRight', 'ControlLeft', 'ControlRight', 'MetaLeft', 'MetaRight', 'ShiftLeft', 'ShiftRight'].includes(native.code)) return
+    const shortcut = blockLayoutShortcutFromKeyboardEvent(native)
+    event.preventDefault()
+    event.stopPropagation()
+    if (!shortcut) {
+      setFailure('快捷键需包含 Alt、Control 或 Command，并使用字母、数字或 F1–F12 键。')
+      return
+    }
+    void changeAdaptive({ blockLayoutShortcut: shortcut })
+  }
+  const shortcut = resolveBlockLayoutShortcut(settings?.adaptive?.blockLayoutShortcut)
+  const shortcutLabel = blockLayoutShortcutLabel(settings?.adaptive?.blockLayoutShortcut)
+  const adaptivePrerequisitesReady = !!settings?.takeover && settings?.adaptive?.enabled === true
   async function selectTheme(theme: ThemePackage) {
     await themeOperation(() => store.save({ expectedRevision: settings!.revision, takeover: settings!.takeover, openui: settings!.openui, mcpApps: settings!.mcpApps, themeId: theme.id, appearance: theme.appearance }))
   }
-  return h('div', { className: 'dsh-experience iexp-settings', style: { backgroundColor: (settings?.appearance ?? defaultAppearance()).backgroundColor, '--iexp-settings-ground': (settings?.appearance ?? defaultAppearance()).backgroundColor } as CSSProperties }, h('h2', null, '智能体验'), h('p', { className: 'iexp-setting-help' }, '统一助手、工具输出与兼容标签页的外观。关闭接管后恢复原来的显示。'), error && h('p', { role: 'alert' }, `设置服务不可用：${error}`), failure && h('p', { role: 'alert' }, `保存失败：${failure}`), takeoverError && h('p', { role: 'alert' }, `聊天接管不可用：${takeoverError} 请关闭接管，并检查其他聊天显示插件。`), ...([['takeover', '接管输出与兼容页面外观'], ['openui', '启用 OpenUI 展示'], ['mcpApps', '启用 MCP Apps（需要已配置的隔离宿主）']] as const).map(([key, label]) => h('label', { key, className: 'iexp-toggle-row' }, h(ThemeToggle, { checked: settings?.[key] ?? false, disabled: !settings || busy, onChange: (e: { currentTarget: HTMLInputElement }) => { void change(key, e.currentTarget.checked) } }), ` ${label}`)), h(ThemeSettings, { settings, busy, onCatalog: () => store.themeCatalog(), onDownload: (source, id) => themeOperation(() => store.downloadTheme({ source, id })), onSaveSource: source => themeOperation(() => store.save({ expectedRevision: settings!.revision, takeover: settings!.takeover, openui: settings!.openui, mcpApps: settings!.mcpApps, themeSource: source })), onSelect: selectTheme, onInstall: theme => themeOperation(() => store.installTheme(theme)), onRemove: id => themeOperation(() => store.removeTheme(id)) }), h('fieldset', { className: 'iexp-appearance-controls', disabled: !settings || busy }, h('legend', null, '内容外观'),
-    h('label', { className: 'iexp-toggle-row' }, h(ThemeToggle, { checked: (settings?.appearance ?? defaultAppearance()).translucent, onChange: (event: { currentTarget: HTMLInputElement }) => { void change('appearance', { ...(settings?.appearance ?? defaultAppearance()), translucent: event.currentTarget.checked }) } }), ' 半透明背景'),
-    h('form', { className: 'iexp-appearance-color', onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); const next = appearanceSchema.safeParse({ ...(settings?.appearance ?? defaultAppearance()), backgroundColor: color }); if (!next.success) { setFailure('请输入 #RRGGBB 格式的背景颜色。'); return }; void change('appearance', next.data) } },
-      h('label', { htmlFor: 'iexp-background-color' }, '背景颜色'), h('input', { className: 'iexp-control', type: 'color', id: 'iexp-background-color', 'aria-label': '背景颜色选择器', value: /^#[0-9a-f]{6}$/i.test(color) ? color : '#24262b', onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }),
-      h(ThemeInput, { className: 'iexp-control', type: 'text', 'aria-label': '背景颜色值', value: color, spellCheck: false, maxLength: 7, onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }), h(ThemeButton, { type: 'submit', className: 'iexp-control' }, '应用颜色')),
-    h(ThemeButton, { type: 'button', className: 'iexp-control', onClick: () => { const appearance = resolveTheme(settings?.theme).appearance; setColor(appearance.backgroundColor); void change('appearance', appearance) } }, '恢复默认外观')), h('fieldset',{className:'iexp-adaptive-controls',disabled:!settings||busy},h('legend',null,'智能编排'),h('label',{className:'iexp-toggle-row'},h(ThemeToggle,{checked:settings?.adaptive?.enabled??false,onChange:event=>{void changeAdaptive(event.currentTarget.checked)}}),'使用 Jev 选择内容布局与组件'),h('p',{className:'iexp-setting-help'},'使用 Jev 当前保存的判断连接，可能产生 API 费用；还需在 Jev 中开启“智能 UI 编排”。关闭后保留本地布局。'),h('label',null,'风格选择 ',h('select',{className:'iexp-control',value:settings?.adaptive?.styleMode??'automatic',onChange:(event:{currentTarget:HTMLSelectElement})=>{void changeAdaptive(settings?.adaptive?.enabled??false,event.currentTarget.value as 'automatic'|'selected')}},h('option',{value:'automatic'},'从全部已安装风格中选择'),h('option',{value:'selected'},'保持手动选择的主题')))), settings?.mcpApps && api?.mcpStatus && h('p', { role: mcpStatusError || mcpStatus?.error ? 'alert' : 'status' }, mcpStatusError ? `MCP Apps 状态不可用：${mcpStatusError}` : !mcpStatus ? '正在读取 MCP Apps 状态…' : mcpStatus.error ? `MCP Apps 连接失败：${mcpStatus.error}` : !mcpStatus.configured ? '尚未配置 MCP Apps 服务地址。' : !mcpStatus.connected ? '正在连接 MCP Apps 服务…' : 'MCP Apps 已连接。'), !settings && !error && h(ThemeLoader, { label: '正在读取设置…' }))
+  return h('div', {
+    className: 'dsh-experience iexp-settings',
+    style: {
+      backgroundColor: (settings?.appearance ?? defaultAppearance()).backgroundColor,
+      '--iexp-settings-ground': (settings?.appearance ?? defaultAppearance()).backgroundColor,
+    } as CSSProperties,
+  },
+  h('h2', null, '智能体验'),
+  h('p', { className: 'iexp-setting-help' }, '统一助手、工具输出与兼容标签页的外观。关闭接管后恢复原来的显示。'),
+  error && h('p', { role: 'alert' }, '设置服务不可用：' + error),
+  failure && h('p', { role: 'alert' }, '保存失败：' + failure),
+  shortcutError && h('p', { role: 'alert' }, shortcutError),
+  shortcutStatus && h('p', { role: 'status' }, shortcutStatus),
+  takeoverError && h('p', { role: 'alert' }, '聊天接管不可用：' + takeoverError + ' 请关闭接管，并检查其他聊天显示插件。'),
+  ...([['takeover', '接管输出与兼容页面外观'], ['openui', '启用 OpenUI 展示'], ['mcpApps', '启用 MCP Apps（需要已配置的隔离宿主）']] as const).map(([key, label]) =>
+    h('label', { key, className: 'iexp-toggle-row' },
+      h(ThemeToggle, { checked: settings?.[key] ?? false, disabled: !settings || busy, onChange: (event: { currentTarget: HTMLInputElement }) => { void change(key, event.currentTarget.checked) } }),
+      ' ' + label)),
+  h(ThemeSettings, {
+    settings, busy, onCatalog: () => store.themeCatalog(),
+    onDownload: (source, id) => themeOperation(() => store.downloadTheme({ source, id })),
+    onSaveSource: source => themeOperation(() => store.save({ expectedRevision: settings!.revision, takeover: settings!.takeover, openui: settings!.openui, mcpApps: settings!.mcpApps, themeSource: source })),
+    onSelect: selectTheme, onInstall: theme => themeOperation(() => store.installTheme(theme)), onRemove: id => themeOperation(() => store.removeTheme(id)),
+  }),
+  h('fieldset', { className: 'iexp-appearance-controls', disabled: !settings || busy },
+    h('legend', null, '内容外观'),
+    h('label', { className: 'iexp-toggle-row' },
+      h(ThemeToggle, { checked: (settings?.appearance ?? defaultAppearance()).translucent, onChange: (event: { currentTarget: HTMLInputElement }) => { void change('appearance', { ...(settings?.appearance ?? defaultAppearance()), translucent: event.currentTarget.checked }) } }),
+      ' 半透明背景'),
+    h('form', { className: 'iexp-appearance-color', onSubmit: (event: { preventDefault(): void }) => {
+      event.preventDefault()
+      const next = appearanceSchema.safeParse({ ...(settings?.appearance ?? defaultAppearance()), backgroundColor: color })
+      if (!next.success) { setFailure('请输入 #RRGGBB 格式的背景颜色。'); return }
+      void change('appearance', next.data)
+    } },
+    h('label', { htmlFor: 'iexp-background-color' }, '背景颜色'),
+    h('input', { className: 'iexp-control', type: 'color', id: 'iexp-background-color', 'aria-label': '背景颜色选择器', value: /^#[0-9a-f]{6}$/i.test(color) ? color : '#24262b', onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }),
+    h(ThemeInput, { className: 'iexp-control', type: 'text', 'aria-label': '背景颜色值', value: color, spellCheck: false, maxLength: 7, onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }),
+    h(ThemeButton, { type: 'submit', className: 'iexp-control' }, '应用颜色')),
+    h(ThemeButton, { type: 'button', className: 'iexp-control', onClick: () => { const appearance = resolveTheme(settings?.theme).appearance; setColor(appearance.backgroundColor); void change('appearance', appearance) } }, '恢复默认外观')),
+  h('fieldset', { className: 'iexp-adaptive-controls', disabled: !settings || busy },
+    h('legend', null, '智能编排'),
+    h('label', { className: 'iexp-toggle-row' },
+      h(ThemeToggle, { checked: settings?.adaptive?.enabled ?? false, onChange: (event: { currentTarget: HTMLInputElement }) => { void changeAdaptive({ enabled: event.currentTarget.checked }) } }),
+      '使用 Jev 选择内容布局与组件'),
+    h('p', { className: 'iexp-setting-help' }, '使用 Jev 当前保存的判断连接，可能产生 API 费用；还需在 Jev 中开启“智能 UI 编排”。关闭后保留本地布局。'),
+    h('label', null, '风格选择 ',
+      h('select', { className: 'iexp-control', value: settings?.adaptive?.styleMode ?? 'automatic', onChange: (event: { currentTarget: HTMLSelectElement }) => { void changeAdaptive({ styleMode: event.currentTarget.value as 'automatic' | 'selected' }) } },
+        h('option', { value: 'automatic' }, '从全部已安装风格中选择'),
+        h('option', { value: 'selected' }, '保持手动选择的主题'))),
+    h('div', { className: 'iexp-settings-group' },
+      h('label', { className: 'iexp-toggle-row' },
+        h(ThemeToggle, { checked: blockLayoutEnabled(settings?.adaptive?.blockLayout), onChange: (event: { currentTarget: HTMLInputElement }) => { void changeAdaptive({ blockLayout: event.currentTarget.checked }) } }),
+        '内容块智能布局（实验）'),
+      h('p', { className: 'iexp-setting-help' }, '内容块智能布局会让已启用的智能编排按内容块选择布局。只有“接管输出与兼容页面外观”和“使用 Jev 选择内容布局与组件”均开启时才会发起判断，可能产生 API 费用；本开关和快捷键都不会自动开启它们。'),
+      !adaptivePrerequisitesReady && h('p', { className: 'iexp-setting-help' }, '当前尚未满足生效前提；可以预先保存此实验设置，但不会自动发起判断。'),
+      h('label', { htmlFor: 'iexp-block-layout-shortcut' }, '快捷键'),
+      h('div', { className: 'iexp-control-row' },
+        h(ThemeInput, { id: 'iexp-block-layout-shortcut', className: 'iexp-control', type: 'text', readOnly: true, value: shortcut === '' ? '' : shortcutLabel, placeholder: '按下新的快捷键', 'aria-label': '内容块智能布局快捷键', 'aria-describedby': 'iexp-block-layout-shortcut-help', ...blockLayoutShortcutCaptureAttributes, onKeyDown: captureBlockLayoutShortcut }),
+        h(ThemeButton, { type: 'button', className: 'iexp-control', disabled: shortcut === '', onClick: () => { void changeAdaptive({ blockLayoutShortcut: '' }) } }, '清除快捷键')),
+      h('p', { id: 'iexp-block-layout-shortcut-help', className: 'iexp-setting-help' }, shortcut === '' ? '快捷键已关闭。' : '当前快捷键：' + shortcutLabel + '。聚焦聊天输入框时也可使用；聚焦此输入框后按下新的组合即可修改。'))),
+  settings?.mcpApps && api?.mcpStatus && h('p', { role: mcpStatusError || mcpStatus?.error ? 'alert' : 'status' }, mcpStatusError ? 'MCP Apps 状态不可用：' + mcpStatusError : !mcpStatus ? '正在读取 MCP Apps 状态…' : mcpStatus.error ? 'MCP Apps 连接失败：' + mcpStatus.error : !mcpStatus.configured ? '尚未配置 MCP Apps 服务地址。' : !mcpStatus.connected ? '正在连接 MCP Apps 服务…' : 'MCP Apps 已连接。'),
+  !settings && !error && h(ThemeLoader, { label: '正在读取设置…' }))
 }
 /** Uses the normal visible session queue and selected model; never edits model or tool configuration. */
 export async function submitResearchPrompt(ctx: {sessions: ISessions}, sessionId: SessionId, text: string, signal: AbortSignal): Promise<void> {
@@ -305,6 +520,7 @@ export function Workspace({ store, sessionId, onContinue, onOrganize }: { store:
 }
 export function apply(ctx: Context): void {
   const store = new ExperienceStore()
+  ctx.effect(() => installBlockLayoutShortcut(store), 'intelligent-experience: block-layout-shortcut')
   const canvasScope = createCanvasClientScope()
   const ScopedDocumentView: typeof DocumentView = props => {
     const active = useSyncExternalStore(canvasScope.subscribe, canvasScope.getSnapshot, canvasScope.getSnapshot)

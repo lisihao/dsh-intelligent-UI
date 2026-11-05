@@ -9,6 +9,36 @@ const evidenceDirectory = resolve(root, '.acceptance/adaptive-ui-browser')
 const cdpModule = process.env.ADAPTIVE_UI_CDP ?? '/Users/sihaoli/.codex/skills/design-taste-frontend/scripts/lib/cdp.mjs'
 const { Browser, sleep } = await import(pathToFileURL(cdpModule).href)
 
+const mixedBlockLayoutSource = `# 混合区块编排验收
+
+这段普通说明必须保留在完整文档中，并保留[本地资料][mixed-source]与脚注[^mixed-note]。它不提供额外指标，也不改变相邻区块的来源边界。
+
+## 历史数值
+
+下面的表格是固定的历史数值序列，单位和日期来自原文。
+
+| 日期 | 延迟（ms） |
+| --- | ---: |
+| 2026-11-01 | 8.2 |
+| 2026-11-02 | 7.6 |
+| 2026-11-03 | 9.1 |
+| 2026-11-04 | 7.9 |
+
+## 任务状态
+
+| 任务 | 状态 | 说明 |
+| --- | --- | --- |
+| 核对来源 | queued | 保留原始任务与说明。 |
+| 渲染布局 | running | 只使用已验证的候选项。 |
+| 确认回执 | done | 挂载后才记录观察结果。 |
+
+## 来源流程
+
+读取来源 → 核对证据 -> 记录结果
+
+[mixed-source]: https://sources.example.invalid/mixed-source "固定本地来源"
+[^mixed-note]: 固定本地脚注；该脚注不请求外部网络。`
+
 function startPreview() {
   const child = spawn(process.execPath, ['tools/adaptive-ui-preview.mjs'], {
     cwd: root,
@@ -92,6 +122,94 @@ async function click(page, selector) {
   assert.ok(target, `missing clickable control ${selector}`)
   await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: target.x, y: target.y, button: 'left', clickCount: 1 })
   await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: target.x, y: target.y, button: 'left', clickCount: 1 })
+}
+
+async function clickLabeledControl(page, pattern) {
+  const target = await page.eval(patternSource => {
+    const pattern = new RegExp(patternSource, 'i')
+    const panel = document.querySelector('[data-block-layout-settings-panel]') ?? document
+    const labels = [...panel.querySelectorAll('label')]
+    const label = labels.find(candidate => pattern.test(candidate.textContent ?? '') || pattern.test(candidate.getAttribute('aria-label') ?? ''))
+    const labelled = [...panel.querySelectorAll('input,select,button')].find(candidate => pattern.test(candidate.getAttribute('aria-label') ?? '') || pattern.test(candidate.getAttribute('placeholder') ?? ''))
+    const element = label?.querySelector('input,select,button') ?? labelled
+    if (!(element instanceof HTMLElement)) return undefined
+    element.scrollIntoView({ block: 'center', inline: 'nearest' })
+    const rect = element.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0 ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined
+  }, pattern)
+  assert.ok(target, `missing visible Settings control matching /${pattern}/`)
+  await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: target.x, y: target.y, button: 'left', clickCount: 1 })
+  await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: target.x, y: target.y, button: 'left', clickCount: 1 })
+}
+
+async function recordLabeledShortcut(page, pattern, code) {
+  await clickLabeledControl(page, pattern)
+  await dispatchShortcut(page, code)
+}
+
+async function dispatchShortcut(page, code, modifiers = 5) {
+  const key = code.startsWith('Key') ? code.slice(3).toLowerCase() : code.startsWith('Digit') ? code.slice(5) : code
+  const windowsVirtualKeyCode = key.length === 1 ? key.toUpperCase().charCodeAt(0) : undefined
+  // Chromium CDP uses bit 1=Alt, 2=Control, 4=Meta, 8=Shift; Alt+Meta is 5.
+  const event = { key, code, modifiers, windowsVirtualKeyCode }
+  await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...event })
+  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...event })
+}
+
+async function mixedSnapshot(page) {
+  return await waitFor('mixed block layout selection, concurrent mounts, and receipt', () => page.eval(() => {
+    const events = window.__adaptiveUiPreviewEvents ?? []
+    const composition = [...events].reverse().find(event => event.type === 'composition' && event.documentId === 'synthetic-mixed-block-layout')
+    const receipt = [...events].reverse().find(event => event.type === 'receipt' && event.documentId === 'synthetic-mixed-block-layout' && event.observed === true)
+    const output = document.querySelector('#preview-output')
+    const scope = output?.querySelector('[data-iexp-composition-scope]')
+    const root = output?.querySelector('[data-iexp-block-layout]') ?? scope
+    if (!composition || !receipt || !output || !scope || composition.status !== 'selected' || !root) return undefined
+    const mounted = selector => [...root.querySelectorAll(selector)].filter(element => {
+      const rect = element.getBoundingClientRect()
+      return rect.width > 0 && rect.height > 0
+    }).length
+    const blocks = composition.selection?.blockLayout?.blocks ?? []
+    const questionIds = composition.schema?.questionIds ?? []
+    const optionIds = composition.schema?.optionIds ?? {}
+    return {
+      status: scope.getAttribute('data-iexp-composition-status'),
+      selection: composition.selection,
+      schema: composition.schema,
+      blockIds: blocks.map(block => block.id),
+      chartBlocks: blocks.filter(block => block.selection?.chart === 'visx').length,
+      boardBlocks: blocks.filter(block => block.selection?.layout === 'board').length,
+      flowBlocks: blocks.filter(block => block.selection?.layout === 'flow').length,
+      chartMounts: mounted('.iexp-historical-chart, [data-auto-chart], .iexp-chart-grid'),
+      boardMounts: mounted('[data-content-layout="board"], .iexp-task-board, .iexp-task'),
+      flowMounts: mounted('.iexp-flow, .react-flow, .iexp-flow-viewport'),
+      ordinaryProse: (root.textContent ?? '').includes('这段普通说明必须保留'),
+      sourceTable: root.querySelectorAll('table').length >= 2,
+      receiptObserved: receipt.observed === true,
+      decisionCalls: receipt.decisionCalls,
+      questionIdsUnique: new Set(questionIds).size === questionIds.length,
+      multiChoice: Object.values(optionIds).every(options => Array.isArray(options) && options.length >= 2),
+      width: root.getBoundingClientRect().width,
+    }
+  }))
+}
+
+function assertMixedSnapshot(snapshot, viewportWidth) {
+  assert.equal(snapshot.status, 'selected')
+  assert.equal(snapshot.receiptObserved, true)
+  assert.equal(snapshot.decisionCalls, 1)
+  assert.equal(snapshot.questionIdsUnique, true)
+  assert.equal(snapshot.multiChoice, true)
+  assert.ok(snapshot.blockIds.length >= 4, `expected source-owned mixed blocks: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.chartBlocks, 1, `expected one selected historical chart block: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.boardBlocks, 1, `expected one selected task-board block: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.flowBlocks, 1, `expected one selected arrow-flow block: ${JSON.stringify(snapshot)}`)
+  assert.ok(snapshot.chartMounts > 0, `historical chart is not mounted at ${viewportWidth}px: ${JSON.stringify(snapshot)}`)
+  assert.ok(snapshot.boardMounts > 0, `task board is not mounted at ${viewportWidth}px: ${JSON.stringify(snapshot)}`)
+  assert.ok(snapshot.flowMounts > 0, `arrow flow is not mounted at ${viewportWidth}px: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.ordinaryProse, true)
+  assert.equal(snapshot.sourceTable, true)
+  assert.ok(snapshot.width > 0)
 }
 
 async function selectedScenario(page, documentId, expected) {
@@ -374,6 +492,63 @@ try {
 [^2]: 资料 B：合成验收约束；该引用不请求外部网络。`)
   await setSelect(page, '输出显示方式', 'visual')
 
+  await setSelect(page, '合成场景', 'mixed-block-layout')
+  const mixed = await mixedSnapshot(page)
+  assertMixedSnapshot(mixed, 1440)
+  assert.equal(mixed.selection?.blockLayout?.version, 1)
+  assert.equal(mixed.selection?.blockLayout?.inspection, 'none')
+  assert.equal(new Set(mixed.blockIds).size, mixed.blockIds.length)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-mixed-block-layout-1440.png'), format: 'png', fullPage: true })
+
+  await setSelect(page, '输出显示方式', 'compare')
+  const mixedRaw = await waitFor('complete mixed block source in comparison mode', () => page.eval(() => document.querySelector('.iexp-raw-output pre')?.textContent ?? undefined))
+  assert.equal(mixedRaw, mixedBlockLayoutSource)
+  await setSelect(page, '输出显示方式', 'visual')
+  const mixedReferences = await waitFor('mixed reference link and footnote definitions', () => page.eval(() => {
+    const output = document.querySelector('#preview-output')
+    if (!output) return undefined
+    const reference = [...output.querySelectorAll('a')].find(anchor => anchor.textContent?.trim() === '本地资料')
+    const footnoteRef = output.querySelector('a[data-footnote-ref], a[href*="mixed-note"], sup a')
+    const footnoteDefinition = output.querySelector('[data-footnotes] li, li[id*="mixed-note"], li[id*="fn-"]')
+    if (!reference || !footnoteRef || !footnoteDefinition) return undefined
+    return {
+      href: reference.getAttribute('href'),
+      footnoteHref: footnoteRef.getAttribute('href'),
+      footnoteText: footnoteDefinition.textContent?.trim(),
+    }
+  }))
+  assert.equal(mixedReferences.href, 'https://sources.example.invalid/mixed-source')
+  assert.match(mixedReferences.footnoteHref ?? '', /mixed-note|fn-/)
+  assert.match(mixedReferences.footnoteText ?? '', /固定本地脚注/)
+
+  const initialBlockSettings = await waitFor('production block-layout Settings panel enabled state', () => page.eval(() => {
+    const panel = document.querySelector('[data-block-layout-settings-panel]')
+    const label = [...(panel?.querySelectorAll('label') ?? [])].find(candidate => /区块|block/i.test(candidate.textContent ?? ''))
+    const checkbox = label?.querySelector('input[type="checkbox"]') ?? panel?.querySelector('input[data-adaptive-block-layout-toggle], input[aria-label*="区块"], input[aria-label*="block"], input[type="checkbox"]')
+    const shortcut = [...(panel?.querySelectorAll('input') ?? [])].find(input => /快捷键|shortcut/i.test(input.getAttribute('aria-label') ?? '') || /快捷键|shortcut/i.test(input.getAttribute('placeholder') ?? '') || /快捷键|shortcut/i.test(input.parentElement?.textContent ?? ''))
+    if (!(checkbox instanceof HTMLInputElement) || !(shortcut instanceof HTMLInputElement)) return undefined
+    return { checked: checkbox.checked, shortcut: shortcut.value, rootEnabled: document.querySelector('[data-adaptive-preview]')?.getAttribute('data-preview-block-layout') }
+  }))
+  assert.equal(initialBlockSettings.checked, true)
+  assert.equal(initialBlockSettings.rootEnabled, 'true')
+  assert.ok(['Alt+Meta+KeyI', '⌥⌘I'].includes(initialBlockSettings.shortcut), `unexpected production shortcut display: ${initialBlockSettings.shortcut}`)
+
+  await recordLabeledShortcut(page, '快捷键|shortcut', 'KeyK')
+  await waitFor('custom block-layout shortcut saved through production Settings', () => page.eval(() => document.querySelector('[data-adaptive-preview]')?.getAttribute('data-preview-block-layout-shortcut') === 'Alt+Meta+KeyK'))
+  await clickLabeledControl(page, '内容块|区块|block')
+  await waitFor('production block-layout checkbox saved false', () => page.eval(() => document.querySelector('[data-adaptive-preview]')?.getAttribute('data-preview-block-layout') === 'false'))
+  await dispatchShortcut(page, 'KeyI')
+  await sleep(120)
+  assert.equal(await page.eval(() => document.querySelector('[data-adaptive-preview]')?.getAttribute('data-preview-block-layout')), 'false', 'old default shortcut stops toggling after customization')
+  await dispatchShortcut(page, 'KeyK')
+  await waitFor('custom block-layout shortcut toggled through production handler', () => page.eval(() => document.querySelector('[data-adaptive-preview]')?.getAttribute('data-preview-block-layout') === 'true'))
+  await waitFor('mixed composition remounted after custom shortcut', () => page.eval(() => document.querySelector('#preview-output [data-iexp-composition-status="selected"]') !== null))
+
+  await page.setViewport({ width: 390, height: 844, mobile: true })
+  const mixedNarrow = await mixedSnapshot(page)
+  assertMixedSnapshot(mixedNarrow, 390)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-mixed-block-layout-390.png'), format: 'png', fullPage: true })
+
   await setSelect(page, '共享主题', 'ascii')
   await setSelect(page, '合成场景', 'scope-plain')
   const scoped = await selectedScenario(page, 'synthetic-scope-plain', { theme: 'plain', layout: 'document' })
@@ -423,6 +598,7 @@ try {
     'synthetic-strategy-flow',
     'synthetic-comparison-records',
     'synthetic-cited-report-index',
+    'synthetic-mixed-block-layout',
     'synthetic-scope-plain',
     'synthetic-live-static',
   ]
@@ -435,6 +611,7 @@ try {
     assert.equal(receipt?.observed, true, `${documentId} has an observed receipt from the real coordinator route`)
     assert.equal(receipt?.schema?.revision, 1, `${documentId} has real planner schema evidence`)
     assert.equal(receipt?.externalModelCalls, 0)
+    if (documentId === 'synthetic-mixed-block-layout') assert.equal(receipt?.decisionCalls, 1, 'mixed block layout uses exactly one decision call')
   }
   const unexpectedNetwork = requests.filter(url => !url.startsWith(origin) && !url.startsWith('data:') && url !== 'about:blank')
   assert.deepEqual(unexpectedNetwork, [], 'the acceptance page makes no external network or paid-model request')
@@ -452,11 +629,13 @@ try {
       join(evidenceDirectory, 'adaptive-strategy-flow-1440.png'),
       join(evidenceDirectory, 'adaptive-comparison-records-1440.png'),
       join(evidenceDirectory, 'adaptive-cited-report-index-1440.png'),
+      join(evidenceDirectory, 'adaptive-mixed-block-layout-1440.png'),
+      join(evidenceDirectory, 'adaptive-mixed-block-layout-390.png'),
       join(evidenceDirectory, 'adaptive-live-static-390.png'),
     ],
     selectedDocuments: selectedDocuments.length,
     receiptsObserved: serverReceipts.filter(event => event.observed === true).length,
-    covered: ['board/table', 'soft-relief/mechanical-outline', 'visx/OpenUI', 'explicit nodes/edges React Flow', 'records/clear-glass with condition and unit preservation', 'cited report heading index with complete raw source', 'raw/compare', 'explicit live static snapshot', 'disable local fallback', 'global-ASCII/local-Plain style scope'],
+    covered: ['board/table', 'soft-relief/mechanical-outline', 'visx/OpenUI', 'explicit nodes/edges React Flow', 'records/clear-glass with condition and unit preservation', 'cited report heading index with complete raw source', 'mixed source-bound chart/board/arrow-flow in one document at default and narrow widths', 'production Settings block-layout toggle and customizable physical-key shortcut', 'raw/compare', 'explicit live static snapshot', 'disable local fallback', 'global-ASCII/local-Plain style scope'],
     notClaimed: ['real Jev quality', 'real model', 'paid model', 'native application acceptance'],
   }, null, 2))
 } finally {

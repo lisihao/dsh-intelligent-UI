@@ -127,7 +127,9 @@ async function themeProbe(ctx) {
         isStreaming: false,
       }
       const originalAdaptive = state.adaptive
-      const restoredAdaptive = originalAdaptive ?? { enabled: false, styleMode: 'selected' }
+      // Older partial callers preserve experimental fields. Explicitly restore
+      // their effective original values in this disposable profile as well.
+      const restoredAdaptive = { enabled: false, styleMode: 'selected', ...originalAdaptive, blockLayout: originalAdaptive?.blockLayout ?? false, blockLayoutShortcut: originalAdaptive?.blockLayoutShortcut ?? 'Alt+Meta+KeyI' }
       let adaptiveState = state
       let adaptiveChanged = false
       let removeJev
@@ -264,6 +266,20 @@ async function themeProbe(ctx) {
         const cached = await rpc('composition', selectedInput)
         assert(cached.status === 'selected' && cached.operationId === selected.operationId && mockRequests === 2, `cached composition replayed the synthetic Jev request: ${JSON.stringify({ cached, mockRequests })}`)
         result.checks.compositionNoReplay = true
+        adaptiveState = await rpc('saveSettings', {expectedRevision:adaptiveState.revision,...input.flags,takeover:true,adaptive:{enabled:true,styleMode:'automatic',blockLayout:true,blockLayoutShortcut:'Alt+Meta+KeyI'}})
+        state = adaptiveState
+        const compiled = await rpc('composition', {...compositionBase,documentId:'scratch-compiled-blocks',requestId:'compiled-blocks',value:'# Source blocks\n\nOriginal prose.\n\n| Year | Count |\n| --- | ---: |\n| 2024 | 12 |\n| 2025 | 18 |\n\nCollect -> Verify -> Render'})
+        assert(compiled.status === 'selected' && compiled.selection?.blockLayout?.version === 1 && compiled.selection.blockLayout.blocks.length > 1, `built compiler did not produce source-bound block choices: ${JSON.stringify(compiled)}`)
+        assert(mockRequests === 3, 'compiled source did not use one batched Decisions request')
+        const savedCompiler = JSON.parse(await readFile(join(process.env.DSH_HOME,'solar','intelligent-experience-platform','settings.json'),'utf8'))
+        assert(savedCompiler.adaptive?.blockLayout === true && savedCompiler.adaptive?.blockLayoutShortcut === 'Alt+Meta+KeyI', 'experimental settings were not persisted')
+        result.checks.blockLayoutBatched = true
+        result.checks.blockLayoutSettingsPersisted = true
+        adaptiveState = await rpc('saveSettings', {expectedRevision:adaptiveState.revision,...input.flags,takeover:true,adaptive:{enabled:true,styleMode:'automatic',blockLayout:false}})
+        state = adaptiveState
+        const legacy = await rpc('composition', {...selectedInput,requestId:'experiment-off'})
+        assert(legacy.status === 'selected' && legacy.selection?.blockLayout === undefined && mockRequests === 3, 'disabling the experiment did not restore the unchanged legacy cached path')
+        result.checks.blockLayoutDisabled = true
         result.composition = { mockRequests, mockReceiptWrites, hookCalls, selected, cancelled, cancelledResult, catalogRevision: catalog.revision }
       } finally {
         try {
@@ -336,7 +352,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
     }
     phases.push(result)
     if (!result.ok || processError) throw Object.assign(new Error(`theme ${phase} failed: ${JSON.stringify(result)}`, { cause: processError }), { themeEvidence: { ok: false, failedPhase: phase, phases, externalModelCalls: 0 } })
-    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback', 'compositionJevAttached', 'compositionMissingJev', 'compositionDisabledJev', 'compositionCatalog', 'compositionOwnerRejected', 'compositionCancelled', 'compositionSelected', 'compositionReceipt', 'compositionReceiptCrossSessionRejected', 'compositionNoReplay', 'compositionSettingsRestored'])]
+    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback', 'compositionJevAttached', 'compositionMissingJev', 'compositionDisabledJev', 'compositionCatalog', 'compositionOwnerRejected', 'compositionCancelled', 'compositionSelected', 'compositionReceipt', 'compositionReceiptCrossSessionRejected', 'compositionNoReplay', 'blockLayoutBatched', 'blockLayoutSettingsPersisted', 'blockLayoutDisabled', 'compositionSettingsRestored'])]
     if (required.some(check => result.checks[check] !== true)) throw new Error(`theme ${phase} is missing acceptance evidence: ${JSON.stringify(result)}`)
   }
   if (phases[0].pid === phases[1].pid) throw new Error('theme restart acceptance reused one Host process')

@@ -20,6 +20,12 @@ This is source/build development beyond the published preview archive; source ch
 
 Repeatable synthetic conversation scenarios are available with `pnpm test:adaptive:scenarios` and `pnpm test:adaptive:browser`. They exercise actual candidate generation, the coordinator and rendered views, with explicit oracle-selected Jev answers and zero real model calls. See the [scenario matrix and results](docs/acceptance/2026-11-05-conversation-scenarios.md); these checks establish wiring and source preservation, not real-model selection quality.
 
+## Experimental content-block layout compiler
+
+The development candidate adds **智能编排 → 内容块智能布局（实验）**, off by default. It compiles source-owned content blocks, asks the existing Jev Decisions route to select eligible presentations in one batch, validates the resulting source-bound plan, then uses the existing renderers. A document can combine prose, historical charts, task boards and explicit flows while retaining one theme. Research inspection is independent of those block choices. Turning the experiment off restores the existing whole-output decision path.
+
+The configurable shortcut defaults to **⌥⌘I** (`Alt+Meta+KeyI`); clear its binding to disable it. The shortcut and Settings toggle update the same revision-checked preference. Existing takeover, adaptive and Jev feature prerequisites remain required; the shortcut does not silently enable them. Enabling the experiment can incur auxiliary API charges through the saved Jev connection. The block explanation shows source eligibility and selected adapters, not textual model reasoning. See the [compiler contract and boundaries](docs/design/experimental-block-layout.md) and [source/browser acceptance](docs/acceptance/2026-11-05-experimental-block-layout.md). Source, synthetic browser/Host, real-model and installed-app evidence are reported separately; this section does not imply installation.
+
 ## Built-in component intelligence
 
 Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.

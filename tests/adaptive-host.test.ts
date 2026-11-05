@@ -83,6 +83,63 @@ class FakeJev implements JevCompositionPort {
 async function waitForCalls(port: FakeJev, calls: number): Promise<void> { await vi.waitFor(() => expect(port.calls).toBe(calls)) }
 
 describe('AdaptiveCompositionCoordinator', () => {
+  it('gates the block compiler with the saved experiment switch and batches its choices', async () => {
+    const port = new FakeJev()
+    let saved: AdaptiveCompositionSettings = settings()
+    const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>saved,getJev:()=>port})
+    const source = input({value:'# Source report\n\nSource prose stays intact.\n\n| Year | Count |\n| --- | ---: |\n| 2024 | 12 |\n| 2025 | 18 |\n\nCollect -> Verify -> Render'})
+    const legacy = await coordinator.compose(source)
+    expect(legacy.status).toBe('selected')
+    expect(legacy.selection?.blockLayout).toBeUndefined()
+    expect(port.calls).toBe(1)
+    saved = {...saved, adaptive:{...saved.adaptive!,blockLayout:true}}
+    const compiled = await coordinator.compose({...source,requestId:'compiled'})
+    expect(compiled.status).toBe('selected')
+    expect(compiled.selection?.blockLayout).toMatchObject({version:1,inspection:'none'})
+    expect(compiled.selection?.blockLayout?.blocks.length).toBeGreaterThan(1)
+    expect(port.calls).toBe(2) // One call for the whole block program, not per block.
+    expect(new Set(port.requests[1]!.questions.map(q=>q.id)).size).toBe(port.requests[1]!.questions.length)
+    saved = {...saved, adaptive:{...saved.adaptive!,blockLayout:false}}
+    const restored = await coordinator.compose({...source,requestId:'legacy-again'})
+    expect(restored.selection?.blockLayout).toBeUndefined()
+    coordinator.dispose()
+  })
+
+  it('does not let a caller activate the saved experimental setting', async () => {
+    const port = new FakeJev()
+    const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>settings(),getJev:()=>port})
+    await expect(coordinator.compose({...input(),blockLayout:true} as never)).rejects.toThrow()
+    expect(port.calls).toBe(0)
+    coordinator.dispose()
+  })
+
+  it('refuses an in-flight compiled plan after the saved experiment is disabled', async () => {
+    const port = new FakeJev(), gate = deferred<void>()
+    port.gate = gate
+    let saved: AdaptiveCompositionSettings = {...settings(),adaptive:{enabled:true,styleMode:'automatic',blockLayout:true}}
+    const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>saved,getJev:()=>port})
+    const pending = coordinator.compose(input())
+    await waitForCalls(port,1)
+    saved = {...saved,adaptive:{...saved.adaptive!,blockLayout:false}}
+    gate.resolve()
+    const result = await pending
+    expect(result.status).not.toBe('selected')
+    expect(result.reason).toBe('COMPOSITION_SETTINGS_CHANGED')
+    expect(port.calls).toBe(1)
+    coordinator.dispose()
+  })
+
+  it('does not invalidate a selected composition just because the shortcut changes', async () => {
+    const port = new FakeJev()
+    let saved: AdaptiveCompositionSettings = {...settings(),adaptive:{enabled:true,styleMode:'automatic',blockLayout:true}}
+    const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>saved,getJev:()=>port})
+    expect((await coordinator.compose(input())).status).toBe('selected')
+    saved = {...saved,adaptive:{...saved.adaptive!,blockLayoutShortcut:'Alt+Meta+KeyK'}}
+    expect((await coordinator.compose({...input(),requestId:'shortcut-only'})).status).toBe('selected')
+    expect(port.calls).toBe(1)
+    coordinator.dispose()
+  })
+
   it('keeps a deterministic local presentation when Jev is missing or its scoped feature is disabled', async () => {
     const missing = new AdaptiveCompositionCoordinator({ getSettings: async () => settings() })
     expect(await missing.compose(input())).toMatchObject({ status: 'local', reason: 'JEV_UNAVAILABLE', selection: { themeId: 'empryo' } })
