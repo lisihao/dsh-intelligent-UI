@@ -5,7 +5,6 @@
 const moduleClass = (name: string) => `:is([class$="_${name}"],[class*="_${name} "])`
 const sidebarFoot = `[data-slot="sidebar"] ${moduleClass('footArea')}:has(.cm-footer-stack)`
 const frameRoot = `[data-slot="root"] > ${moduleClass('frame')}`
-const frame = `${frameRoot}:has(> [data-shell-overlay])`
 const synapse = `body:has(${frameRoot} > [data-shell-overlay]):has(.dsh-synapse-host > .dsh-synapse-switch)`
 
 export const shellLayoutCss = `
@@ -45,21 +44,16 @@ ${sidebarFoot} .cm-footer-stack {
     outline:2px solid var(--dsw-focus-ring-color,Highlight);outline-offset:2px;
   }
 }
-/* Reserve a separate global view-switch row, aligned to the right of window controls.
-   Session labels and utilities keep their native layout beneath that row. */
-${synapse} ${frame} > :is(${moduleClass('centerCol')},${moduleClass('rightbarCol')}) {
-  box-sizing:border-box;padding-block-start:44px;
-}
+/* Float without reserving header space. Synapse's saved inline left/top/transform
+   take precedence over these defaults, so native drag and restart restore work. */
 ${synapse} .dsh-synapse-switch {
-  position:fixed!important;inset-inline-start:auto!important;inset-inline-end:12px!important;
-  top:calc(var(--dsh-frame-chrome-top,0px) + 4px)!important;
-  left:auto!important;right:12px!important;transform:none!important;
-  box-sizing:border-box;max-width:calc(100% - 24px);height:36px;z-index:200;
+  position:fixed;left:auto;right:12px;
+  top:calc(var(--dsh-frame-chrome-top,0px) + 48px);transform:none;
+  box-sizing:border-box;width:max-content;max-width:calc(100% - 16px);height:36px;z-index:200;
   background:var(--dsw-alias-bg-base,Canvas)!important;
   border-color:var(--dsw-alias-border-l2,ButtonBorder)!important;
   box-shadow:none!important;backdrop-filter:none!important;
 }
-${synapse} .dsh-synapse-switch .dsh-synapse-grip { display:none; }
 ${synapse} .dsh-synapse-switch button { color:var(--dsw-alias-label-secondary,CanvasText);font-family:inherit; }
 ${synapse} .dsh-synapse-switch button.active {
   color:var(--dsw-alias-label-primary-inverted,HighlightText);
@@ -68,11 +62,7 @@ ${synapse} .dsh-synapse-switch button.active {
 ${synapse} .dsh-synapse-switch button:focus-visible {
   outline:2px solid var(--dsw-focus-ring-color,Highlight);outline-offset:2px;
 }
-${synapse} .dsh-synapse-overlay {
-  top:calc(var(--dsh-frame-chrome-top,0px) + 44px)!important;
-}
-html[data-fullscreen] ${synapse} .dsh-synapse-switch { top:4px!important; }
-html[data-fullscreen] ${synapse} .dsh-synapse-overlay { top:44px!important; }
+
 `
 
 export function installShellLayoutStyles(): () => void {

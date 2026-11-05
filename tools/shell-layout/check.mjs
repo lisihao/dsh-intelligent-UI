@@ -252,6 +252,7 @@ function pageGeometry() {
     return {
       display: s.display,
       position: s.position,
+      transform: s.transform,
       top: s.top,
       left: s.left,
       right: s.right,
@@ -322,8 +323,8 @@ function pageGeometry() {
       htmlTopClearance: rootStyle.getPropertyValue('--dsh-frame-top-clearance').trim(),
       htmlChromeTop: rootStyle.getPropertyValue('--dsh-frame-chrome-top').trim(),
     },
-    switchRowStart: 0,
-    switchRowEnd: 44,
+    switchRowStart: 48,
+    switchRowEnd: 84,
     headerOverlap: frame && switchRect && headerRect
       ? Math.max(0, Math.min(headerRect.bottom, switchRect.bottom) - Math.max(headerRect.top, switchRect.top))
       : null,
@@ -374,16 +375,18 @@ async function runViewport(page, input, viewport) {
     const rowEnd = before.switchRowEnd
     const switchRect = before.switch
     const header = before.nativeHeader
-    const switchInsideRow = switchRect && switchRect.top >= rowStart - 0.5 && switchRect.bottom <= rowEnd + 0.5
+    const switchInsideRow = switchRect && Math.abs(switchRect.top - rowStart) <= 0.5 && Math.abs(switchRect.right - (viewport.width - 12)) <= 0.5
     const switchGap = switchRect ? rowEnd - switchRect.bottom : null
-    check(checks, `${normalLabel}: switch stays in reserved 44px row`, switchInsideRow, { rowStart, rowEnd, switch: switchRect })
-    check(checks, `${normalLabel}: switch leaves 4px bottom gap`, switchGap !== null && Math.abs(switchGap - 4) <= 0.5, { switchGap, switch: switchRect, rowEnd })
-    check(checks, `${normalLabel}: map overlay starts below row`, before.custom.overlay && Math.abs(Number.parseFloat(before.custom.overlay.top) - rowEnd) <= 0.5, { overlay: before.overlay, overlayTop: before.custom.overlay.top, rowEnd })
-    check(checks, `${normalLabel}: native header is not under reserved row`, header && header.top >= rowEnd - 0.5, { header, rowEnd, overlap: before.headerOverlap })
-    for (const key of ['nativeTitle', 'nativeLabel', 'nativeAction']) {
-      const r = before[key]
-      check(checks, `${normalLabel}: ${key} is not under switch`, r && switchRect && (Math.min(r.bottom, switchRect.bottom) - Math.max(r.top, switchRect.top) <= 0.5), { native: r, switch: switchRect })
-    }
+    check(checks, `${normalLabel}: switch defaults to upper-right floating position`, switchInsideRow, { rowStart, rowEnd, switch: switchRect })
+    check(checks, `${normalLabel}: switch keeps its 36px floating height`, switchRect && Math.abs(switchRect.height - 36) <= 0.5, { switchGap, switch: switchRect, rowEnd })
+    check(checks, `${normalLabel}: map overlay keeps its native inset`, before.custom.overlay && Math.abs(Number.parseFloat(before.custom.overlay.top) - (fullscreen ? 0 : 48)) <= 0.5, { overlay: before.overlay, overlayTop: before.custom.overlay.top, rowEnd })
+    check(checks, `${normalLabel}: native header keeps its original space`, header && header.top < 44, { header, rowEnd, overlap: before.headerOverlap })
+    const gripVisible = await page.eval(() => {
+      const grip = document.querySelector('.dsh-synapse-grip')
+      return grip && getComputedStyle(grip).display !== 'none' && grip.getBoundingClientRect().width > 0
+    })
+    check(checks, `${normalLabel}: original drag grip remains visible`, gripVisible)
+
 
     const fee = before.stack
     const settings = before.settings
@@ -394,7 +397,7 @@ async function runViewport(page, input, viewport) {
     const brand = before.nativeBrand
     check(checks, `${normalLabel}: DS Bot sits beside the brand without overlap`, dsbot && brand && before.logoRow && dsbot.left >= brand.right + 1 && dsbot.right <= before.logoRow.right + 0.5 && dsbot.top >= before.logoRow.top && dsbot.bottom <= before.logoRow.bottom + 0.5, { dsbot, brand, logoRow: before.logoRow })
     check(checks, `${normalLabel}: fee block scrolls internally`, before.stackScrollHeight > before.stackClientHeight && before.custom.stack.overflowY === 'auto', { scrollHeight: before.stackScrollHeight, clientHeight: before.stackClientHeight, overflowY: before.custom.stack.overflowY, maxHeight: before.custom.stack.maxHeight })
-    check(checks, `${normalLabel}: frame guard and center padding are active`, before.custom.center.paddingBlockStart === '44px', { center: before.custom.center, frameSelector: '[data-slot=root] > *_frame:has(>[data-shell-overlay])' })
+    check(checks, `${normalLabel}: no extra row is reserved above the content`, before.custom.center.paddingBlockStart === '0px', { center: before.custom.center, frameSelector: '[data-slot=root] > *_frame:has(>[data-shell-overlay])' })
     check(checks, `${normalLabel}: native sidebar top strip stays at top`, before.topStrip && before.topStrip.top <= 0.5 && before.sidebarToggle && before.sidebarToggle.top >= before.topStrip.top && before.sidebarToggle.bottom <= before.topStrip.bottom + 0.5, { topStrip: before.topStrip, toggle: before.sidebarToggle })
     check(checks, `${normalLabel}: native sidebar logo row keeps its position`, before.topStrip && before.logoRow && Math.abs(before.logoRow.top - (before.topStrip.bottom - 12)) <= 0.5, { topStrip: before.topStrip, logoRow: before.logoRow })
     check(checks, `${normalLabel}: footer uses visual reading flow`, before.custom.foot.readingFlow === 'flex-visual', { readingFlow: before.custom.foot.readingFlow })
@@ -405,16 +408,16 @@ async function runViewport(page, input, viewport) {
 
     await page.eval(() => {
       const switchEl = document.querySelector('.dsh-synapse-switch')
-      switchEl.style.left = '4px'
-      switchEl.style.top = '80px'
-      switchEl.style.transform = 'translateX(-50%)'
+      switchEl.style.left = '24px'
+      switchEl.style.top = '500px'
+      switchEl.style.transform = 'none'
     })
     const stored = await page.eval(pageGeometry)
-    check(checks, `${normalLabel}: stored inline switch offsets cannot leave reserved row`, stored.switch && stored.switch.top >= rowStart - 0.5 && stored.switch.bottom <= rowEnd + 0.5, { inline: { left: '4px', top: '80px', transform: 'translateX(-50%)' }, computed: stored.custom.switch, switch: stored.switch, rowStart, rowEnd })
+    check(checks, `${normalLabel}: native saved inline coordinates override floating defaults`, stored.switch && Math.abs(stored.switch.top - 500) <= 0.5 && Math.abs(stored.switch.left - 24) <= 0.5 && stored.custom.switch.transform === 'none', { inline: { left: '24px', top: '500px', transform: 'none' }, computed: stored.custom.switch, switch: stored.switch, rowStart, rowEnd })
 
     await page.eval(() => { document.querySelector('.dsh-synapse-switch [data-view="map"]').click() })
     const mapOn = await page.eval(pageGeometry)
-    check(checks, `${normalLabel}: map toggle shows overlay below toolbar`, !mapOn.overlayHidden && mapOn.overlay && mapOn.overlay.top >= rowEnd - 0.5 && mapOn.switch && mapOn.switch.bottom <= mapOn.overlay.top + 0.5, { switch: mapOn.switch, overlay: mapOn.overlay, overlayHidden: mapOn.overlayHidden })
+    check(checks, `${normalLabel}: map toggle remains usable at a floating position`, !mapOn.overlayHidden && mapOn.overlay && mapOn.switch && Number(mapOn.custom.switch.zIndex) > Number(mapOn.custom.overlay.zIndex), { switch: mapOn.switch, overlay: mapOn.overlay, overlayHidden: mapOn.overlayHidden })
     await page.eval(() => { document.querySelector('.dsh-synapse-switch [data-view="dialog"]').click() })
     const mapOff = await page.eval(pageGeometry)
     check(checks, `${normalLabel}: dialog toggle hides map overlay`, mapOff.overlayHidden === true, { overlayHidden: mapOff.overlayHidden })
@@ -448,7 +451,7 @@ async function runViewport(page, input, viewport) {
       switchEl.style.transform = ''
     })
     const guardOff = await page.eval(pageGeometry)
-    check(checks, `${normalLabel}: removing overlay marker disables shell sheet`, guardOff.custom.center.paddingBlockStart !== '44px' && guardOff.custom.overlay.top !== `${rowEnd}px`, { center: guardOff.custom.center, overlay: guardOff.custom.overlay, switch: guardOff.custom.switch })
+    check(checks, `${normalLabel}: removing overlay marker disables shell sheet`, guardOff.custom.center.paddingBlockStart === '0px' && guardOff.custom.switch.right !== before.custom.switch.right, { center: guardOff.custom.center, overlay: guardOff.custom.overlay, switch: guardOff.custom.switch })
 
     await page.eval(() => {
       const frame = document.querySelector('[data-slot="root"] > [class$="_frame"]')
@@ -458,7 +461,7 @@ async function runViewport(page, input, viewport) {
     })
     await page.eval(() => document.querySelector('#solar-shell-layout').remove())
     const restored = await page.eval(pageGeometry)
-    check(checks, `${normalLabel}: removing sheet restores original styles`, restored.custom.center.paddingBlockStart !== '44px' && restored.custom.stack.maxHeight === 'none' && restored.custom.overlay.top !== before.custom.overlay.top, { before: { centerPadding: before.custom.center.paddingBlockStart, feeMaxHeight: before.custom.stack.maxHeight, overlayTop: before.custom.overlay.top }, restored: { centerPadding: restored.custom.center.paddingBlockStart, feeMaxHeight: restored.custom.stack.maxHeight, overlayTop: restored.custom.overlay.top } })
+    check(checks, `${normalLabel}: removing sheet restores original styles`, restored.custom.center.paddingBlockStart === '0px' && restored.custom.stack.maxHeight === 'none', { before: { centerPadding: before.custom.center.paddingBlockStart, feeMaxHeight: before.custom.stack.maxHeight, overlayTop: before.custom.overlay.top }, restored: { centerPadding: restored.custom.center.paddingBlockStart, feeMaxHeight: restored.custom.stack.maxHeight, overlayTop: restored.custom.overlay.top } })
 
 
   }
