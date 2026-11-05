@@ -6,6 +6,10 @@ The historical package name **`@lisihao/dsh-solar-intelligent-experience-platfor
 
 **内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
 
+## Adaptive conversation UI (design proposal)
+
+The [adaptive conversation UI proposal](docs/integrations/adaptive-conversation-ui.md) defines source-bound model composition and the proposed Skullet loading, Torph text/number morphing and Liveline live-chart adapters, alongside historical charts and existing React Flow. This is a proposal for owner review: the new dependencies, Jev consumer and native behavior are not implemented or installed.
+
 ## Built-in component intelligence
 
 Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.
