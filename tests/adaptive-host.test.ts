@@ -63,6 +63,7 @@ class FakeJev implements JevCompositionPort {
     const signal = options.signal
     const request = await options.refresh(signal ?? new AbortController().signal)
     options.preflight?.(request)
+    for (const question of request.questions) expect(question.options.length).toBeGreaterThanOrEqual(2)
     this.requests.push(request)
     const gate = this.gates.shift() ?? this.gate
     if (gate && await waitForAbort(gate.promise, signal) === 'aborted') return { kind: 'cancelled', operationId }
@@ -112,6 +113,47 @@ describe('AdaptiveCompositionCoordinator', () => {
     const automatic = new AdaptiveCompositionCoordinator({ getSettings: async () => settings('automatic'), getJev: () => automaticPort })
     expect(await automatic.compose(input({ styleMode: 'selected' }))).toMatchObject({ status: 'selected', selection: { themeId: 'plain', chart: 'openui' } })
     expect(automaticPort.requests[0]?.state).toMatchObject({ composition: { styleMode: 'automatic' } })
+  })
+
+  it('sends only real choices while preserving the full singleton candidate bundle', async () => {
+    const port = new FakeJev()
+    const coordinator = new AdaptiveCompositionCoordinator({ getSettings: async () => settings(), getJev: () => port })
+    const result = await coordinator.compose(input({ value: 'A short document without chart data.' }))
+    expect(result).toMatchObject({ status: 'selected', selection: { chart: 'auto', layout: 'auto' } })
+    expect(port.requests[0]?.questions.map(question => question.id)).toEqual(expect.arrayContaining(['theme', 'surface', 'component-set']))
+    expect(port.requests[0]?.questions.map(question => question.id)).not.toEqual(expect.arrayContaining(['chart', 'layout']))
+    const state = port.requests[0]?.state as { composition: { candidateBundle: { questions: readonly { id: string, options: readonly { id: string }[] }[], defaultAnswers: Readonly<Record<string, string>> } } }
+    expect(state.composition.candidateBundle.questions.find(question => question.id === 'chart')?.options.map(option => option.id)).toEqual(['auto'])
+    expect(state.composition.candidateBundle.defaultAnswers.chart).toBe('auto')
+  })
+
+  it('keeps the selected theme locally when that theme is a singleton choice', async () => {
+    const port = new FakeJev()
+    const coordinator = new AdaptiveCompositionCoordinator({ getSettings: async () => settings('selected'), getJev: () => port })
+    const result = await coordinator.compose(input({ value: 'A short document without chart data.' }))
+    expect(result).toMatchObject({ status: 'selected', selection: { themeId: 'empryo' } })
+    expect(port.requests[0]?.questions.map(question => question.id)).not.toContain('theme')
+    const state = port.requests[0]?.state as { composition: { candidateBundle: { questions: readonly { id: string, options: readonly { id: string }[] }[] } } }
+    expect(state.composition.candidateBundle.questions.find(question => question.id === 'theme')?.options.map(option => option.id)).toEqual(['empryo'])
+  })
+
+  it.each(['not-a-question', 'chart'])('rejects an answer outside the actual Jev question set (%s)', async extraId => {
+    const port = new FakeJev()
+    port.answerFor = request => ({ answers: request.questions.map((question, index) => index === 0
+      ? { id: extraId, kind: 'choice' as const, optionId: 'auto' }
+      : { id: question.id, kind: 'choice' as const, optionId: question.options[0]!.id }) })
+    const coordinator = new AdaptiveCompositionCoordinator({ getSettings: async () => settings(), getJev: () => port })
+    const result = await coordinator.compose(input({ value: 'A short document without chart data.' }))
+    expect(result).toMatchObject({ status: 'local', reason: 'COMPOSITION_ANSWER_INVALID' })
+    expect(port.calls).toBe(1)
+  })
+
+  it('keeps a no-choice source local without calling Jev', async () => {
+    const port = new FakeJev()
+    const coordinator = new AdaptiveCompositionCoordinator({ getSettings: async () => settings(), getJev: () => port })
+    const result = await coordinator.compose(input({ value: 'streaming source', isStreaming: true }))
+    expect(result).toMatchObject({ status: 'local', reason: 'COMPOSITION_STREAMING_SOURCE' })
+    expect(port.calls).toBe(0)
   })
 
   it('coalesces an exact request and records complete deterministic source/candidate state', async () => {

@@ -125,8 +125,11 @@ async function selectedScenario(page, documentId, expected) {
   assert.equal(snapshot.selection?.layout, expected.layout)
   assert.equal(snapshot.receiptObserved, true)
   assert.equal(snapshot.schema?.revision, 1)
-  for (const requiredQuestion of ['theme', 'surface', 'chart', 'component-set', 'layout']) {
+  for (const requiredQuestion of ['theme', 'surface', 'component-set']) {
     assert.ok(snapshot.schema?.questionIds.includes(requiredQuestion), `${documentId} has actual candidate-schema question ${requiredQuestion}`)
+  }
+  for (const [id, options] of Object.entries(snapshot.schema?.optionIds ?? {})) {
+    assert.ok(options.length >= 2, `${documentId} sends a genuine multi-option choice for ${id}`)
   }
   return snapshot
 }
