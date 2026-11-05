@@ -97,6 +97,7 @@ export class ExperienceStore {
   private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
   private listeners = new Set<() => void>()
   private generation = 0
+  private settingsReads = 0
   private saves: Promise<void> = Promise.resolve()
   private transitions = new Map<number, { api: ClientApi, before: ExperienceSettings, after: ExperienceSettings }>()
   private previewOwner?: object
@@ -109,7 +110,19 @@ export class ExperienceStore {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   update(value: typeof this.value) { if (this.value.api !== value.api) this.transitions.clear(); this.value = value; this.listeners.forEach(listener => listener()) }
   setTakeoverError(error?: string) { if (this.value.takeoverError !== error) this.update({ ...this.value, takeoverError: error }) }
-  async refresh() { const api = this.value.api; if (!api) return; const generation = this.generation; try { const settings = await api.settings(); if (this.value.api === api && generation === this.generation) this.update({ ...this.value, api, settings }) } catch (e) { if (this.value.api === api) this.update({ ...this.value, error: message(e) }) } }
+  async refresh() {
+    const api = this.value.api
+    if (!api) return
+    const generation = this.generation, read = ++this.settingsReads
+    const current = () => this.value.api === api && generation === this.generation && read === this.settingsReads
+    try {
+      const settings = await api.settings()
+      if (current()) this.update({ ...this.value, api, settings, error: undefined })
+    } catch (error) {
+      // A read started before a later read/save must not restore a stale error.
+      if (current()) this.update({ ...this.value, error: message(error) })
+    }
+  }
   async save(input: SaveSettingsInput) {
     this.generation++
     const api = this.value.api
@@ -140,7 +153,7 @@ export class ExperienceStore {
             this.transitions.set(current.revision, { api, before: copySettings(current), after: copySettings(saved) })
             if (this.transitions.size > 128) this.transitions.delete(this.transitions.keys().next().value!)
           }
-          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved })
+          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved, error: undefined })
         }
         return saved
       } catch (error) {

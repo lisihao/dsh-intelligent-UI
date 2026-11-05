@@ -73,5 +73,6 @@ export function TransparencyControl({ store, available = true, closeRevision = 0
         onKeyUp: (event: { key: string }) => { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key)) commit() } }),
       h('div', { className: 'iexp-opacity-scale', 'aria-hidden': true }, h('span', null, '不透明'), h('span', null, '更透明')),
       h('p', null, active.translucent ? '拖动实时预览，松手后保存' : '透明已关闭，拖动滑杆即可开启')),
-    (failure || error) && h('span', { role: 'alert', className: 'iexp-header-error' }, `透明设置未保存：${failure || error}`))
+    failure && h('span', { role: 'alert', className: 'iexp-header-error' }, `透明设置未保存：${failure}`),
+    error && h('span', { role: 'alert', className: 'iexp-header-error' }, settings ? '设置连接暂时不可用，已保留上次读到的设置。' : '设置连接暂时不可用，尚未读取到设置。'))
 }

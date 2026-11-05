@@ -105,7 +105,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 
 Use the official application's bundled `dsh` CLI for an installed Desktop profile. Lifecycle scripts are disabled; the published renderer does not need its optional install telemetry.
 
-In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings; in the revised compact header it is under **更多显示选项**. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
+In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings; in the revised compact header it is under **更多显示选项**. Temporary settings-read failures show a connection warning and clear after a successful read or acknowledged save. Failed transparency writes keep their separate unsaved warning and are not retried automatically. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
 
 ### Updating an older two-package installation
 

@@ -6,7 +6,18 @@ import { Settings, ExperienceStore, HeaderControls } from '../src/client.js'
 import { initialSettings, type ExperienceSettings, type SaveSettingsInput } from '../src/contracts.js'
 import { installAppearanceStyles } from '../src/appearance-style.js'
 import { appearancePreferences } from '../src/appearance.js'
+import { TransparencyControl } from '../src/transparency-control.js'
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => { resolve = nextResolve; reject = nextReject })
+  return { promise, resolve, reject }
+}
+
+const noopArtifacts = async () => [] as never[]
+const noopPublish = async () => { throw new Error('not used') }
 
 describe('appearance settings through the normal client service', () => {
   it('saves color/transparency with CAS, rejects malformed colors and restores defaults', async () => {
@@ -84,6 +95,121 @@ describe('header transparency shortcut', () => {
       await act(async () => host.querySelector<HTMLInputElement>('input')!.click())
       expect(host.querySelector<HTMLInputElement>('input')!.checked).toBe(true)
       expect(host.querySelector('[role=alert]')?.textContent).toContain('REVISION_CONFLICT')
+    } finally { await act(async () => root.unmount()); host.remove() }
+  })
+})
+
+describe('settings fetch and save recovery', () => {
+  it('does not save on a transient settings read failure and clears the connection error after refresh succeeds', async () => {
+    const settings = initialSettings()
+    let available = false
+    const saveSettings = vi.fn(async () => { throw new Error('save must not run') })
+    const api = {
+      settings: vi.fn(async () => { if (!available) throw new Error('Failed to fetch'); return settings }),
+      saveSettings,
+      artifacts: noopArtifacts,
+      publish: noopPublish,
+    }
+    const store = new ExperienceStore()
+    store.update({ api })
+    const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+    try {
+      await act(async () => { root.render(h(TransparencyControl, { store })); await store.refresh() })
+      expect(saveSettings).not.toHaveBeenCalled()
+      expect(host.querySelector('[role=alert]')?.textContent).toContain('设置连接暂时不可用')
+      expect(host.querySelector('[role=alert]')?.textContent).not.toContain('透明设置未保存')
+
+      available = true
+      await act(async () => { await store.refresh() })
+      expect(store.snapshot().settings).toEqual(settings)
+      expect(store.snapshot().error).toBeUndefined()
+      expect(host.querySelector('[role=alert]')).toBeNull()
+    } finally { await act(async () => root.unmount()); host.remove() }
+  })
+
+  it('ignores a late failure from an older refresh after a newer save succeeds', async () => {
+    const before = initialSettings()
+    const after: ExperienceSettings = { ...before, revision: before.revision + 1, takeover: true }
+    const oldRead = deferred<ExperienceSettings>()
+    const saveSettings = vi.fn(async (input: SaveSettingsInput) => {
+      expect(input.expectedRevision).toBe(before.revision)
+      return after
+    })
+    const store = new ExperienceStore()
+    const api = { settings: vi.fn(() => oldRead.promise), saveSettings, artifacts: noopArtifacts, publish: noopPublish }
+    store.update({ api, settings: before })
+
+    const oldRefresh = store.refresh()
+    await store.save({ expectedRevision: before.revision, takeover: true, openui: before.openui, mcpApps: before.mcpApps, appearance: before.appearance })
+    expect(store.snapshot().settings).toEqual(after)
+
+    oldRead.reject(new Error('late read failure'))
+    await oldRefresh
+    expect(store.snapshot().settings).toEqual(after)
+    expect(store.snapshot().error).toBeUndefined()
+  })
+
+  it('keeps a newer successful refresh when an older read fails later', async () => {
+    const oldRead = deferred<ExperienceSettings>()
+    const settings = initialSettings()
+    const store = new ExperienceStore()
+    const api = { settings: vi.fn().mockImplementationOnce(() => oldRead.promise).mockResolvedValue(settings), saveSettings: vi.fn(), artifacts: noopArtifacts, publish: noopPublish }
+    store.update({ api })
+    const older = store.refresh()
+    await store.refresh()
+    oldRead.reject(new Error('obsolete read failure'))
+    await older
+    expect(store.snapshot().settings).toEqual(settings)
+    expect(store.snapshot().error).toBeUndefined()
+  })
+
+  it('clears a prior read error when an explicit save succeeds', async () => {
+    const before = initialSettings()
+    const after: ExperienceSettings = { ...before, revision: before.revision + 1, openui: false }
+    const saveSettings = vi.fn(async () => after)
+    const store = new ExperienceStore()
+    const api = {
+      settings: vi.fn(async () => { throw new Error('Failed to fetch') }),
+      saveSettings,
+      artifacts: noopArtifacts,
+      publish: noopPublish,
+    }
+    store.update({ api, settings: before })
+    await store.refresh()
+    expect(store.snapshot().error).toBe('Failed to fetch')
+
+    await store.save({ expectedRevision: before.revision, takeover: before.takeover, openui: false, mcpApps: before.mcpApps, appearance: before.appearance })
+    expect(saveSettings).toHaveBeenCalledTimes(1)
+    expect(store.snapshot().settings).toEqual(after)
+    expect(store.snapshot().error).toBeUndefined()
+  })
+
+  it('keeps a failed save visible after a successful read and does not retry or change the acknowledged preference', async () => {
+    const settings: ExperienceSettings = { ...initialSettings(), appearance: { backgroundColor: '#24262b', translucent: false } }
+    const saveSettings = vi.fn(async () => { throw new Error('SAVE_FAILED') })
+    const api = {
+      settings: vi.fn(async () => settings),
+      saveSettings,
+      artifacts: noopArtifacts,
+      publish: noopPublish,
+    }
+    const store = new ExperienceStore()
+    store.update({ api, settings })
+    const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+    try {
+      await act(async () => root.render(h(TransparencyControl, { store })))
+      const checkbox = host.querySelector<HTMLInputElement>('input[type=checkbox]')!
+      expect(checkbox.checked).toBe(false)
+
+      await act(async () => {
+        checkbox.click()
+        await new Promise<void>(resolve => setTimeout(resolve, 0))
+      })
+      expect(saveSettings).toHaveBeenCalledTimes(1)
+      expect(api.settings).toHaveBeenCalled()
+      expect(store.snapshot().settings).toEqual(settings)
+      expect(host.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked).toBe(false)
+      expect(host.querySelector('[role=alert]')?.textContent).toContain('透明设置未保存：SAVE_FAILED')
     } finally { await act(async () => root.unmount()); host.remove() }
   })
 })
