@@ -112,6 +112,8 @@ async function loadInputs() {
     overlayLayer: extractClass(layoutSource, 'overlayLayer', 'ui-layout'),
     sidebarRoot: extractClass(sidebarSource, 'root', 'ui-sidebar'),
     topStrip: extractClass(sidebarSource, 'topStrip', 'ui-sidebar'),
+    brand: extractClass(sidebarSource, 'brand', 'ui-sidebar'),
+    brandIdentity: extractClass(sidebarSource, 'brandIdentity', 'ui-sidebar'),
     logoRow: extractClass(sidebarSource, 'logoRow', 'ui-sidebar'),
     toggle: extractClass(sidebarSource, 'toggle', 'ui-sidebar'),
     regionArea: extractClass(sidebarSource, 'regionArea', 'ui-sidebar'),
@@ -155,6 +157,8 @@ function fixtureMarkup(input, fullscreen) {
   *{box-sizing:border-box}
   body{background:#f7f8fb;color:#111827;font:14px system-ui,sans-serif}
   button{font:inherit}
+  .bt-return{display:flex;align-items:center}
+  .bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fixture-native-header-mark{min-width:0}
   .fixture-native-header-mark button{height:30px;white-space:nowrap}
   .fixture-native-body{min-height:0;flex:1;background:#fff}
@@ -178,7 +182,7 @@ function fixtureMarkup(input, fullscreen) {
       <div class="${c.sidebarCol}">
         <div data-slot="sidebar" class="${c.sidebarRoot}">
           <div class="${c.topStrip}"><button id="sidebar-toggle" class="${c.toggle}" tabindex="-1" type="button">侧栏</button></div>
-          <div class="${c.logoRow}"><span>官方标识行</span></div>
+          <div class="${c.logoRow}"><span class="${c.brand}"><span id="native-brand" class="${c.brandIdentity}" style="width:188px">DeepSeek Harness</span></span></div>
           <nav class="${c.panelList}" aria-label="工具">
             <button class="${c.panelRow}" tabindex="-1"><svg data-solar-quant-panel-icon data-wide="true"></svg>量化研究</button>
             <button id="tool-progress" class="${c.panelRow}" tabindex="-1">项目进展</button>
@@ -188,7 +192,7 @@ function fixtureMarkup(input, fullscreen) {
           <div class="${c.footArea}">
             <div class="${c.footerActions}">
               <div data-slot="sidebar.footer.action">
-                <button id="dsbot" type="button">DS Bot</button>
+                <button id="dsbot" class="bt-return" type="button"><span class="bt-mark" style="width:20px;height:20px"></span><span class="bt-return-name">DS Bot</span></button>
                 <div class="cm-footer-stack fixture-fee-stack">${rows}</div>
               </div>
             </div>
@@ -268,6 +272,7 @@ function pageGeometry() {
     sidebarToggle: '#sidebar-toggle',
     settings: '#settings',
     dsbot: '#dsbot',
+    nativeBrand: '#native-brand',
     stack: '.cm-footer-stack',
     switch: '.dsh-synapse-switch',
     overlay: '.dsh-synapse-overlay',
@@ -299,6 +304,7 @@ function pageGeometry() {
     foot: rect(selectors.foot),
     settings: rect(selectors.settings),
     dsbot: rect(selectors.dsbot),
+    nativeBrand: rect(selectors.nativeBrand),
     stack: rect(selectors.stack),
     stackScrollHeight: stack?.scrollHeight ?? null,
     stackClientHeight: stack?.clientHeight ?? null,
@@ -382,8 +388,11 @@ async function runViewport(page, input, viewport) {
     const fee = before.stack
     const settings = before.settings
     const dsbot = before.dsbot
-    const ordered = settings && dsbot && fee && settings.bottom <= dsbot.top + 0.5 && dsbot.bottom <= fee.top + 0.5
-    check(checks, `${normalLabel}: settings then DS Bot then fee visually`, ordered, { settings, dsbot, fee })
+    const ordered = settings && fee && settings.bottom <= fee.top + 0.5
+    check(checks, `${normalLabel}: settings stays above full-width fee`, ordered, { settings, dsbot, fee })
+    check(checks, `${normalLabel}: fee fills sidebar content width`, fee && before.logoRow && Math.abs(fee.width - before.logoRow.width) <= 1, { fee, logoRow: before.logoRow })
+    const brand = before.nativeBrand
+    check(checks, `${normalLabel}: DS Bot sits beside the brand without overlap`, dsbot && brand && before.logoRow && dsbot.left >= brand.right + 1 && dsbot.right <= before.logoRow.right + 0.5 && dsbot.top >= before.logoRow.top && dsbot.bottom <= before.logoRow.bottom + 0.5, { dsbot, brand, logoRow: before.logoRow })
     check(checks, `${normalLabel}: fee block scrolls internally`, before.stackScrollHeight > before.stackClientHeight && before.custom.stack.overflowY === 'auto', { scrollHeight: before.stackScrollHeight, clientHeight: before.stackClientHeight, overflowY: before.custom.stack.overflowY, maxHeight: before.custom.stack.maxHeight })
     check(checks, `${normalLabel}: frame guard and center padding are active`, before.custom.center.paddingBlockStart === '44px', { center: before.custom.center, frameSelector: '[data-slot=root] > *_frame:has(>[data-shell-overlay])' })
     check(checks, `${normalLabel}: native sidebar top strip stays at top`, before.topStrip && before.topStrip.top <= 0.5 && before.sidebarToggle && before.sidebarToggle.top >= before.topStrip.top && before.sidebarToggle.bottom <= before.topStrip.bottom + 0.5, { topStrip: before.topStrip, toggle: before.sidebarToggle })
@@ -425,7 +434,7 @@ async function runViewport(page, input, viewport) {
       await page.eval(() => document.querySelector('#tab-sentinel').focus())
       const tabOrder = []
       for (let i = 0; i < 4; i += 1) tabOrder.push(await tab(page))
-      check(checks, `${normalLabel}: keyboard order settings → DS Bot → fee`, JSON.stringify(tabOrder) === JSON.stringify(['settings', 'dsbot', 'fee-1', 'fee-2']), { expected: ['settings', 'dsbot', 'fee-1', 'fee-2'], actual: tabOrder })
+      check(checks, `${normalLabel}: footer keyboard reachability settings → DS Bot → fee`, JSON.stringify(tabOrder) === JSON.stringify(['settings', 'dsbot', 'fee-1', 'fee-2']), { expected: ['settings', 'dsbot', 'fee-1', 'fee-2'], actual: tabOrder })
     }
 
     const screenshot = join(input.outputRun, `${viewport.name}-${fullscreen ? 'fullscreen' : 'windowed'}.png`)

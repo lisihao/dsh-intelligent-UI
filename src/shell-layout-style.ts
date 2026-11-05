@@ -18,11 +18,32 @@ ${sidebarFoot} > ${moduleClass('settingsArea')} { order:0!important;flex:none; }
 ${sidebarFoot} > ${moduleClass('footerActions')} { order:1!important;min-height:0; }
 ${sidebarFoot} [data-slot="sidebar.footer.action"] {
   display:flex!important;flex-direction:column!important;align-items:stretch!important;
-  min-width:0;min-height:0;gap:4px;reading-flow:flex-visual;
+  min-width:0;min-height:0;gap:4px;
+  width:100%;flex:1 1 0%;align-self:stretch;
 }
 ${sidebarFoot} .cm-footer-stack {
   order:100!important;flex:0 1 auto!important;min-height:0;
+  box-sizing:border-box;width:100%!important;align-self:stretch;
   max-height:min(36dvh,320px);overflow-y:auto;overscroll-behavior:contain;
+}
+/* Move only DS Bot's existing return button beside the brand. Its original
+   React handler and lifetime remain owned by DS Bot. Unsupported anchors keep
+   the original footer placement. */
+@supports (anchor-name: --solar-dsbot-brand) and (left: anchor(right)) {
+  [data-slot="sidebar"] ${moduleClass('logoRow')} { anchor-name:--solar-dsbot-brand; }
+  body:not(:has([data-sidebar-collapsed])) [data-slot="sidebar.footer.action"] > .bt-return {
+    position:fixed;position-anchor:--solar-dsbot-brand;z-index:25;
+    left:calc(anchor(right) - 60px);top:calc(anchor(center) - 14px);right:auto;bottom:auto;
+    box-sizing:border-box;width:60px;min-width:60px;max-width:60px;
+    height:28px;min-height:28px;margin:0;padding:0;gap:3px;
+    justify-content:center;font-size:12px;white-space:nowrap;
+  }
+  body:not(:has([data-sidebar-collapsed])) [data-slot="sidebar.footer.action"] > .bt-return .bt-mark { width:14px!important;height:14px!important;flex:none; }
+  body:not(:has([data-sidebar-collapsed])) [data-slot="sidebar.footer.action"] > .bt-return .bt-return-name { flex:none;overflow:visible;text-overflow:clip; }
+  body:not(:has([data-sidebar-collapsed])) [data-slot="sidebar.footer.action"] > .bt-return svg { width:14px;height:14px;flex:none; }
+  [data-slot="sidebar.footer.action"] > .bt-return:focus-visible {
+    outline:2px solid var(--dsw-focus-ring-color,Highlight);outline-offset:2px;
+  }
 }
 /* Reserve a separate global view-switch row, aligned to the right of window controls.
    Session labels and utilities keep their native layout beneath that row. */
