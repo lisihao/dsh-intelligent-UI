@@ -18,6 +18,8 @@ New adapters use pinned, unmodified npm packages: Skullet `0.0.3` for initial kn
 
 This is source/build development beyond the published preview archive; source checks, mock-Jev browser/Host checks, real Decisions calls and installed Desktop acceptance are tracked separately in the [acceptance record](docs/acceptance/2026-11-05-adaptive-composition.md). No installation or real-model result is implied by this section. Existing theme controls and Tailwind/OpenUI remain; no literal shadcn migration is claimed.
 
+Repeatable synthetic conversation scenarios are available with `pnpm test:adaptive:scenarios` and `pnpm test:adaptive:browser`. They exercise actual candidate generation, the coordinator and rendered views, with explicit oracle-selected Jev answers and zero real model calls. See the [scenario matrix and results](docs/acceptance/2026-11-05-conversation-scenarios.md); these checks establish wiring and source preservation, not real-model selection quality.
+
 ## Built-in component intelligence
 
 Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.

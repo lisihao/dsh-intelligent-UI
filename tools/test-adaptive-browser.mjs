@@ -75,6 +75,14 @@ async function setSelect(page, label, value) {
 }
 
 async function click(page, selector) {
+  const scrolled = await page.eval(selector => {
+    const element = document.querySelector(selector)
+    if (!(element instanceof HTMLElement)) return false
+    element.scrollIntoView({ block: 'center', inline: 'nearest' })
+    return true
+  }, selector)
+  assert.equal(scrolled, true, `missing clickable control ${selector}`)
+  await sleep(80)
   const target = await page.eval(selector => {
     const element = document.querySelector(selector)
     if (!(element instanceof HTMLElement)) return undefined
@@ -191,6 +199,178 @@ try {
   assert.ok(openui.componentSets.includes('mechanical-outline'), 'OpenUI route mounted the selected production mechanical adapter')
   assert.equal(openui.sourceTable, true)
 
+  await setSelect(page, '合成场景', 'strategy-flow')
+  const flow = await selectedScenario(page, 'synthetic-strategy-flow', { theme: 'uiverse-soft-relief', layout: 'flow' })
+  assert.equal(flow.selection?.['componentSet'], 'soft-relief')
+  assert.ok(flow.componentSets.includes('soft-relief'), 'the explicit graph mounts a production flow component adapter')
+  const renderedFlow = await waitFor('explicit nodes/edges React Flow rendering', () => page.eval(() => {
+    const nodes = [...document.querySelectorAll('#preview-output .react-flow__node')].map(node => ({
+      id: node.getAttribute('data-id'),
+      label: node.querySelector('strong')?.textContent ?? '',
+      description: node.querySelector('p')?.textContent ?? '',
+    }))
+    const edgeIds = [...document.querySelectorAll('#preview-output .react-flow__edge')].map(edge => edge.getAttribute('data-id'))
+    const edgeLabels = [...document.querySelectorAll('#preview-output .react-flow__edge-text')].map(label => label.textContent ?? '')
+    if (nodes.length !== 3 || edgeIds.length !== 2 || edgeLabels.length !== 2) return undefined
+    return { nodes, edgeIds, edgeLabels }
+  }))
+  assert.deepEqual(renderedFlow.nodes, [
+    { id: 'scope', label: '明确边界', description: '确定本轮策略只覆盖可观察的来源、约束和停止条件。' },
+    { id: 'evidence', label: '核对证据', description: '逐项检查来源记录、单位和限定条件，不补造关系。' },
+    { id: 'decision', label: '选择方案', description: '仅在前两步保留完整时比较可执行方案。' },
+  ])
+  assert.deepEqual(renderedFlow.edgeIds, ['relation-0', 'relation-1'])
+  assert.deepEqual(renderedFlow.edgeLabels, ['限定检查范围', '保留证据后比较'])
+  await click(page, '#preview-output button[aria-label="查看全图"]')
+  let lastFlowViewport
+  let fittedFlow
+  try {
+    fittedFlow = await waitFor('all strategy nodes in the fitted React Flow viewport', async () => {
+      lastFlowViewport = await page.eval(() => {
+        const viewport = document.querySelector('#preview-output .iexp-flow-viewport')
+        if (!(viewport instanceof HTMLElement)) return undefined
+        const bounds = viewport.getBoundingClientRect()
+        const nodes = [...document.querySelectorAll('#preview-output .react-flow__node')].map(node => {
+          const rect = node.getBoundingClientRect()
+          return { id: node.getAttribute('data-id'), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+        })
+        const visible = nodes.every(node => node.left >= bounds.left - 2 && node.right <= bounds.right + 2 && node.top >= bounds.top - 2 && node.bottom <= bounds.bottom + 2)
+        return { count: nodes.length, visible, bounds: { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom }, nodes }
+      })
+      return lastFlowViewport?.count === 3 && lastFlowViewport.visible ? lastFlowViewport : undefined
+    })
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; last flow viewport=${JSON.stringify(lastFlowViewport)}`)
+  }
+  assert.equal(fittedFlow.count, 3)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-strategy-flow-1440.png'), format: 'png', fullPage: true })
+  await setSelect(page, '输出显示方式', 'compare')
+  const flowRaw = await waitFor('complete flow source in comparison mode', () => page.eval(() => document.querySelector('.iexp-raw-output pre')?.textContent ?? undefined))
+  const parsedFlow = JSON.parse(flowRaw)
+  assert.deepEqual(parsedFlow.nodes.map(node => [node.id, node.label, node.description]), [
+    ['scope', '明确边界', '确定本轮策略只覆盖可观察的来源、约束和停止条件。'],
+    ['evidence', '核对证据', '逐项检查来源记录、单位和限定条件，不补造关系。'],
+    ['decision', '选择方案', '仅在前两步保留完整时比较可执行方案。'],
+  ])
+  assert.deepEqual(parsedFlow.edges, [
+    { source: 'scope', target: 'evidence', label: '限定检查范围' },
+    { source: 'evidence', target: 'decision', label: '保留证据后比较' },
+  ])
+  await setSelect(page, '输出显示方式', 'visual')
+
+  await setSelect(page, '合成场景', 'comparison-records')
+  const records = await selectedScenario(page, 'synthetic-comparison-records', { theme: 'uiverse-clear-glass', layout: 'records' })
+  assert.equal(records.selection?.componentSet, 'clear-glass')
+  assert.ok(records.componentSets.includes('clear-glass'), 'records route mounts the selected clear-glass production adapter')
+  assert.ok(records.schema?.optionIds?.layout.includes('records'), 'records is an actual deterministic planner option for this source')
+  assert.ok(records.schema?.optionIds?.['component-set'].includes('clear-glass'), 'clear-glass is an actual deterministic component-set option')
+  const firstRecord = await waitFor('first comparison record details', () => page.eval(() => {
+    const detail = document.querySelector('#preview-output .iexp-master-detail')
+    const selected = document.querySelector('#preview-output .iexp-object-list button[aria-pressed="true"]')?.textContent?.trim()
+    const description = document.querySelector('#preview-output .iexp-object-description')?.textContent ?? ''
+    const fields = [...document.querySelectorAll('#preview-output .iexp-record-fields dt')].map((term, index) => [term.textContent, document.querySelectorAll('#preview-output .iexp-record-fields dd')[index]?.textContent])
+    return detail && selected && fields.length === 3 ? { selected, description, fields } : undefined
+  }))
+  assert.match(firstRecord.selected, /方案 A：局部缓存/)
+  assert.equal(firstRecord.description, '在固定本地样例中保留最近一次完整响应，以降低重复读取造成的等待。该记录只描述比较条件，不代表线上命中率、成本或真实模型质量，也不将样例差异视为节约，更不替代对来源版本、失败条件和完整响应的逐条核对。')
+  assert.deepEqual(firstRecord.fields, [
+    ['条件', '仅在请求体小于 64 KiB、未启用强制刷新且响应完整时比较；不能把本地回退与远端结果合并。'],
+    ['单位', 'ms / 次（P95）'],
+    ['观测窗口', '2026-11-01 至 2026-11-05（5 个合成采样点）'],
+  ])
+  await click(page, '#preview-output .iexp-object-list button:nth-of-type(2)')
+  const secondRecord = await waitFor('second comparison record details', () => page.eval(() => {
+    const selected = document.querySelector('#preview-output .iexp-object-list button[aria-pressed="true"]')?.textContent?.trim()
+    const description = document.querySelector('#preview-output .iexp-object-description')?.textContent ?? ''
+    const fields = [...document.querySelectorAll('#preview-output .iexp-record-fields dt')].map((term, index) => [term.textContent, document.querySelectorAll('#preview-output .iexp-record-fields dd')[index]?.textContent])
+    return selected?.includes('方案 B：逐次读取') && fields.length === 3 ? { selected, description, fields } : undefined
+  }))
+  assert.equal(secondRecord.description, '在相同的固定本地样例中每次重新读取来源，以便保留更新可见性。该记录不估算生产吞吐量，也不把合成结果解释为用户真实工作负载，并且不把局部时延差异当作可推广的性能承诺或成本结论。')
+  assert.deepEqual(secondRecord.fields, [
+    ['条件', '仅在同一来源版本、同一 64 KiB 上限且无网络请求时比较；不包含认证、模型调用或后台刷新。'],
+    ['单位', 'ms / 次（P95）'],
+    ['观测窗口', '2026-11-01 至 2026-11-05（5 个合成采样点）'],
+  ])
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-comparison-records-1440.png'), format: 'png', fullPage: true })
+  await setSelect(page, '输出显示方式', 'compare')
+  const recordsRaw = await waitFor('complete comparison records source', () => page.eval(() => document.querySelector('.iexp-raw-output pre')?.textContent ?? undefined))
+  const parsedRecords = JSON.parse(recordsRaw)
+  assert.deepEqual(parsedRecords.map(record => [record.name, record.条件, record.单位, record.观测窗口]), [
+    ['方案 A：局部缓存', '仅在请求体小于 64 KiB、未启用强制刷新且响应完整时比较；不能把本地回退与远端结果合并。', 'ms / 次（P95）', '2026-11-01 至 2026-11-05（5 个合成采样点）'],
+    ['方案 B：逐次读取', '仅在同一来源版本、同一 64 KiB 上限且无网络请求时比较；不包含认证、模型调用或后台刷新。', 'ms / 次（P95）', '2026-11-01 至 2026-11-05（5 个合成采样点）'],
+  ])
+  await setSelect(page, '输出显示方式', 'visual')
+
+  await setSelect(page, '合成场景', 'cited-report-index')
+  const report = await selectedScenario(page, 'synthetic-cited-report-index', { theme: 'uiverse-mechanical-outline', layout: 'heading-index' })
+  assert.equal(report.selection?.componentSet, 'mechanical-outline')
+  assert.ok(report.schema?.optionIds?.layout.includes('heading-index'), 'heading-index is an actual deterministic planner option for the cited report')
+  const renderedReport = await waitFor('cited report heading index', () => page.eval(() => {
+    const index = document.querySelector('#preview-output .iexp-heading-index')
+    const indexEntries = [...document.querySelectorAll('#preview-output .iexp-heading-index nav a')].map(anchor => anchor.textContent?.trim() ?? '')
+    const headings = [...document.querySelectorAll('#preview-output .openui-markdown-renderer h2, #preview-output .openui-markdown-renderer h3')].map(heading => heading.textContent?.trim() ?? '')
+    const citations = [...document.querySelectorAll('#preview-output .openui-markdown-renderer a[href^="https://sources.example.invalid/"]')].map(anchor => anchor.getAttribute('href'))
+    return index && indexEntries.length === 5 && headings.length === 5 && citations.length === 4 ? { indexEntries, headings, citations } : undefined
+  }))
+  assert.deepEqual(renderedReport.indexEntries, ['范围与问题', '范围条件', '方法与材料', '比较结果', '限制与引文'])
+  assert.deepEqual(renderedReport.headings, ['范围与问题', '范围条件', '方法与材料', '比较结果', '限制与引文'])
+  assert.deepEqual(renderedReport.citations, [
+    'https://sources.example.invalid/a',
+    'https://sources.example.invalid/b',
+    'https://sources.example.invalid/a',
+    'https://sources.example.invalid/b',
+  ])
+  await click(page, '#preview-output .iexp-heading-index summary')
+  const expandedIndex = await waitFor('five visible cited-report heading-index links', () => page.eval(() => {
+    const index = document.querySelector('#preview-output .iexp-heading-index')
+    if (!(index instanceof HTMLDetailsElement) || !index.open) return undefined
+    const links = [...index.querySelectorAll('nav a')]
+    const visible = links.every(link => {
+      const rect = link.getBoundingClientRect()
+      const style = getComputedStyle(link)
+      return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+    })
+    return links.length === 5 && visible ? links.map(link => link.textContent?.trim() ?? '') : undefined
+  }))
+  assert.deepEqual(expandedIndex, ['范围与问题', '范围条件', '方法与材料', '比较结果', '限制与引文'])
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-cited-report-index-1440.png'), format: 'png', fullPage: true })
+  await click(page, '#preview-output .iexp-heading-index nav a')
+  const navigatedHeading = await waitFor('heading-index anchor focus', () => page.eval(() => {
+    const active = document.activeElement
+    return active instanceof HTMLHeadingElement && active.tagName === 'H2' ? { text: active.textContent?.trim(), id: active.id } : undefined
+  }))
+  assert.equal(navigatedHeading.text, '范围与问题')
+  assert.match(navigatedHeading.id, /-heading-\d+$/)
+  await setSelect(page, '输出显示方式', 'compare')
+  const reportRaw = await waitFor('complete cited report source', () => page.eval(() => document.querySelector('.iexp-raw-output pre')?.textContent ?? undefined))
+  assert.equal(reportRaw, `# 合成方案比较报告
+
+本报告是固定本地样例，用于验证章节导航和引文原文保留；不构成真实研究结论。[资料 A](https://sources.example.invalid/a)
+
+## 范围与问题
+
+比较只覆盖两个明确的本地读取方案。单位为 ms / 次（P95），不把样例结果外推为生产时延。[资料 B](https://sources.example.invalid/b)
+
+### 范围条件
+
+请求体必须小于 64 KiB，且来源版本一致；缺失、重试和外部调用不纳入本节比较。
+
+## 方法与材料
+
+记录保留 2026-11-01 至 2026-11-05 的五个合成采样点。每个点的原始单位与条件保持不变。[资料 A](https://sources.example.invalid/a)
+
+## 比较结果
+
+本地缓存适合验证重复读取路径；逐次读取适合验证来源更新可见性。两者都不能证明真实模型、付费调用或线上业务效果。
+
+## 限制与引文
+
+本报告没有真实会话、账号、凭据或外部网络请求。任何部署、成本和质量判断都需要独立的真实证据。[资料 B](https://sources.example.invalid/b)
+
+[^1]: 资料 A：固定本地来源记录，版本 synthetic-2026-11-05。
+[^2]: 资料 B：合成验收约束；该引用不请求外部网络。`)
+  await setSelect(page, '输出显示方式', 'visual')
+
   await setSelect(page, '共享主题', 'ascii')
   await setSelect(page, '合成场景', 'scope-plain')
   const scoped = await selectedScenario(page, 'synthetic-scope-plain', { theme: 'plain', layout: 'document' })
@@ -237,6 +417,9 @@ try {
     'synthetic-task-table-mechanical',
     'synthetic-history-visx',
     'synthetic-history-openui',
+    'synthetic-strategy-flow',
+    'synthetic-comparison-records',
+    'synthetic-cited-report-index',
     'synthetic-scope-plain',
     'synthetic-live-static',
   ]
@@ -261,11 +444,17 @@ try {
     externalModelCalls: 0,
     browser: 'real Chrome via CDP',
     viewports: [1440, 390],
-    screenshots: [join(evidenceDirectory, 'adaptive-board-soft-1440.png'), join(evidenceDirectory, 'adaptive-live-static-390.png')],
+    screenshots: [
+      join(evidenceDirectory, 'adaptive-board-soft-1440.png'),
+      join(evidenceDirectory, 'adaptive-strategy-flow-1440.png'),
+      join(evidenceDirectory, 'adaptive-comparison-records-1440.png'),
+      join(evidenceDirectory, 'adaptive-cited-report-index-1440.png'),
+      join(evidenceDirectory, 'adaptive-live-static-390.png'),
+    ],
     selectedDocuments: selectedDocuments.length,
     receiptsObserved: serverReceipts.filter(event => event.observed === true).length,
-    covered: ['board/table', 'soft-relief/mechanical-outline', 'visx/OpenUI', 'raw/compare', 'explicit live static snapshot', 'disable local fallback', 'global-ASCII/local-Plain style scope'],
-    notClaimed: ['real Jev', 'real model', 'paid model', 'native application acceptance'],
+    covered: ['board/table', 'soft-relief/mechanical-outline', 'visx/OpenUI', 'explicit nodes/edges React Flow', 'records/clear-glass with condition and unit preservation', 'cited report heading index with complete raw source', 'raw/compare', 'explicit live static snapshot', 'disable local fallback', 'global-ASCII/local-Plain style scope'],
+    notClaimed: ['real Jev quality', 'real model', 'paid model', 'native application acceptance'],
   }, null, 2))
 } finally {
   try { offConsole?.() } catch {}
