@@ -6,9 +6,17 @@ The historical package name **`@lisihao/dsh-solar-intelligent-experience-platfor
 
 **内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
 
-## Adaptive conversation UI (design proposal)
+## Adaptive conversation UI (development candidate)
 
-The [adaptive conversation UI proposal](docs/integrations/adaptive-conversation-ui.md) defines source-bound model composition and the proposed Skullet loading, Torph text/number morphing and Liveline live-chart adapters, alongside historical charts and existing React Flow. This is a proposal for owner review: the new dependencies, Jev consumer and native behavior are not implemented or installed.
+The [adaptive composition design](docs/integrations/adaptive-conversation-ui.md) now has a source implementation. An optional Jev consumer chooses among **all installed intelligent UI styles and eligible runtime components**, not only the newly added libraries. Choices include installed theme packages, the three compiled Uiverse component sets, original/semantic surfaces, document/research/table/board/record/flow layouts, existing OpenUI/compact/dense/ASCII charts, visx historical charts and supported source-anchored object effects. The complete catalog distinguishes compiled adapters, development archives and effects without an automatic consumer path; it does not claim every archived component can run in a conversation.
+
+Enable **智能体验 → 智能编排 → 使用 Jev 选择内容布局与组件**, then enable **智能 UI 编排** in Jev's feature settings. Both switches are required. **从全部已安装风格中选择** lets Jev choose an output-local style; **保持手动选择的主题** locks the selected theme and its component set. Existing global settings, other plugins and manual original/comparison controls remain authoritative. The new setting defaults off for existing profiles. The installed Jev service resolves its existing saved judgment connection and credentials; the UI plugin adds no provider configuration or second HTTP client. Auxiliary decisions may incur API charges.
+
+Local analyzers first generate eligible candidates from the complete source; Jev `judgeOnce` chooses candidate IDs; strict validation and source/settings/connection checks precede adoption. Immediate local content remains readable while the decision runs. Failure, cancellation, unsupported content and stale answers keep local rendering without automatic model retries. A successful decision is logged by Jev; a separate mounted-view observation is not proof that a chart/GPU effect or business task executed.
+
+New adapters use pinned, unmodified npm packages: Skullet `0.0.3` for initial known loading state, Torph `0.1.3` for short text and numeric changes, Liveline `0.0.7` for explicitly declared live series, and visx shape/scale `4.0.0` for historical line/bar charts. A static numeric table never becomes a live feed. The live protocol is `{type:'live-series',source,unit,timeUnit:'seconds'|'milliseconds',points:[{time,value}],updatedAt?}` with finite ordered observations; complete original values and timestamp units remain accessible. Source-compatible live/short-value updates reuse the composition while rebinding exact data, rather than issuing a decision on every tick. Reduced motion, offscreen and hidden views use a static source fallback.
+
+This is source/build development beyond the published preview archive; source checks, mock-Jev browser/Host checks, real Decisions calls and installed Desktop acceptance are tracked separately in the [acceptance record](docs/acceptance/2026-11-05-adaptive-composition.md). No installation or real-model result is implied by this section. Existing theme controls and Tailwind/OpenUI remain; no literal shadcn migration is claimed.
 
 ## Built-in component intelligence
 
@@ -22,7 +30,7 @@ Uiverse component reuse is a core feature of intelligent UI, shared by frontend 
 
 The archive pin is [`adbd2adde0a299a3956ea288fb444ec01891ca41`](https://github.com/uiverse-io/galaxy/tree/adbd2adde0a299a3956ea288fb444ec01891ca41), dated 2024-09-02. It is a complete snapshot of that archive, rather than a current full-site mirror. Live presentation uses the curated compiled adaptations; the full archive supplies development lookup and sandbox previews. OpenUI still owns its chart marks and native form internals.
 
-The component capability is silent: it adds no library sidebar, page or popup. Its model-invocable skill loads on demand through DSH's official skill mechanism. `solar_ui_search`, `solar_ui_source` and `solar_ui_preview` are included in this plugin; a separately installed component plugin is unnecessary. Normal tool history and the owner's permissions remain in effect. Actual model selection varies with the model and task; runtime semantic layout selection itself requires no extra model call.
+The component capability is silent: it adds no library sidebar, page or popup. Its model-invocable skill loads on demand through DSH's official skill mechanism. `solar_ui_search`, `solar_ui_source` and `solar_ui_preview` are included in this plugin; a separately installed component plugin is unnecessary. Normal tool history and the owner's permissions remain in effect. Actual model selection varies with the model and task; default local semantic layout selection requires no extra model call; the opt-in Jev consumer described above makes separately logged auxiliary decisions.
 
 ```mermaid
 flowchart LR

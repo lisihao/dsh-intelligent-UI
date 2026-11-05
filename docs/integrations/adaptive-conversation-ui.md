@@ -1,14 +1,14 @@
 # Adaptive conversation UI: component integration and model composition
 
-Status: **design proposal for owner review; no implementation or installation**. Researched on 2026-11-05. Owner: the independent `lisihao/dsh-intelligent-UI` repository. Source baseline: [`529984522b69f0ed20cf9039c2dabae9fc3f1e65`](https://github.com/lisihao/dsh-intelligent-UI/tree/529984522b69f0ed20cf9039c2dabae9fc3f1e65), the Canvas/content candidate, rather than the older default branch. Other pending UI branches remain separate; this proposal does not merge or supersede them.
+Status: **approved on 2026-11-05; source implementation in progress, no installation or real-model acceptance claimed**. Researched on 2026-11-05. Owner: the independent `lisihao/dsh-intelligent-UI` repository. Source baseline: [`529984522b69f0ed20cf9039c2dabae9fc3f1e65`](https://github.com/lisihao/dsh-intelligent-UI/tree/529984522b69f0ed20cf9039c2dabae9fc3f1e65), the Canvas/content candidate, rather than the older default branch. Other pending UI branches remain separate; this proposal does not merge or supersede them.
 
 ## Intended behavior and completion boundary
 
 A conversation can contain prose, measurements, live observations, comparisons, explicit relationships and real task records. A decision layer selects a composition from the installed design system for each source block. The renderer binds that composition to the original content and updates it as the source changes. Neither a model nor a visual adapter can silently replace facts, units, qualifications, source links or execution state.
 
-The requested three libraries become first-class, discoverable library entries with pinned provenance and working adapters: Skullet for loading, Torph for changing short labels/numbers, and Liveline for actual live series. The reference stack also informs a visx historical-chart adapter and reuse of existing React Flow. A catalog entry, a compiled adapter, a selected layout, an actual native rendering and an accepted installation are distinct milestones.
+The owner explicitly extended the decision scope to all previously implemented intelligent UI styles and components. The candidate catalog therefore includes installed themes, Uiverse compiled sets, existing content/research layouts and chart engines, and constrained supported effects, with runtime availability separated from development/archive metadata. The requested three libraries become first-class, discoverable library entries with pinned provenance and working adapters: Skullet for loading, Torph for changing short labels/numbers, and Liveline for actual live series. The reference stack also informs a visx historical-chart adapter and reuse of existing React Flow. A catalog entry, a compiled adapter, a selected layout, an actual native rendering and an accepted installation are distinct milestones.
 
-Observable implementation acceptance: through the normal conversation output path, appropriate sources select and render these components, content updates preserve identity and original access, invalid model plans visibly retain the deterministic view, and disabling the plugin restores the normal Host presentation. A real model selecting a plan is required before calling model composition usable. This design document establishes none of those runtime results.
+Observable implementation acceptance: through the normal conversation output path, appropriate sources select and render these components, content updates preserve identity and original access, invalid model plans visibly retain the deterministic view, and disabling the plugin restores the normal Host presentation. A real model selecting a plan is required before calling model composition usable. Actual verification is tracked in the separate acceptance record; this design alone establishes none of those runtime results.
 
 ## Observed implementation
 
@@ -118,7 +118,7 @@ The following are hypothetical acceptance fixtures, not observed native results:
 3. A strategy result contains explicit nodes/edges and current observations. The model selects React Flow for the relationships and a separate supported metric surface. Changing a filter or opening a node never executes the strategy.
 4. A short answer contains no structural data. The decision is plain Markdown, with no empty charts, invented metrics or skeleton shown after completion.
 
-## Implementation ownership after review
+## Implementation ownership
 
 All work belongs to this single independent plugin and a dedicated feature worktree under Projects. Do not edit the old V4 checkout, installed app, another plugin, credentials or existing user sessions. Do not merge unrelated feature branches to get this work underway.
 
@@ -133,7 +133,7 @@ Keep independent catalog/source review work parallel where useful; serialize sha
 
 ## Verification plan
 
-This turn is an **L0 design/source review**: inspect the upstream licenses, API entries, published version metadata, owning source and final documentation diff. No build/test or model claim is made.
+The initial design phase was an **L0 design/source review**: inspect the upstream licenses, API entries, published version metadata, owning source and final documentation diff. No build/test or model claim is made.
 
 Implementation is at least L2; accepted plan persistence/format introduces the project's L3 persistence boundary. Use the existing required build, typecheck, unit and built-package scratch plugin gate at the stable delivery boundary. Reuse unchanged evidence and run affected checks after fixes. Tests must exercise normal UI call sites as well as plan validators; an isolated adapter that is never selected does not satisfy this task.
 
@@ -145,4 +145,4 @@ Real model acceptance must show a normal conversation selecting at least distinc
 
 The proposed implementation is one plugin with three new pinned library adapters, source-bound candidate composition, current-theme controls and a scoped consumer of the installed Jev service. The model's role is selection and layout; data eligibility, preservation and lifecycle state stay with deterministic code.
 
-Owner review is needed before integrating the open-source libraries, as required by the project rule: “Before any code, write `docs/integrations/<project>.md` … 昊哥 reviews the document before implementation.” The owner has identified the installed Jev/OpenAI Decisions route. Review should confirm the bounded candidate-selection design and the staged historical-chart approach. The reference to Tailwind + shadcn is treated as a layering reference; a literal shadcn primitive migration is outside this proposal and is not claimed complete.
+The owner approved implementation on 2026-11-05 and confirmed reuse of the installed Jev/OpenAI Decisions route. The same approval explicitly includes all previously developed intelligent UI styles/components, subject to actual source eligibility and runtime availability. No additional design approval is required for that accepted scope. The reference to Tailwind + shadcn is treated as a layering reference; a literal shadcn primitive migration is outside this proposal and is not claimed complete.

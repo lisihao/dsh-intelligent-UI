@@ -18,6 +18,7 @@ await writeFile(join(root, 'tsconfig.build.json'), JSON.stringify({ extends: './
 execFileSync(join(root, 'node_modules/.bin/tsc'), ['-p', 'tsconfig.build.json'], { cwd: root, stdio: 'inherit' })
 await copyFile(join(root, 'assets/Recursive-OFL.txt'), join(root, 'lib/Recursive-OFL.txt'))
 await copyFile(join(root, 'assets/DM-Sans-OFL.txt'), join(root, 'lib/DM-Sans-OFL.txt'))
+for (const name of ['Skullet-MIT.txt','Torph-MIT.txt','Liveline-MIT.txt','visx-MIT.txt']) await copyFile(join(root, 'assets', name), join(root, 'lib', name))
 await copyFile(join(root, 'assets/Uiverse-MIT.txt'), join(root, 'lib/Uiverse-MIT.txt'))
 await copyFile(join(root, 'assets/Canvas-UI-LICENSE.md'), join(root, 'lib/Canvas-UI-LICENSE.md'))
 await copyFile(join(root, 'assets/modern-screenshot-MIT.txt'), join(root, 'lib/modern-screenshot-MIT.txt'))

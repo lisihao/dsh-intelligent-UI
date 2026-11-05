@@ -1,15 +1,16 @@
+import { useCompositionSelection } from './adaptive-ui/scope.js'
 import { createElement as h, forwardRef, useId, useState, useSyncExternalStore, type ButtonHTMLAttributes, type InputHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
-import { themePreferences } from './theme-runtime.js'
+import { themePreferences, usePresentationTheme } from './theme-runtime.js'
 import type { ComponentSet, ThemePackage } from './theme-contracts.js'
 import { resolveUiverseAdapter, uiverseAdapterAttributes, UiverseRenderScope, useUiverseRenderRole, type UiverseElementRole, type UiverseRenderRole } from './uiverse-render.js'
 import sources from './uiverse-sources.json' with { type: 'json' }
 
 export function themeComponentSet(theme: ThemePackage): ComponentSet | 'native' { return theme.formatVersion === 2 ? theme.componentSet : 'native' }
-export function useComponentSet(): ComponentSet | 'native' { return themeComponentSet(useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)) }
+export function useComponentSet(): ComponentSet | 'native' { return themeComponentSet(usePresentationTheme()) }
 type Choice = { componentSet?: ComponentSet | 'native'; renderRole?: UiverseRenderRole }
 function useAdapter(element: UiverseElementRole, explicit?: ComponentSet | 'native', renderRole?: UiverseRenderRole) {
-  const scope = useUiverseRenderRole(), theme = useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)
-  return resolveUiverseAdapter(theme, element, renderRole ?? scope, explicit)
+  const scope = useUiverseRenderRole(), theme = usePresentationTheme(), composition = useCompositionSelection()
+  return resolveUiverseAdapter(theme, element, renderRole ?? scope, explicit ?? composition?.componentSet)
 }
 function classes(base: string, existing?: string) { return [existing, base].filter(Boolean).join(' ') }
 

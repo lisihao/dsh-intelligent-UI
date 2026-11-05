@@ -1,3 +1,4 @@
+import {composeInputSchema,compositionResultSchema,compositionStatusSchema,compositionCancelInputSchema,compositionCancelResultSchema,compositionReceiptInputSchema,compositionReceiptResultSchema} from './adaptive-ui/contracts.js'
 import type { TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import { z } from 'zod'
 import { PACKAGE, SERVICE, artifactSchema, settingsSchema, saveSettingsSchema, publishSchema, widgetInputSchema, widgetStateSchema, saveWidgetStateSchema } from './contracts.js'
@@ -12,6 +13,11 @@ const codec = (name: string, schema: z.ZodType) => ({
 })
 const specs = [
   ['settings', undefined, settingsSchema],
+  ['compositionStatus',undefined,compositionStatusSchema],
+  ['compositionCatalog',undefined,z.json()],
+  ['composition',composeInputSchema,compositionResultSchema],
+  ['compositionCancel',compositionCancelInputSchema,compositionCancelResultSchema],
+  ['compositionReceipt',compositionReceiptInputSchema,compositionReceiptResultSchema],
   ['saveSettings', saveSettingsSchema, settingsSchema],
   ['installTheme', installThemeSchema, settingsSchema],
   ['removeTheme', removeThemeSchema, settingsSchema],

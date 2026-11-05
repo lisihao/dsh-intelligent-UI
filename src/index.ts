@@ -1,3 +1,7 @@
+import {AdaptiveCompositionCoordinator} from './adaptive-ui/host.js'
+import type {JevCompositionPort} from './adaptive-ui/contracts.js'
+import {getCompositionCatalog} from './adaptive-ui/catalog.js'
+import {builtInThemes} from './theme-contracts.js'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
@@ -78,7 +82,11 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const store = new ExperienceStore(root, config)
   let current = await store.settings()
   const mcp = new McpHost(ctx, {endpoint: config.mcpEndpoint, root, settings: () => current})
-  const control = new ExperienceControl(ctx, store, mcp)
+  const adaptive = new AdaptiveCompositionCoordinator({getSettings:()=>store.settings(),maxSourceBytes:config.maxArtifactBytes})
+  ctx.effect(()=>()=>adaptive.dispose(), 'intelligent-experience: adaptive decisions')
+  // Jev is an optional peer; no UI dependency starts or enables its other consumers.
+  ctx.inject(['jev' as never], child => child.effect(()=>adaptive.attachJev(child.get('jev' as never) as unknown as JevCompositionPort),'intelligent-experience: Jev composition consumer'))
+  const control = new ExperienceControl(ctx, store, mcp, adaptive)
   if (current.takeover && current.mcpApps && config.mcpEndpoint) void control.activateMcp()
   ctx.effect(() => store.subscribe(settings => { current = settings; if (!settings.takeover || !settings.mcpApps) void mcp.closeAll().catch(error => ctx.logger('solar-experience').warn('%s', error)) }))
   ctx.effect(() => () => mcp.dispose())
@@ -125,8 +133,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       return store.publish({ source: { sessionId: String(exec.agent.id), callId: String(exec.callId), kind: 'generated', label: value.label }, protocol: value.protocol, raw: value.payload, payload: value.payload, providerId: value.protocol === 'openui' ? 'openui' : 'content' })
     },
   })
-  ctx.tools.register({ name: 'solar_ui_catalog', description: '按需读取 OpenUI 的真实组件目录和语法，用于生成可交互内容；仅需要生成 UI 时调用。', parameters: {type: 'object', properties: {}, additionalProperties: false},
-    output: {schema: {type: 'object', properties: {prompt: {type: 'string'}}, required: ['prompt']}, render: (_args, value) => [{type: 'text', text: (value as {prompt: string}).prompt}]},
-    async execute(_args, exec) {exec.signal.throwIfAborted(); const {openuiLibrary, openuiPromptOptions} = await import('@openuidev/react-ui/genui-lib'); return {prompt: openuiLibrary.prompt(openuiPromptOptions)}},
+  ctx.tools.register({ name: 'solar_ui_catalog', description: '读取智能 UI 的完整能力目录、可用性和 OpenUI 语法；包含所有已安装风格、已编译组件、内容布局、图表和受约束视觉效果。开发归档与尚不可自动使用的目录项会明确标记。', parameters: {type: 'object', properties: {}, additionalProperties: false},
+    output: {schema: {type: 'object', properties: {prompt: {type: 'string'},capabilities:{type:'object',additionalProperties:true}}, required: ['prompt','capabilities']}, render: (_args, value) => [{type: 'text', text: (value as {prompt: string}).prompt+'\n\nAvailable intelligent UI capabilities (availability is explicit):\n'+JSON.stringify((value as {capabilities:unknown}).capabilities)}]},
+    async execute(_args, exec) {exec.signal.throwIfAborted(); const {openuiLibrary, openuiPromptOptions} = await import('@openuidev/react-ui/genui-lib'); const settings=await store.settings(); return {prompt: openuiLibrary.prompt(openuiPromptOptions),capabilities:getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])])}},
   })
 }

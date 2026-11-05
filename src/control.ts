@@ -1,3 +1,7 @@
+import { AdaptiveCompositionCoordinator } from './adaptive-ui/host.js'
+import { getCompositionCatalog } from './adaptive-ui/catalog.js'
+import { builtInThemes } from './theme-contracts.js'
+import { composeInputSchema,compositionCancelInputSchema,compositionReceiptInputSchema,type ComposeInput,type CompositionCancelInput,type CompositionReceiptInput } from './adaptive-ui/contracts.js'
 import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { SERVICE, publishSchema, widgetInputSchema, saveWidgetStateSchema, type ExperienceApi, type WidgetStateApi, type ThemeApi, type PublishInput, type SaveSettingsInput, type SaveWidgetStateInput } from './contracts.js'
@@ -16,10 +20,20 @@ import type { InsightPreviewPorts } from './insight-preview-contracts.js'
 export class ExperienceControl extends TypertRemoteService implements ExperienceApi, WidgetStateApi, ThemeApi {
   readonly registry = new ExperienceRegistry()
   private mcpError: string | undefined
-  constructor(ctx: Context, readonly store: ExperienceStore, readonly mcp: McpHost) { super(ctx, SERVICE) }
+  constructor(ctx: Context, readonly store: ExperienceStore, readonly mcp: McpHost, readonly adaptive?: AdaptiveCompositionCoordinator) { super(ctx, SERVICE) }
   private owner(): void {
     if (this.ctx.invocation && this.ctx.invocation.peer.principal.kind !== 'owner') throw new Error('EXPERIENCE_OWNER_REQUIRED: 此操作仅允许本机所有者使用。')
   }
+  @Remote
+  async compositionStatus() { this.owner(); if (!this.adaptive) throw new Error('COMPOSITION_UNAVAILABLE'); return this.adaptive.status() }
+  @Remote
+  async compositionCatalog() { this.owner(); const settings=await this.store.settings(); return getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])]) }
+  @Remote
+  async composition(input:ComposeInput) { this.owner(); if (!this.adaptive) throw new Error('COMPOSITION_UNAVAILABLE'); return this.adaptive.compose(composeInputSchema.parse(input)) }
+  @Remote
+  async compositionCancel(input:CompositionCancelInput) { this.owner(); if (!this.adaptive) throw new Error('COMPOSITION_UNAVAILABLE'); return this.adaptive.cancel(compositionCancelInputSchema.parse(input)) }
+  @Remote
+  async compositionReceipt(input:CompositionReceiptInput) { this.owner(); if (!this.adaptive) throw new Error('COMPOSITION_UNAVAILABLE'); return this.adaptive.writeReceipt(compositionReceiptInputSchema.parse(input)) }
   @Remote
   async settings() { this.owner(); return this.store.settings() }
   @Remote

@@ -6,12 +6,14 @@ export { appearanceSchema } from './theme-contracts.js'
 export const PACKAGE = '@lisihao/dsh-solar-intelligent-experience-platform'
 export const SERVICE = 'solarExperience'
 export const defaultAppearance = (): z.infer<typeof appearanceSchema> => ({ backgroundColor: '#24262b', translucent: true })
+export const adaptiveSettingsSchema = z.strictObject({ enabled: z.boolean(), styleMode: z.enum(['selected', 'automatic']) })
 export const settingsSchema = z.strictObject({
   formatVersion: z.literal(1), revision: z.number().int().nonnegative(),
   takeover: z.boolean(), openui: z.boolean(), mcpApps: z.boolean(),
   appearance: appearanceSchema.optional(),
   theme: themePreferenceSchema.optional(),
   themeSource: themeSourceSchema.optional(),
+  adaptive: adaptiveSettingsSchema.optional(),
 })
 export type ExperienceSettings = z.infer<typeof settingsSchema>
 export const initialSettings = (): ExperienceSettings => ({ formatVersion: 1, revision: 0, takeover: false, openui: true, mcpApps: false, appearance: defaultAppearance() })
@@ -20,6 +22,7 @@ export const saveSettingsSchema = z.strictObject({
   appearance: appearanceSchema.optional(),
   themeId: themeIdSchema.optional(),
   themeSource: themeSourceSchema.optional(),
+  adaptive: adaptiveSettingsSchema.optional(),
 })
 export type SaveSettingsInput = z.infer<typeof saveSettingsSchema>
 export const sourceSchema = z.strictObject({

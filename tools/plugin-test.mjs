@@ -114,6 +114,167 @@ async function themeProbe(ctx) {
       const durable = JSON.parse(await readFile(join(process.env.DSH_HOME, 'solar', 'intelligent-experience-platform', 'settings.json'), 'utf8'))
       assert(JSON.stringify(durable) === JSON.stringify(state), 'theme removal acknowledgement was not durable')
       result.checks.durableFallback = true
+
+      // Exercise the new composition RPCs only after the existing theme and
+      // artifact assertions have reached their stable post-restart state.
+      // This keeps the original settings/revision and artifact checks intact.
+      const compositionBase = {
+        sessionId: 'scratch-composition-session',
+        documentId: 'scratch-composition-document',
+        value: '# Deterministic composition fixture\n\nThe renderer must preserve this source.\n',
+        styleMode: 'automatic',
+        capabilities: { webgl: false, reducedMotion: false },
+        isStreaming: false,
+      }
+      const originalAdaptive = state.adaptive
+      const restoredAdaptive = originalAdaptive ?? { enabled: false, styleMode: 'selected' }
+      let adaptiveState = state
+      let adaptiveChanged = false
+      let removeJev
+      let featureRegistered = false
+      let featureEnabled = true
+      let mockRequests = 0
+      let mockReceiptWrites = 0
+      const hookCalls = { refresh: 0, preflight: 0, interpret: 0, canAdopt: 0 }
+      let firstJudgeStartedResolve
+      const firstJudgeStarted = new Promise(resolve => { firstJudgeStartedResolve = resolve })
+      const preferred = { theme: 'empryo', surface: 'semantic', chart: 'auto', 'component-set': 'native', layout: 'document', 'object-effect': 'none', live: 'native', loading: 'native', 'text-motion': 'none' }
+
+      try {
+        const missingStatus = await rpc('compositionStatus')
+        assert(missingStatus.attached === false && missingStatus.featureRegistered === false && missingStatus.featureEnabled === false, `missing Jev status was not explicit: ${JSON.stringify(missingStatus)}`)
+        result.checks.compositionMissingJev = true
+
+        adaptiveState = await rpc('saveSettings', { expectedRevision: adaptiveState.revision, ...input.flags, takeover: true, adaptive: { enabled: true, styleMode: 'automatic' } })
+        state = adaptiveState
+        adaptiveChanged = true
+        const missingResult = await rpc('composition', { ...compositionBase, documentId: 'scratch-composition-missing-jev', requestId: 'composition-missing-jev' })
+        assert(missingResult.status === 'local' && missingResult.reason === 'JEV_UNAVAILABLE', `missing Jev composition did not fall back locally: ${JSON.stringify(missingResult)}`)
+        result.checks.compositionMissingJev = true
+
+        const mockPort = {
+          registerFeature(feature) {
+            assert(feature?.id === 'ui-composition', `unexpected synthetic Jev feature: ${JSON.stringify(feature)}`)
+            featureRegistered = true
+            return () => { featureRegistered = false }
+          },
+          isFeatureEnabled(featureId) { return featureId === 'ui-composition' && featureRegistered && featureEnabled },
+          judgmentConnectionIdentity() {
+            return { connectionId: 'scratch-jev-connection', baseUrl: 'https://fixture.invalid', model: 'fixture-model', credentialRef: 'fixture-credential', timeoutMs: 1000 }
+          },
+          async judgeOnce(options) {
+            mockRequests += 1
+            const operationId = `fixture-composition-operation-${mockRequests}`
+            const signal = options.signal ?? new AbortController().signal
+            const request = await options.refresh(signal)
+            hookCalls.refresh += 1
+            options.preflight?.(request)
+            hookCalls.preflight += 1
+            if (mockRequests === 1) {
+              firstJudgeStartedResolve()
+              await new Promise(resolve => {
+                if (signal.aborted) resolve()
+                else signal.addEventListener('abort', resolve, { once: true })
+              })
+              return { kind: 'cancelled', operationId }
+            }
+            const answers = request.questions.map(question => {
+              const desired = preferred[question.id]
+              const option = question.options.find(candidate => candidate.id === desired) ?? question.options[0]
+              assert(option, `composition question has no allowed option: ${question.id}`)
+              return { id: question.id, kind: 'choice', optionId: option.id }
+            })
+            const response = { answers }
+            const interpreted = await options.interpret?.(response, signal)
+            hookCalls.interpret += 1
+            assert(interpreted?.usable === true, `synthetic Jev interpretation rejected its allowed choices: ${JSON.stringify(interpreted)}`)
+            const adoption = await options.canAdopt?.(response, signal)
+            hookCalls.canAdopt += 1
+            assert(adoption === true, `synthetic Jev adoption was rejected: ${String(adoption)}`)
+            return { kind: 'ok', operationId, attemptId: `fixture-composition-attempt-${mockRequests}`, response }
+          },
+          async writeReceipt(operationId, receipt) {
+            mockReceiptWrites += 1
+            assert(operationId === 'fixture-composition-operation-2' && receipt?.status === 'observed', `synthetic Jev receipt was malformed: ${JSON.stringify({ operationId, receipt })}`)
+            return { accepted: true }
+          },
+        }
+        removeJev = ctx.provide('jev', mockPort)
+        const attachedStatus = await (async () => {
+          const deadline = Date.now() + 2000
+          let current
+          do {
+            current = await rpc('compositionStatus')
+            if (current.attached && current.featureRegistered && current.featureEnabled) return current
+            await new Promise(resolve => setTimeout(resolve, 0))
+          } while (Date.now() < deadline)
+          return current
+        })()
+        assert(attachedStatus.attached === true && attachedStatus.featureRegistered === true && attachedStatus.featureEnabled === true && attachedStatus.adaptiveEnabled === true, `synthetic Jev did not attach through optional injection: ${JSON.stringify(attachedStatus)}`)
+        result.checks.compositionJevAttached = true
+
+        const catalog = await rpc('compositionCatalog')
+        assert(catalog.revision === 1 && Array.isArray(catalog.entries) && catalog.entries.some(entry => entry.id === 'theme:empryo') && catalog.entries.some(entry => entry.id === 'surface:arbitrary-html' && entry.availability === 'blocked'), 'composition catalog RPC did not expose the bounded built-in catalog')
+        result.checks.compositionCatalog = true
+
+        featureEnabled = false
+        const disabledStatus = await rpc('compositionStatus')
+        assert(disabledStatus.attached === true && disabledStatus.featureRegistered === true && disabledStatus.featureEnabled === false, `disabled Jev status was not observable: ${JSON.stringify(disabledStatus)}`)
+        const disabledResult = await rpc('composition', { ...compositionBase, documentId: 'scratch-composition-disabled-jev', requestId: 'composition-disabled-jev' })
+        assert(disabledResult.status === 'local' && disabledResult.reason === 'JEV_FEATURE_DISABLED', `disabled Jev composition did not fall back locally: ${JSON.stringify(disabledResult)}`)
+        result.checks.compositionDisabledJev = true
+        featureEnabled = true
+
+        let ownerRejected = 0
+        for (const [method, value] of [['compositionStatus', undefined], ['compositionCatalog', undefined], ['composition', { ...compositionBase, requestId: 'composition-owner-refusal' }]]) {
+          try { await rpc(method, value, observer) } catch (error) {
+            if (/remote-access\/denied|EXPERIENCE_OWNER_REQUIRED/.test(`${error.code ?? ''} ${error.message}`)) ownerRejected += 1
+          }
+        }
+        assert(ownerRejected === 3, `non-owner composition RPC access was not refused: ${ownerRejected}/3`)
+        result.checks.compositionOwnerRejected = true
+
+        const cancelInput = { ...compositionBase, documentId: 'scratch-composition-cancel', requestId: 'composition-cancel' }
+        const pendingCancel = rpc('composition', cancelInput)
+        await Promise.race([firstJudgeStarted, new Promise((_, reject) => setTimeout(() => reject(new Error('synthetic Jev did not start the cancellable request')), 2000))])
+        const cancelled = await rpc('compositionCancel', { sessionId: cancelInput.sessionId, documentId: cancelInput.documentId, requestId: cancelInput.requestId })
+        assert(cancelled.cancelled === true && cancelled.reason === 'COMPOSITION_CANCELLED', `compositionCancel did not acknowledge the matching request: ${JSON.stringify(cancelled)}`)
+        const cancelledResult = await Promise.race([pendingCancel, new Promise((_, reject) => setTimeout(() => reject(new Error('cancelled composition did not settle')), 2000))])
+        assert(cancelledResult.status === 'stale' && cancelledResult.reason === 'COMPOSITION_CANCELLED', `cancelled composition was replayed or adopted: ${JSON.stringify(cancelledResult)}`)
+        result.checks.compositionCancelled = true
+
+        const selectedInput = { ...compositionBase, documentId: 'scratch-composition-selected', requestId: 'composition-selected' }
+        const selected = await rpc('composition', selectedInput)
+        assert(selected.status === 'selected' && selected.requestId === selectedInput.requestId && selected.selection?.themeId === 'empryo' && selected.selection?.layout === 'document', `selected composition did not preserve deterministic theme/layout choices: ${JSON.stringify(selected)}`)
+        assert(hookCalls.refresh === 2 && hookCalls.preflight === 2 && hookCalls.interpret === 1 && hookCalls.canAdopt === 1, `synthetic Jev callbacks were not exercised exactly: ${JSON.stringify(hookCalls)}`)
+        assert(mockRequests === 2 && typeof selected.operationId === 'string', `composition request count or operation identity was unexpected: ${JSON.stringify({ mockRequests, selected })}`)
+        result.checks.compositionSelected = true
+
+        const receiptInput = { sessionId: selectedInput.sessionId, documentId: selectedInput.documentId, sourceVersion: selected.sourceVersion, operationId: selected.operationId, observed: true }
+        const receipt = await rpc('compositionReceipt', receiptInput)
+        assert(receipt.status === 'observed' && receipt.operationId === selected.operationId && receipt.sourceVersion === selected.sourceVersion, `compositionReceipt did not acknowledge the selected operation: ${JSON.stringify(receipt)}`)
+        result.checks.compositionReceipt = true
+        let crossSessionRejected = false
+        try { await rpc('compositionReceipt', { ...receiptInput, sessionId: 'scratch-other-session' }) } catch (error) { crossSessionRejected = /COMPOSITION_RECEIPT_BINDING_MISMATCH/.test(`${error.code ?? ''} ${error.message}`) }
+        assert(crossSessionRejected, 'compositionReceipt accepted a receipt from another session')
+        const repeatedReceipt = await rpc('compositionReceipt', receiptInput)
+        assert(repeatedReceipt.status === 'observed' && mockReceiptWrites === 1, `observed composition receipt was replayed to Jev: ${JSON.stringify({ repeatedReceipt, mockReceiptWrites })}`)
+        result.checks.compositionReceiptCrossSessionRejected = true
+        const cached = await rpc('composition', selectedInput)
+        assert(cached.status === 'selected' && cached.operationId === selected.operationId && mockRequests === 2, `cached composition replayed the synthetic Jev request: ${JSON.stringify({ cached, mockRequests })}`)
+        result.checks.compositionNoReplay = true
+        result.composition = { mockRequests, mockReceiptWrites, hookCalls, selected, cancelled, cancelledResult, catalogRevision: catalog.revision }
+      } finally {
+        try {
+          if (typeof removeJev === 'function') await removeJev()
+        } finally {
+          if (adaptiveChanged) {
+            state = await rpc('saveSettings', { expectedRevision: adaptiveState.revision, ...input.flags, adaptive: restoredAdaptive })
+            assert(JSON.stringify(state.adaptive ?? null) === JSON.stringify(restoredAdaptive), `adaptive scratch settings were not restored: ${JSON.stringify(state.adaptive)}`)
+            result.checks.compositionSettingsRestored = true
+          }
+        }
+      }
     } else throw new Error(`unknown theme probe phase: ${phase}`)
     assert(flags(state) === input.originalFlags, 'theme RPC changed original takeover/OpenUI/MCP flags')
     result.checks.flagsPreserved = true
@@ -174,7 +335,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
     }
     phases.push(result)
     if (!result.ok || processError) throw Object.assign(new Error(`theme ${phase} failed: ${JSON.stringify(result)}`, { cause: processError }), { themeEvidence: { ok: false, failedPhase: phase, phases, externalModelCalls: 0 } })
-    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback'])]
+    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback', 'compositionJevAttached', 'compositionMissingJev', 'compositionDisabledJev', 'compositionCatalog', 'compositionOwnerRejected', 'compositionCancelled', 'compositionSelected', 'compositionReceipt', 'compositionReceiptCrossSessionRejected', 'compositionNoReplay', 'compositionSettingsRestored'])]
     if (required.some(check => result.checks[check] !== true)) throw new Error(`theme ${phase} is missing acceptance evidence: ${JSON.stringify(result)}`)
   }
   if (phases[0].pid === phases[1].pid) throw new Error('theme restart acceptance reused one Host process')
