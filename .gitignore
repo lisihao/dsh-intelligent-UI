@@ -26,3 +26,6 @@ screenshots/
 *.webm
 
 tools/browser-research/fixture.js
+
+# Synthetic browser layout evidence
+/output/playwright/
