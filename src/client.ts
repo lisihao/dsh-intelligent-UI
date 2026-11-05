@@ -38,6 +38,7 @@ import { safeResearchUrl } from './research-content.js'
 import type { IntelligentUiClient } from './public-api.js'
 import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
+import { installShellLayoutStyles } from './shell-layout-style.js'
 import { installAsciiVisualTheme } from './ascii-visual-theme.js'
 import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contracts.js'
 
@@ -332,6 +333,7 @@ export function apply(ctx: Context): void {
   }, 'intelligent-experience: theme')
   ctx.effect(() => () => { displayModes.clear(); researchModes.clear() }, 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
+  ctx.effect(() => installShellLayoutStyles(), 'intelligent-experience: shell layout')
   ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
   const store = new ExperienceStore()

@@ -3,18 +3,19 @@ import { act, createElement as h, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { DATA_BROWSER_PANEL_ID, installDataBrowserNavigation } from '../src/data-browser-navigation.js'
+import { DATA_BROWSER_PANEL_ID, DataBrowserIcon, installDataBrowserNavigation } from '../src/data-browser-navigation.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-type Slot = 'main' | 'sidebar.footer.action'
-type Registration = { name: Slot; id?: string; key?: string }
+type Slot = 'main' | 'sidebar.panellist'
+type Registration = { name: Slot; id?: string; key?: string; label?: () => string; order?: number }
 type Waiting = { live: boolean; create: () => () => void; cleanup?: () => void }
 
 /** A declaration-aware host: entries are visible only while their slot exists. */
-function host(available: Slot[] = ['main', 'sidebar.footer.action'], failFooter = false) {
+function host(available: Slot[] = ['main', 'sidebar.panellist'], failNavigation = false) {
   const declared = new Set(available), waiting = new Map<Slot, Set<Waiting>>()
   const entries = new Map<string, ComponentType<Record<string, unknown>>>()
+  const registrations: Registration[] = []
   const changes: string[] = [], listeners = new Set<() => void>()
   let snapshot: { activePanelId: string | null } = { activePanelId: null }
   const idOf = (slot: Slot, id: string) => `${slot}:${id}`
@@ -28,9 +29,10 @@ function host(available: Slot[] = ['main', 'sidebar.footer.action'], failFooter 
   }
   const slots = {
     register: (options: Registration, component: ComponentType<Record<string, unknown>>) => {
+      registrations.push(options)
       const id = options.key ?? options.id!
       const key = idOf(options.name, id)
-      if (failFooter && options.name === 'sidebar.footer.action') throw new Error('footer registration failed')
+      if (failNavigation && options.name === 'sidebar.panellist') throw new Error('navigation registration failed')
       if (entries.has(key)) throw new Error(`duplicate ${key}`)
       entries.set(key, component); changes.push(`add:${key}`)
       return () => { entries.delete(key); changes.push(`remove:${key}`) }
@@ -53,7 +55,7 @@ function host(available: Slot[] = ['main', 'sidebar.footer.action'], failFooter 
     },
   } as unknown as Context
   return {
-    ctx, entries, layout, changes,
+    ctx, entries, layout, changes, registrations,
     declare: (slot: Slot) => {
       declared.add(slot)
       for (const item of waiting.get(slot) ?? []) if (item.live && !item.cleanup) item.cleanup = item.create()
@@ -64,21 +66,22 @@ function host(available: Slot[] = ['main', 'sidebar.footer.action'], failFooter 
 }
 
 describe('data browser navigation', () => {
-  it('waits for the main panel before exposing the single footer entry, then restores the conversation on removal', async () => {
-    const fixture = host(['sidebar.footer.action'])
+  it('waits for the main panel before exposing the single Tools entry, then restores the conversation on removal', async () => {
+    const fixture = host(['sidebar.panellist'])
     const dispose = installDataBrowserNavigation(fixture.ctx, () => h('p', null, '数据内容'))
     expect(fixture.entry('main')).toBeUndefined()
-    expect(fixture.entry('sidebar.footer.action')).toBeUndefined()
+    expect(fixture.entry('sidebar.panellist')).toBeUndefined()
     fixture.declare('main')
     expect(fixture.entry('main')).toBeDefined()
-    expect(fixture.entry('sidebar.footer.action')).toBeDefined()
-    expect(fixture.changes.slice(0, 2)).toEqual([`add:main:${DATA_BROWSER_PANEL_ID}`, `add:sidebar.footer.action:${DATA_BROWSER_PANEL_ID}`])
+    expect(fixture.entry('sidebar.panellist')).toBeDefined()
+    expect(fixture.registrations.find(row => row.name === 'sidebar.panellist')?.label?.()).toBe('数据浏览器')
+    expect(fixture.changes.slice(0, 2)).toEqual([`add:main:${DATA_BROWSER_PANEL_ID}`, `add:sidebar.panellist:${DATA_BROWSER_PANEL_ID}`])
     fixture.layout.selectPanel(DATA_BROWSER_PANEL_ID)
     await dispose()
     expect(fixture.layout.panelInfo.getSnapshot().activePanelId).toBeNull()
     expect(fixture.entry('main')).toBeUndefined()
-    expect(fixture.entry('sidebar.footer.action')).toBeUndefined()
-    expect(fixture.changes.slice(-3)).toEqual([`remove:sidebar.footer.action:${DATA_BROWSER_PANEL_ID}`, 'select:null', `remove:main:${DATA_BROWSER_PANEL_ID}`])
+    expect(fixture.entry('sidebar.panellist')).toBeUndefined()
+    expect(fixture.changes.slice(-3)).toEqual([`remove:sidebar.panellist:${DATA_BROWSER_PANEL_ID}`, 'select:null', `remove:main:${DATA_BROWSER_PANEL_ID}`])
   })
 
   it('leaves an unrelated selected panel and its registration alone', async () => {
@@ -92,29 +95,15 @@ describe('data browser navigation', () => {
     expect(fixture.changes.filter(change => change === 'select:null')).toHaveLength(0)
   })
 
-  it('provides a named native button with a selected state in wide and compact sidebar modes', async () => {
+  it('supplies an accessible native panel label and an icon at the requested size', async () => {
     const fixture = host(), dispose = installDataBrowserNavigation(fixture.ctx, () => null)
-    const Entry = fixture.entry('sidebar.footer.action')!
     const container = document.createElement('div'), root = createRoot(container)
-    document.body.append(container)
-    await act(async () => root.render(h(Entry, { wide: true })))
-    const button = container.querySelector('button')!
-    expect(button.getAttribute('aria-label')).toBe('数据浏览器')
-    expect(button.textContent).toBe('数据浏览器')
-    expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
-    expect(button.getAttribute('aria-current')).toBeNull()
-    button.focus(); expect(document.activeElement).toBe(button)
-    await act(async () => button.click())
-    expect(fixture.layout.panelInfo.getSnapshot().activePanelId).toBe(DATA_BROWSER_PANEL_ID)
-    expect(button.getAttribute('aria-current')).toBe('page')
-    await act(async () => root.render(h(Entry, { wide: false })))
-    expect(button.getAttribute('aria-label')).toBe('数据浏览器')
-    expect(button.getAttribute('title')).toBe('数据浏览器')
-    expect(button.textContent).toBe('')
-    await act(async () => button.click())
-    expect(fixture.layout.panelInfo.getSnapshot().activePanelId).toBeNull()
-    expect(button.getAttribute('aria-current')).toBeNull()
-    await act(async () => root.unmount()); container.remove(); await dispose()
+    await act(async () => root.render(h(DataBrowserIcon, { size: 18 })))
+    expect(container.querySelector('svg')?.getAttribute('width')).toBe('18')
+    expect(container.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+    expect(container.querySelector('button')).toBeNull()
+    expect(fixture.entries.has(`sidebar.footer.action:${DATA_BROWSER_PANEL_ID}`)).toBe(false)
+    await act(async () => root.unmount()); await dispose()
   })
 
   it('passes main-slot props to the owned content and supports repeated install and cleanup', async () => {
@@ -128,7 +117,7 @@ describe('data browser navigation', () => {
     await act(async () => root.unmount()); await dispose(); await dispose()
     const second = installDataBrowserNavigation(fixture.ctx, Browser as never)
     expect(fixture.entry('main')).toBeDefined()
-    expect(fixture.entry('sidebar.footer.action')).toBeDefined()
+    expect(fixture.entry('sidebar.panellist')).toBeDefined()
     await second()
     expect(fixture.entries.size).toBe(0)
   })
@@ -136,22 +125,22 @@ describe('data browser navigation', () => {
   it('does not register a pending entry after the plugin is disposed', async () => {
     const fixture = host([])
     const dispose = installDataBrowserNavigation(fixture.ctx, () => null)
-    await dispose(); fixture.declare('main'); fixture.declare('sidebar.footer.action')
+    await dispose(); fixture.declare('main'); fixture.declare('sidebar.panellist')
     expect(fixture.entries.size).toBe(0)
   })
 
-  it('releases an existing main panel while a footer declaration is still pending', async () => {
+  it('releases an existing main panel while a navigation declaration is still pending', async () => {
     const fixture = host(['main'])
     const dispose = installDataBrowserNavigation(fixture.ctx, () => null)
     expect(fixture.entry('main')).toBeDefined()
-    expect(fixture.entry('sidebar.footer.action')).toBeUndefined()
-    await dispose(); fixture.declare('sidebar.footer.action')
+    expect(fixture.entry('sidebar.panellist')).toBeUndefined()
+    await dispose(); fixture.declare('sidebar.panellist')
     expect(fixture.entries.size).toBe(0)
   })
 
-  it('removes its main panel if adding the footer entry fails', () => {
-    const fixture = host(['main', 'sidebar.footer.action'], true)
-    expect(() => installDataBrowserNavigation(fixture.ctx, () => null)).toThrow('footer registration failed')
+  it('removes its main panel if adding the navigation entry fails', () => {
+    const fixture = host(['main', 'sidebar.panellist'], true)
+    expect(() => installDataBrowserNavigation(fixture.ctx, () => null)).toThrow('navigation registration failed')
     expect(fixture.entries.size).toBe(0)
   })
 })
