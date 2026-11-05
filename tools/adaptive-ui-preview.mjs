@@ -55,6 +55,9 @@ const fixtureDocuments = new Map([
   ['synthetic-history-openui', { scenario: 'history-openui', kind: 'markdown' }],
   ['synthetic-live-static', { scenario: 'live-static', kind: 'live-series' }],
   ['synthetic-scope-plain', { scenario: 'scope-plain', kind: 'markdown' }],
+  ['synthetic-strategy-flow', { scenario: 'strategy-flow', kind: 'graph' }],
+  ['synthetic-comparison-records', { scenario: 'comparison-records', kind: 'records' }],
+  ['synthetic-cited-report-index', { scenario: 'cited-report-index', kind: 'markdown' }],
 ])
 
 const scenarioChoices = {
@@ -64,6 +67,9 @@ const scenarioChoices = {
   'history-openui': { theme: 'uiverse-mechanical-outline', surface: 'semantic', chart: 'openui', 'component-set': 'mechanical-outline', layout: 'auto' },
   'live-static': { theme: 'uiverse-soft-relief', surface: 'semantic', chart: 'auto', 'component-set': 'soft-relief', layout: 'auto', live: 'native' },
   'scope-plain': { theme: 'plain', surface: 'semantic', chart: 'auto', 'component-set': 'native', layout: 'document' },
+  'strategy-flow': { theme: 'uiverse-soft-relief', surface: 'semantic', chart: 'auto', 'component-set': 'soft-relief', layout: 'flow' },
+  'comparison-records': { theme: 'uiverse-clear-glass', surface: 'semantic', chart: 'auto', 'component-set': 'clear-glass', layout: 'records' },
+  'cited-report-index': { theme: 'uiverse-mechanical-outline', surface: 'semantic', chart: 'auto', 'component-set': 'mechanical-outline', layout: 'heading-index' },
 }
 
 function isRecord(value) { return typeof value === 'object' && value !== null && !Array.isArray(value) }
@@ -76,6 +82,7 @@ function safeSchema(bundle) {
     revision: bundle.revision,
     questionIds: bundle.questions.map(question => question.id).sort(),
     optionCounts: Object.fromEntries(bundle.questions.map(question => [question.id, question.options.length])),
+    optionIds: Object.fromEntries(bundle.questions.map(question => [question.id, question.options.map(option => option.id)])),
   }
 }
 function questionShape(questions) {
@@ -108,6 +115,11 @@ function fixtureForInput(input, endpoint) {
       const live = asRecord(record.value, 'SYNTHETIC_LIVE_SOURCE_REQUIRED')
       if (live.type !== 'live-series' || live.source !== 'synthetic:local-latency-snapshot' || !Array.isArray(live.points)) throw new Error('SYNTHETIC_LIVE_SOURCE_INVALID')
     }
+    if (fixture.kind === 'graph') {
+      const graph = asRecord(record.value, 'SYNTHETIC_GRAPH_SOURCE_REQUIRED')
+      if (!Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) throw new Error('SYNTHETIC_GRAPH_SOURCE_INVALID')
+    }
+    if (fixture.kind === 'records' && !Array.isArray(record.value)) throw new Error('SYNTHETIC_RECORDS_SOURCE_REQUIRED')
   }
   return fixture
 }
@@ -226,6 +238,7 @@ const server = createServer(async (req, res) => {
       json(res, 200, result, evidence ? {
         'x-adaptive-schema-revision': String(evidence.schema.revision),
         'x-adaptive-schema-questions': evidence.schema.questionIds.join(','),
+        'x-adaptive-schema-options': JSON.stringify(evidence.schema.optionIds),
       } : undefined)
       return
     }

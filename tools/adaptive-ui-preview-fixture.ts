@@ -16,7 +16,7 @@ type PreviewEvent = {
   operationId?: string
   status?: string
   observed?: boolean
-  schema?: { revision: number; questionIds: string[] }
+  schema?: { revision: number; questionIds: string[]; optionIds?: Record<string, string[]> }
   selection?: Record<string, unknown>
 }
 
@@ -63,6 +63,64 @@ const liveSource = {
 
 const scopeSource = '# 局部普通排版\n\n此段是局部 Plain 主题的合成内容，用于验证它不会继承外层 ASCII 的字距规则。'
 
+// These three inputs are fixed local sources.  They exercise the ordinary
+// ContentView path, not an inferred or remotely generated graph/report.
+const strategyGraphSource = {
+  nodes: [
+    { id: 'scope', label: '明确边界', description: '确定本轮策略只覆盖可观察的来源、约束和停止条件。' },
+    { id: 'evidence', label: '核对证据', description: '逐项检查来源记录、单位和限定条件，不补造关系。' },
+    { id: 'decision', label: '选择方案', description: '仅在前两步保留完整时比较可执行方案。' },
+  ],
+  edges: [
+    { source: 'scope', target: 'evidence', label: '限定检查范围' },
+    { source: 'evidence', target: 'decision', label: '保留证据后比较' },
+  ],
+} as const
+
+const comparisonRecordsSource = [
+  {
+    name: '方案 A：局部缓存',
+    description: '在固定本地样例中保留最近一次完整响应，以降低重复读取造成的等待。该记录只描述比较条件，不代表线上命中率、成本或真实模型质量，也不将样例差异视为节约，更不替代对来源版本、失败条件和完整响应的逐条核对。',
+    条件: '仅在请求体小于 64 KiB、未启用强制刷新且响应完整时比较；不能把本地回退与远端结果合并。',
+    单位: 'ms / 次（P95）',
+    观测窗口: '2026-11-01 至 2026-11-05（5 个合成采样点）',
+  },
+  {
+    name: '方案 B：逐次读取',
+    description: '在相同的固定本地样例中每次重新读取来源，以便保留更新可见性。该记录不估算生产吞吐量，也不把合成结果解释为用户真实工作负载，并且不把局部时延差异当作可推广的性能承诺或成本结论。',
+    条件: '仅在同一来源版本、同一 64 KiB 上限且无网络请求时比较；不包含认证、模型调用或后台刷新。',
+    单位: 'ms / 次（P95）',
+    观测窗口: '2026-11-01 至 2026-11-05（5 个合成采样点）',
+  },
+] as const
+
+const citedReportSource = `# 合成方案比较报告
+
+本报告是固定本地样例，用于验证章节导航和引文原文保留；不构成真实研究结论。[资料 A](https://sources.example.invalid/a)
+
+## 范围与问题
+
+比较只覆盖两个明确的本地读取方案。单位为 ms / 次（P95），不把样例结果外推为生产时延。[资料 B](https://sources.example.invalid/b)
+
+### 范围条件
+
+请求体必须小于 64 KiB，且来源版本一致；缺失、重试和外部调用不纳入本节比较。
+
+## 方法与材料
+
+记录保留 2026-11-01 至 2026-11-05 的五个合成采样点。每个点的原始单位与条件保持不变。[资料 A](https://sources.example.invalid/a)
+
+## 比较结果
+
+本地缓存适合验证重复读取路径；逐次读取适合验证来源更新可见性。两者都不能证明真实模型、付费调用或线上业务效果。
+
+## 限制与引文
+
+本报告没有真实会话、账号、凭据或外部网络请求。任何部署、成本和质量判断都需要独立的真实证据。[资料 B](https://sources.example.invalid/b)
+
+[^1]: 资料 A：固定本地来源记录，版本 synthetic-2026-11-05。
+[^2]: 资料 B：合成验收约束；该引用不请求外部网络。`
+
 const scenarios = [
   { id: 'board-soft', label: '相同任务源：柔和浮雕看板', documentId: 'synthetic-task-board-soft', value: taskSource },
   { id: 'table-mechanical', label: '相同任务源：机械描边原表', documentId: 'synthetic-task-table-mechanical', value: taskSource },
@@ -70,6 +128,9 @@ const scenarios = [
   { id: 'history-openui', label: '相同历史源：OpenUI 图', documentId: 'synthetic-history-openui', value: historicalSource },
   { id: 'live-static', label: '明确实时序列：静态精确快照', documentId: 'synthetic-live-static', value: liveSource },
   { id: 'scope-plain', label: '全局 ASCII 下的局部 Plain 样式范围', documentId: 'synthetic-scope-plain', value: scopeSource },
+  { id: 'strategy-flow', label: '明确 nodes/edges：策略流程图', documentId: 'synthetic-strategy-flow', value: strategyGraphSource },
+  { id: 'comparison-records', label: '方案比较记录：Clear glass 详情', documentId: 'synthetic-comparison-records', value: comparisonRecordsSource },
+  { id: 'cited-report-index', label: '多节有引文报告：章节目录', documentId: 'synthetic-cited-report-index', value: citedReportSource },
 ] as const
 
 type Scenario = typeof scenarios[number]
@@ -111,7 +172,12 @@ function publishPreviewEvent(event: PreviewEvent): void {
 function responseSchema(response: Response): PreviewEvent['schema'] | undefined {
   const revision = Number(response.headers.get('x-adaptive-schema-revision'))
   const questionIds = response.headers.get('x-adaptive-schema-questions')?.split(',').filter(Boolean) ?? []
-  return Number.isSafeInteger(revision) && revision > 0 && questionIds.length > 0 ? { revision, questionIds } : undefined
+  const encodedOptions = response.headers.get('x-adaptive-schema-options')
+  let optionIds: Record<string, string[]> | undefined
+  if (encodedOptions) {
+    try { optionIds = JSON.parse(encodedOptions) as Record<string, string[]> } catch { /* The synthetic schema remains usable without this optional evidence. */ }
+  }
+  return Number.isSafeInteger(revision) && revision > 0 && questionIds.length > 0 ? { revision, questionIds, optionIds } : undefined
 }
 
 async function postJson(path: string, input: unknown): Promise<{ response: Response; value: unknown }> {

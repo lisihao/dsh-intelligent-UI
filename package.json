@@ -68,7 +68,9 @@
     "test:plugin": "node tools/plugin-test.mjs",
     "check": "pnpm build && pnpm typecheck && pnpm test && pnpm test:plugin",
     "build:preview": "node tools/browser-experience/build.mjs",
-    "test:mcp:browser": "node tools/mcp-fixture-browser.mjs"
+    "test:mcp:browser": "node tools/mcp-fixture-browser.mjs",
+    "test:adaptive:scenarios": "vitest run tests/adaptive-conversation-scenarios.test.ts tests/adaptive-scenario-failures.test.ts",
+    "test:adaptive:browser": "node tools/test-adaptive-browser.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
