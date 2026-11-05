@@ -275,7 +275,7 @@ export class AdaptiveCompositionCoordinator {
     let bundle: CandidateBundle
     let localSelection: CompositionSelection
     try {
-      bundle = buildCompositionCandidates({ value: input.value, themes: snapshot.themes, selectedThemeId: snapshot.selectedThemeId, styleMode: snapshot.styleMode, capabilities: input.capabilities, isStreaming: input.isStreaming })
+      bundle = buildCompositionCandidates({ value: input.value, themes: snapshot.themes, selectedThemeId: snapshot.selectedThemeId, styleMode: snapshot.styleMode, capabilities: input.capabilities, isStreaming: input.isStreaming, ...(snapshot.settings.adaptive?.blockLayout === true && snapshot.enabled ? {blockLayout:true} : {}) })
       localSelection = this.defaultSelection(bundle)
     } catch (error) {
       return this.base('failed', reasonFrom(error, 'COMPOSITION_CANDIDATES_INVALID'), sourceVersion)
@@ -473,7 +473,7 @@ export class AdaptiveCompositionCoordinator {
       enabled,
       fingerprint: `sha256:${digest({
         takeover: settings.takeover === true,
-        adaptive: { enabled: settings.adaptive?.enabled === true, styleMode },
+        adaptive: { enabled: settings.adaptive?.enabled === true, styleMode, blockLayout: settings.adaptive?.blockLayout === true },
         selectedThemeId,
         themes,
       })}`,

@@ -28,7 +28,7 @@ export const composeInputSchema = z.strictObject({
 })
 export type ComposeInput = z.infer<typeof composeInputSchema>
 
-export const compositionSelectionSchema = z.strictObject({
+export const baseCompositionSelectionSchema = z.strictObject({
   themeId: z.string().min(1).max(64),
   surface: z.enum(['semantic', 'source']),
   chart: z.enum(['auto', 'openui', 'compact', 'dense', 'ascii', 'visx']),
@@ -39,6 +39,32 @@ export const compositionSelectionSchema = z.strictObject({
   textMotion: z.enum(['torph', 'none']).optional(),
   live: z.enum(['liveline', 'native']).optional(),
 })
+/** Experimental plans bind each choice to compiler-owned source ranges/paths. */
+export const blockCompositionSchema = z.strictObject({
+  id: z.string().min(1).max(160),
+  path: z.array(z.number().int().nonnegative()).max(16),
+  start: z.number().int().nonnegative().optional(),
+  end: z.number().int().nonnegative().optional(),
+  kind: z.string().min(1).max(64),
+  selection: baseCompositionSelectionSchema,
+  evidence: z.array(z.string().min(1).max(500)).max(32),
+}).superRefine((block, ctx) => {
+  if ((block.start === undefined) !== (block.end === undefined) || block.start !== undefined && block.end! <= block.start) {
+    ctx.addIssue({code:'custom', message:'BLOCK_SOURCE_RANGE_INVALID'})
+  }
+})
+export const blockLayoutSchema = z.strictObject({
+  version: z.literal(1),
+  inspection: z.enum(['none', 'research']),
+  blocks: z.array(blockCompositionSchema).min(1).max(128),
+}).superRefine((plan, ctx) => {
+  const ids = new Set<string>()
+  for (const block of plan.blocks) {
+    if (ids.has(block.id)) ctx.addIssue({code:'custom', message:'BLOCK_SOURCE_ID_DUPLICATE'})
+    ids.add(block.id)
+  }
+})
+export const compositionSelectionSchema = baseCompositionSelectionSchema.extend({blockLayout: blockLayoutSchema.optional()})
 export type CompositionSelection = Omit<z.infer<typeof compositionSelectionSchema>, 'componentSet'> & {
   componentSet: ComponentSet | 'native'
 }
@@ -106,7 +132,7 @@ export type CompositionStatus = z.infer<typeof compositionStatusSchema>
 
 export interface AdaptiveCompositionSettings {
   takeover: boolean
-  adaptive?: { enabled: boolean, styleMode: z.infer<typeof compositionStyleModeSchema> }
+  adaptive?: { enabled: boolean, styleMode: z.infer<typeof compositionStyleModeSchema>, blockLayout?: boolean, blockLayoutShortcut?: string }
   theme?: ThemePreference
 }
 

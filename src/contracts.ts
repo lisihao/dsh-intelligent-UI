@@ -1,12 +1,19 @@
 import { z } from 'zod'
 import { themeSourceSchema, type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
 import { appearanceSchema, themeIdSchema, themePreferenceSchema, type InstallThemeInput, type RemoveThemeInput } from './theme-contracts.js'
+import { blockLayoutShortcutSchema } from './layout-shortcut.js'
 export { appearanceSchema } from './theme-contracts.js'
 
 export const PACKAGE = '@lisihao/dsh-solar-intelligent-experience-platform'
 export const SERVICE = 'solarExperience'
 export const defaultAppearance = (): z.infer<typeof appearanceSchema> => ({ backgroundColor: '#24262b', translucent: true })
-export const adaptiveSettingsSchema = z.strictObject({ enabled: z.boolean(), styleMode: z.enum(['selected', 'automatic']) })
+export const adaptiveSettingsSchema = z.strictObject({
+  enabled: z.boolean(),
+  styleMode: z.enum(['selected', 'automatic']),
+  blockLayout: z.boolean().optional(),
+  blockLayoutShortcut: blockLayoutShortcutSchema.optional(),
+})
+export type AdaptiveSettings = z.infer<typeof adaptiveSettingsSchema>
 export const settingsSchema = z.strictObject({
   formatVersion: z.literal(1), revision: z.number().int().nonnegative(),
   takeover: z.boolean(), openui: z.boolean(), mcpApps: z.boolean(),

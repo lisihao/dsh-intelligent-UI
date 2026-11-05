@@ -9,6 +9,7 @@ import { CompositionDepthContext, CompositionSelectionContext } from './scope.js
 import { compositionResultSchema, type CompositionResult, type ComposeInput, type CompositionReceiptInput, type CompositionCancelInput } from './contracts.js'
 import { AdaptiveText } from './components.js'
 import {recognizeLiveSeries,normalizeCompositionSource} from './source-contracts.js'
+import { validateBlockSourceReferences } from './block-compiler.js'
 
 export interface CompositionApi {
   composition(input: ComposeInput): Promise<CompositionResult>
@@ -57,6 +58,8 @@ export function compositionReasonText(code:string):string {
   if(code==='JEV_FEATURE_DISABLED')return 'Jev 的“智能 UI 编排”尚未开启，当前使用本地布局。'
   if(code==='ADAPTIVE_COMPOSITION_DISABLED')return '智能编排已关闭，当前使用本地布局。'
   if(code==='JEV_UNAVAILABLE'||code==='JEV_SERVICE_CHANGED'||code==='JEV_SERVICE_DETACHED')return '当前没有可用的 Jev 判断服务，已保留本地布局。'
+  if(/BLOCK.*LIMIT|QUESTION.*LIMIT/.test(code))return '内容块布局试验超出本次分析范围，原文已完整保留并使用本地布局；不会自动重试。'
+  if(code==='BLOCK_SOURCE_REFERENCE_INVALID')return '内容块方案未能与当前原文逐块对应，已保留本地布局；不会自动重试。'
   if(/SOURCE_TOO_LARGE|ANALYSIS_LIMIT/.test(code))return '内容超过本次自动判断的范围，原文完整保留并使用本地布局。'
   if(/CANCEL|SOURCE_CHANGED|SETTINGS_CHANGED|CONNECTION_CHANGED|FINGERPRINT|CURRENT/.test(code))return '内容或判断设置已变化，旧方案未应用；当前保留本地布局。'
   if(/CREDENTIAL|CONNECTION_MISSING/.test(code))return 'Jev 判断连接尚未就绪，请在 Jev 设置中检查；当前保留本地布局。'
@@ -91,7 +94,9 @@ export function AdaptiveCompositionView({ value, documentId: explicitId, session
     media?.addEventListener?.('change', read)
     return () => media?.removeEventListener?.('change', read)
   }, [nested, decide, runtime.settings?.adaptive?.enabled])
-  const settingsKey = JSON.stringify([runtime.settings?.takeover, runtime.settings?.adaptive, runtime.settings?.theme])
+  const adaptive = runtime.settings?.adaptive, blockLayoutEnabled = adaptive?.blockLayout === true
+  // A shortcut binding changes controls only. It must not invalidate or purchase a new decision.
+  const settingsKey = JSON.stringify([runtime.settings?.takeover, adaptive && { enabled: adaptive.enabled, styleMode: adaptive.styleMode, blockLayout: blockLayoutEnabled }, runtime.settings?.theme])
   let serialized: string | undefined
   try { serialized = JSON.stringify(value) } catch { /* An unsupported value keeps its original view. */ }
   // Data ticks reuse a source-compatible composition; they never become paid layout requests.
@@ -121,7 +126,13 @@ export function AdaptiveCompositionView({ value, documentId: explicitId, session
     events.forEach(name => document.addEventListener(name, adopt))
     void api.composition(input).then(raw => {
       if (!live || epoch !== sequence.current) return
-      queued = compositionResultSchema.parse(raw)
+      const parsed = compositionResultSchema.parse(raw)
+      const blocks = parsed.status === 'selected' ? parsed.selection?.blockLayout?.blocks : undefined
+      // The Host validates choices, and the client repeats only the source binding
+      // check before any model-selected block can reach a renderer context.
+      queued = blocks && (!blockLayoutEnabled || !validateBlockSourceReferences(input.value, blocks))
+        ? { status: 'local', reason: 'BLOCK_SOURCE_REFERENCE_INVALID', sourceVersion: parsed.sourceVersion, requestId: parsed.requestId }
+        : parsed
       adopt()
     }).catch(error => {
       if (live && epoch === sequence.current) setResult({key, result:{status:'failed',reason:`智能编排未完成：${error instanceof Error ? error.message : String(error)}`,sourceVersion:'unavailable'}})
@@ -134,7 +145,9 @@ export function AdaptiveCompositionView({ value, documentId: explicitId, session
   }, [enabled, runtime.api, key])
   const current = enabled && result?.key === key ? result.result : undefined
   const themes = useMemo<readonly ThemePackage[]>(() => [...builtInThemes, ...(runtime.settings?.theme?.installed ?? [])], [JSON.stringify(runtime.settings?.theme?.installed)])
-  const selection = current?.status === 'selected' ? current.selection : undefined
+  const candidateSelection = current?.status === 'selected' ? current.selection : undefined
+  // A result that was valid before a toggle changed is never rendered as a block plan.
+  const selection = candidateSelection && (!candidateSelection.blockLayout || blockLayoutEnabled) ? candidateSelection : undefined
   const selectedTheme = selection && themes.find(theme => theme.id === selection.themeId)
   const theme = selectedTheme ?? fallbackTheme
   const selected = !!selection && !!selectedTheme
@@ -150,7 +163,10 @@ export function AdaptiveCompositionView({ value, documentId: explicitId, session
     return () => { live = false }
   }, [selected, current?.operationId, runtime.api, sessionId, documentId, current?.sourceVersion])
   if (nested || !decide || !runtime.api || !sessionId) return children
-  const semanticBody=selected && selection?.layout==='research' && sessionId && typeof value==='string' && !researchModes.get(sessionId) ? h(ResearchWorkspace,{sessionId,documentId,text:value,enabled:true},children) : children
+  const researchInspection = selection?.layout === 'research' || selection?.blockLayout?.inspection === 'research'
+  const normalizedInspectionSource = selection?.blockLayout?.inspection === 'research' ? normalizeCompositionSource(value) : undefined
+  const researchText = normalizedInspectionSource?.kind === 'markdown' ? normalizedInspectionSource.markdown : typeof value === 'string' ? value : undefined
+  const semanticBody=selected && researchInspection && sessionId && researchText !== undefined && !researchModes.get(sessionId) ? h(ResearchWorkspace,{sessionId,documentId,text:researchText,enabled:true},children) : children
   const body = selected && selection?.surface === 'source' ? h('pre', {className:'iexp-raw-output',style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontFamily:'var(--iexp-code-font)'}},sourceText(value)) : semanticBody
   const reason = enabled && current && current.status !== 'selected' ? current.reason : ''
   return h(CompositionDepthContext.Provider, {value:true}, h(PresentationThemeContext.Provider, {value:theme}, h(CompositionSelectionContext.Provider, {value:selected ? selection : undefined},
