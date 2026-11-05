@@ -1,6 +1,7 @@
+import { useCompositionSelection } from './adaptive-ui/scope.js'
 // ai-design-check-ignore-file locale-aware-case -- MIME, format, and role values are protocol identifiers, not localized UI text.
 import { createElement as h, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from 'react'
-import { themePreferences } from './theme-runtime.js'
+import { themePreferences, usePresentationTheme } from './theme-runtime.js'
 import { isGpuAsciiTheme } from './theme-contracts.js'
 import { acquireCanvasSlot, type CanvasEffectInstance } from './canvas-runtime-client.js'
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
@@ -314,7 +315,7 @@ function safeAssetUrl(reference: string, mime?: ImageSource['mime']): string {
 /** Render a derived view only beside the intact structured source. */
 export function CanvasObjectView({ value, source, dark, isStreaming = false, originalView }: { value: unknown, source: ObjectSource, dark: boolean, isStreaming?: boolean, originalView?: ReactNode }): ReactElement {
   const loadEffect = useContext(CanvasRuntimeContext)
-  const selectedTheme = useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)
+  const selectedTheme = usePresentationTheme()
   const container = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null)
   const currentEffect = useRef<CanvasEffectInstance | null>(null), rotateTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const latest = useRef(value); latest.current = value
@@ -329,8 +330,9 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   // Infer a model's domain only while its effect can run; images use the
   // selected ASCII theme or the existing Ink default without domain inference.
   const domain = useMemo(() => imageSource || isStreaming || !visible || !pageVisible || reduced ? 'general' : modelDomain(value), [value, !!imageSource, isStreaming, visible, pageVisible, reduced])
+  const composition = useCompositionSelection()
   const gpuAscii = isGpuAsciiTheme(selectedTheme)
-  const component = gpuAscii ? 'ascii-object' : imageSource ? 'ink-object' : domainEffects[domain]
+  const component = composition && composition.objectEffect !== 'auto' ? composition.objectEffect : gpuAscii ? 'ascii-object' : imageSource ? 'ink-object' : domainEffects[domain]
   const [status, setStatus] = useState(imageSource ? '正在准备插画效果…' : '正在准备模型视图…')
   const [canRotate, setCanRotate] = useState(false)
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0)
@@ -392,7 +394,7 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
 
   useEffect(() => {
     const target = canvas.current
-    if (!target || !visible || !pageVisible || isStreaming || reduced || (imageSource && (!verifiedImage || imageError))) return
+    if (!target || !visible || !pageVisible || isStreaming || reduced || component === 'none' || (imageSource && (!verifiedImage || imageError))) return
     let live = true, effectFailed = false, objectUrl = '', instance: CanvasEffectInstance | null = null, release = () => {}
     const controller = new AbortController()
     const discard = () => {
@@ -460,7 +462,7 @@ export function CanvasObjectView({ value, source, dark, isStreaming = false, ori
   }
   let originalUrl: string | undefined
   try { originalUrl = typeof window === 'undefined' ? undefined : safeAssetUrl(source.reference, imageSource?.mime) } catch { /* raw source is still shown by the caller */ }
-  const effectView = h('div', { role: 'figure', className: 'iexp-canvas-object', 'aria-label': imageSource ? '根据原始插画生成的效果视图，原图和记录仍可查看' : '根据原始模型生成的图形视图，原始记录在下方', hidden: reduced || isStreaming || (!!imageSource && !!imageError), style: { position: 'relative', minWidth: 0, borderRadius: 'var(--iexp-card-radius)', overflow: 'hidden', background: 'var(--iexp-soft)', ...(imageSource ? { flex: '1 1 200px', aspectRatio: '1 / 1', minHeight: 200, maxHeight: 300 } : { height: 300 }) } },
+  const effectView = h('div', { role: 'figure', className: 'iexp-canvas-object', 'aria-label': imageSource ? '根据原始插画生成的效果视图，原图和记录仍可查看' : '根据原始模型生成的图形视图，原始记录在下方', hidden: reduced || isStreaming || component === 'none' || (!!imageSource && !!imageError), style: { position: 'relative', minWidth: 0, borderRadius: 'var(--iexp-card-radius)', overflow: 'hidden', background: 'var(--iexp-soft)', ...(imageSource ? { flex: '1 1 200px', aspectRatio: '1 / 1', minHeight: 200, maxHeight: 300 } : { height: 300 }) } },
       h('canvas', { ref: canvas, 'aria-hidden': true, style: { display: 'block', width: '100%', height: 'calc(100% - 40px)', marginTop: 40, touchAction: 'none' } }),
       !status && h('span', { style: { position: 'absolute', inset: '12px auto auto 12px', color: 'var(--iexp-muted)', fontSize: 12, pointerEvents: 'none' } }, '拖动旋转'),
       !status && canRotate && h('div', { role: 'group', 'aria-label': imageSource ? '插画效果旋转' : '模型旋转', style: { position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 } },

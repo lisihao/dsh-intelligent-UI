@@ -1,13 +1,16 @@
-import { createElement as h, useSyncExternalStore, type ReactElement } from 'react'
+import {CompositionRuntimeContext} from './adaptive-ui/view.js'
+import { createElement as h, useContext, useSyncExternalStore, type ReactElement } from 'react'
 import { appearancePreferences, appearanceTokens } from './appearance.js'
 import { ContentView, rawText, type DisplayMode } from './presentation.js'
 import { safeResearchUrl } from './research-content.js'
 import { styles } from './style.js'
-import { themePreferences } from './theme-runtime.js'
+import { themePreferences, usePresentationTheme } from './theme-runtime.js'
 
 /** An external document owns its identity and original data; no session is created. */
 export interface DocumentViewProps {
   documentId: string
+  /** Optional exact owning conversation; no session is created for external documents. */
+  sessionId?: string
   value: unknown
   raw?: unknown
   source?: { label?: string; url?: string }
@@ -16,9 +19,10 @@ export interface DocumentViewProps {
 }
 
 /** Read-only rendering for a host-owned document. The owner controls the shared mode. */
-export function DocumentView({ documentId, value, raw = value, source, mode = 'visual', isStreaming = false }: DocumentViewProps): ReactElement {
+export function DocumentView({ documentId, sessionId, value, raw = value, source, mode = 'visual', isStreaming = false }: DocumentViewProps): ReactElement {
+  const runtime=useContext(CompositionRuntimeContext)
   const appearance = useSyncExternalStore(appearancePreferences.subscribe, appearancePreferences.getSnapshot, appearancePreferences.getSnapshot)
-  const theme = useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)
+  const theme = usePresentationTheme()
   const scheme = appearanceTokens(appearance, theme).colorScheme
   const url = source?.url && safeResearchUrl(source.url)
   const label = source?.label?.trim() ? source.label : source?.url
@@ -30,7 +34,7 @@ export function DocumentView({ documentId, value, raw = value, source, mode = 'v
   return h('article', { 'data-iexp-document-id': documentId, style: { minWidth: 0 } },
     sourceNode,
     h('div', { style: mode === 'compare' ? styles.compare : undefined },
-      h('div', { hidden: mode === 'raw', style: { minWidth: 0 }, key: documentId }, h(ContentView, { value, isStreaming })),
+      h('div', { hidden: mode === 'raw', style: { minWidth: 0 }, key: documentId }, h(CompositionRuntimeContext.Provider,{value:{...runtime,suspended:runtime.suspended||mode==='raw'}},h(ContentView, { value, isStreaming,documentId,sessionId }))),
       mode !== 'visual' && h('div', { className: 'dsh-experience iexp-content iexp-raw-output', 'data-experience-theme': scheme },
         h('strong', null, '原始内容'), h('pre', { style: styles.raw }, rawText(raw)),
       ),

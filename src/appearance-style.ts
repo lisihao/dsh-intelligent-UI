@@ -2,7 +2,7 @@ import { appearancePreferences, appearanceTokens } from './appearance.js'
 import type { ExperienceSettings } from './contracts.js'
 import { pageAppearanceCss } from './page-appearance.js'
 import { isAsciiTheme, resolveTheme } from './theme-contracts.js'
-import { asciiThemeCss } from './ascii-style.js'
+import { globalAsciiThemeCss } from './ascii-style.js'
 import { themePreferences, themeStyleTokens } from './theme-runtime.js'
 import { installThoughtDagThemeBridge } from './thoughtdag-theme.js'
 
@@ -20,7 +20,7 @@ export function installAppearanceStyles(source: { snapshot(): { settings?: Exper
     themePreferences.set(settings?.theme)
     appearancePreferences.set(preference ?? theme.appearance)
     const declarations = Object.entries(variables(settings)).map(([name, value]) => `${name}:${value}`).join(';')
-    const css = `.dsh-experience,.dsh-experience.iexp-content[data-experience-theme]{${declarations}}` + (settings?.takeover ? `[data-slot="conversation.view"],[data-dsh-thoughtdag]{${declarations}}` : '') + pageAppearanceCss(!!settings?.takeover) + (isAsciiTheme(theme) ? asciiThemeCss : '')
+    const css = `.dsh-experience,.dsh-experience.iexp-content[data-experience-theme]{${declarations}}` + (settings?.takeover ? `[data-slot="conversation.view"],[data-dsh-thoughtdag]{${declarations}}` : '') + pageAppearanceCss(!!settings?.takeover) + (isAsciiTheme(theme) ? globalAsciiThemeCss : '')
     if (last !== css) { element.textContent = css; last = css }
   }
   sync(); document.head.append(element)

@@ -3415,3 +3415,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+
+## Adaptive presentation libraries
+
+The browser bundle includes unmodified public React/primitives entries from Skullet 0.0.3 (Lochie Axon, MIT), Torph 0.1.3 (Lochie Axon, MIT), Liveline 0.0.7 (Benji Taylor, MIT), and @visx/shape plus @visx/scale 4.0.0 (Airbnb, MIT). Full notices ship respectively as `lib/Skullet-MIT.txt`, `lib/Torph-MIT.txt`, `lib/Liveline-MIT.txt` and `lib/visx-MIT.txt`; source copies are in `assets/`. Pins and exact source/archive provenance are recorded in `src/adaptive-ui/component-provenance.ts` and `pnpm-lock.yaml`. Their demo sites and non-React framework builds are not copied into the source tree.
+
+The optional Jev service is an external installed peer, not redistributed by this UI package. Existing Canvas UI licensing and redistribution restrictions remain unchanged.

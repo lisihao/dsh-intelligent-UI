@@ -49,3 +49,11 @@ export const asciiThemeCss = `
  .dsh-experience.iexp-content .openui-markdown-renderer h3 { font-size:16px; }
 }
 `
+
+
+/** Exclude the final matched element, so an outer ASCII ancestor cannot cross an output scope. */
+export const globalAsciiThemeCss = asciiThemeCss.replace(/([^{}]+)\{/g,(whole,selector:string)=>{
+ if(!selector.includes('.dsh-experience')||selector.trim().startsWith('@'))return whole
+ const excluded=':not([data-iexp-composition-scope] *)'
+ return selector.includes('::selection')?selector.replace('::selection',`*${excluded}::selection`)+'{':selector.trimEnd()+excluded+' {'
+})

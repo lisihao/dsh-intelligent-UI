@@ -16,7 +16,7 @@ An optional unified presentation layer inside the existing official DSH applicat
 
 ## Capabilities and Constraints
 
-The user approved standard output and generated-content takeover, with official settings/navigation retained. Reuse OpenUI and MCP Apps, keep adaptations thin, and prefer the least costly route to working behavior. Do not alter the official app, existing credentials, unrelated plugins, or model/reasoning settings. Rendering alone causes no model call. Preserve raw content and source references.
+The user approved standard output and generated-content takeover, with official settings/navigation retained. Reuse OpenUI and MCP Apps, keep adaptations thin, and prefer the least costly route to working behavior. Do not alter the official app, existing credentials, unrelated plugins, or model/reasoning settings. The default local renderer makes no model call. The optional, separately enabled Jev UI-composition consumer uses the existing saved Decisions route and may incur API fees; it selects from all source-eligible runtime styles/components, never arbitrary code or invented data. Preserve raw content and source references.
 
 ## Operating Context
 

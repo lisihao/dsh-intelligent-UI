@@ -1,3 +1,4 @@
+import type {CompositionCatalog} from './adaptive-ui/catalog.js'
 import type { ComponentType } from 'react'
 import type { DocumentViewProps } from './document-view.js'
 import type { OpenUiWidgets } from './presentation.js'
@@ -11,6 +12,8 @@ import type { CanvasHtmlEffectClientOptions } from './canvas-client-scope.js'
 
 /** Client service types only. Obtain the live service from the DSH context. */
 export type IntelligentUiClient = OpenUiWidgets & {
+  /** Complete runtime/development catalog; unavailable entries remain explicitly classified. */
+  readonly getCompositionCatalog:()=>CompositionCatalog
   readonly DocumentView: ComponentType<DocumentViewProps>
   /** Loads an upstream factory on demand; the consumer owns and destroys each instance. */
   readonly loadCanvasEffect: (slug: string) => Promise<CanvasEffectFactory>

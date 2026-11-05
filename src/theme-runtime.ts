@@ -1,3 +1,4 @@
+import { createContext, useContext, useSyncExternalStore } from 'react'
 import { isAsciiTheme, resolveTheme, type ThemePackage, type ThemePreference } from './theme-contracts.js'
 
 /** Selected theme only. Catalog/revision refreshes never remount existing content. */
@@ -15,6 +16,13 @@ export const themePreferences = {
   getSnapshot: (): ThemePackage => snapshot,
   subscribe(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener) } },
   reset(): void { themePreferences.set() },
+}
+
+/** A decision changes only this output; the user's persisted/global theme remains intact. */
+export const PresentationThemeContext = createContext<ThemePackage | undefined>(undefined)
+export function usePresentationTheme(): ThemePackage {
+  const global = useSyncExternalStore(themePreferences.subscribe, themePreferences.getSnapshot, themePreferences.getSnapshot)
+  return useContext(PresentationThemeContext) ?? global
 }
 
 /** Fixed-unit component vocabulary shared by output, graphs and compatible owner pages. */

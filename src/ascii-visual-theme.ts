@@ -10,9 +10,13 @@ type Source = SVGSVGElement | HTMLImageElement | HTMLCanvasElement
 type Store = { snapshot(): { settings?: ExperienceSettings; appearancePreview?: ExperienceSettings['appearance'] }; subscribe(listener: () => void): () => void }
 type Box = { left: number; top: number; right: number; bottom: number; width: number; height: number }
 type Entry = { source: Source; capture?: AsciiVisualCapture; origin?: DOMRect; dirty: boolean; epoch: number; marks: Map<Element, string | null>; failed?: string; inspecting?: boolean; pointer?: boolean; focused?: boolean; nativeOpacity?: string }
+type AdaptiveSettings = ExperienceSettings & { adaptive?: { enabled?: boolean } }
 const MARK = 'data-iexp-ascii-paint'
 const ROOTS = '.dsh-experience,[data-dsh-thoughtdag],[data-slot="conversation.view"]'
 const EXCLUDED = '[data-iexp-ascii-overlay],[data-iexp-ascii-original]'
+const OWNED = '[data-iexp-ascii-overlay],[data-iexp-ascii-status]'
+const ADAPTIVE_GPU = 'data-iexp-adaptive-gpu'
+const ADAPTIVE_THEME = 'data-iexp-adaptive-theme'
 const SHAPES = 'path,rect,circle,ellipse,line,polyline,polygon,use,image'
 
 /** A disposable graphics projection. Native text, data, DOM hit targets and source state stay owned by their original renderer. */
@@ -20,16 +24,29 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
   const doc = options.document ?? document, win = doc.defaultView
   if (!win || !doc.body) return () => {}
   let stop: (() => void) | undefined, key = '', disposed = false
+  const isOwnedNode = (node: Node): boolean => node instanceof win!.Element && (node.matches(OWNED) || !!node.closest(OWNED))
+  const hasAdaptiveScope = (node: Node): boolean => node instanceof win!.Element && (node.matches(`[${ADAPTIVE_GPU}]`) || !!node.querySelector(`[${ADAPTIVE_GPU}]`) || !!node.closest(`[${ADAPTIVE_GPU}]`))
+  const isAdaptiveScopeMutation = (record: MutationRecord): boolean => {
+    if (record.type === 'attributes') return (record.attributeName === ADAPTIVE_GPU || record.attributeName === ADAPTIVE_THEME) && !isOwnedNode(record.target)
+    if (isOwnedNode(record.target)) return false
+    return [record.target, ...record.addedNodes, ...record.removedNodes].some(hasAdaptiveScope)
+  }
+  const hasAdaptiveGpuScope = (): boolean => [...doc.querySelectorAll<HTMLElement>(ROOTS)].some(root =>
+    (root.matches(`[${ADAPTIVE_GPU}]`) && root.getAttribute(ADAPTIVE_GPU) === 'true') ||
+    [...root.querySelectorAll<HTMLElement>(`[${ADAPTIVE_GPU}="true"]`)].some(scope => !isOwnedNode(scope)))
   const sync = () => {
     if (disposed) return
     const snapshot = store.snapshot(), settings = snapshot.settings, theme = resolveTheme(settings?.theme)
+    const globalGpu = isGpuAsciiTheme(theme)
+    const adaptiveEnabled = (settings as AdaptiveSettings | undefined)?.adaptive?.enabled === true
     const background = appearanceTokens(snapshot.appearancePreview ?? settings?.appearance, theme).variables['--iexp-solid-bg']!
-    const next = settings?.takeover && isGpuAsciiTheme(theme) && !doc.hidden ? background : ''
+    const next = settings?.takeover && !doc.hidden && (globalGpu || adaptiveEnabled && hasAdaptiveGpuScope())
+      ? `${background}\u0000${globalGpu ? '1' : '0'}${adaptiveEnabled ? '1' : '0'}` : ''
     if (next === key) return
     stop?.(); stop = undefined; key = next
-    if (next) stop = run(next)
+    if (next) stop = run(background, { globalGpu, adaptiveEnabled })
   }
-  function run(background: string): () => void {
+  function run(background: string, policy: { globalGpu: boolean; adaptiveEnabled: boolean }): () => void {
     const abort = new AbortController(), entries = new Map<Source, Entry>()
     const overlay = doc.createElement('div'), stage = doc.createElement('div'), style = doc.createElement('style'), status = doc.createElement('div')
     overlay.dataset.iexpAsciiOverlay = 'true'; overlay.setAttribute('aria-hidden', 'true')
@@ -53,6 +70,14 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       entry.marks.clear()
     }
     const invalidate = (entry: Entry) => { restore(entry); entry.epoch++; entry.dirty = true; entry.failed = undefined }
+    const sourceEligible = (source: Element): boolean => {
+      const scope = source.closest(`[${ADAPTIVE_GPU}]`)
+      if (!scope) return policy.globalGpu
+      const value = scope.getAttribute(ADAPTIVE_GPU)
+      if (value === 'false') return false
+      if (value === 'true') return policy.adaptiveEnabled || policy.globalGpu
+      return policy.globalGpu
+    }
     // Fine semantic connections must not disappear between character samples.
     // Retain their original geometry beneath the transparent glyph projection.
     const paintMark = (entry: Entry, node: Element) => entry.source.closest('.iexp-flow') && node.matches('path.react-flow__edge-path') ? 'flow-underlay' : 'true'
@@ -67,7 +92,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       try { return measureAsciiVisualBounds(source) } finally { if (marks && entry) for (const node of marks.keys()) node.setAttribute(MARK, paintMark(entry, node)) }
     }
     const visibleBox = (source: Element): Box | undefined => {
-      if (source.closest(EXCLUDED)) return
+      if (!sourceEligible(source) || source.closest(EXCLUDED)) return
       let rect: DOMRect
       try { rect = measured(source as Source) } catch { return }
       const css = win!.getComputedStyle(source)
@@ -110,18 +135,19 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     }
     const discover = () => {
       const sources = [...doc.querySelectorAll<Source>(`${ROOTS.split(',').map(root => `${root} svg,${root} img,${root} canvas`).join(',')}`)].filter(node =>
-        !node.closest(EXCLUDED) && !(node.localName === 'svg' && node.parentElement?.closest('svg')) &&
+        sourceEligible(node) && !node.closest(EXCLUDED) && !(node.localName === 'svg' && node.parentElement?.closest('svg')) &&
         (node.localName !== 'canvas' || readAsciiVisualFrame(node as HTMLCanvasElement)))
       // Ask owned graph renderers for their first frame when the style is enabled late.
       for (const canvas of doc.querySelectorAll<HTMLCanvasElement>(`${ROOTS.split(',').map(root => `${root} canvas`).join(',')}`)) {
         const size = `${canvas.width}x${canvas.height}`
-        if (!readAsciiVisualFrame(canvas) && !canvas.closest(EXCLUDED) && requestedFrames.get(canvas) !== size) {
+        if (!sourceEligible(canvas) || canvas.closest(EXCLUDED)) continue
+        if (!readAsciiVisualFrame(canvas) && requestedFrames.get(canvas) !== size) {
           requestedFrames.set(canvas, size)
           canvas.dispatchEvent(new Event('iexp:visual-frame-request'))
         }
       }
       for (const source of sources) if (!entries.has(source)) entries.set(source, { source, dirty: true, epoch: 0, marks: new Map() })
-      for (const [source, entry] of entries) if (!source.isConnected || !source.closest(ROOTS) || source.closest(EXCLUDED)) { restore(entry); entry.capture?.dispose(); entries.delete(source) }
+      for (const [source, entry] of entries) if (!source.isConnected || !source.closest(ROOTS) || !sourceEligible(source) || source.closest(EXCLUDED)) { restore(entry); entry.capture?.dispose(); entries.delete(source) }
     }
     const compose = async () => {
       if (closed || failed || !effect) return
@@ -176,7 +202,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
         for (const entry of entries.values()) if (!items.some(item => item.entry === entry)) restore(entry)
         pending = {revision: ++revision, items}
         effect.update(atlas, revision); atlas.width = atlas.height = 0
-        for (const source of frameFailures.keys()) if (!source.isConnected || !source.closest(ROOTS) || source.closest(EXCLUDED)) frameFailures.delete(source)
+        for (const source of frameFailures.keys()) if (!source.isConnected || !source.closest(ROOTS) || !sourceEligible(source) || source.closest(EXCLUDED)) frameFailures.delete(source)
         const failures = [...entries.values()].filter(entry => entry.failed && visibleBox(entry.source)).length + [...frameFailures.keys()].filter(source => visibleBox(source)).length
         overlay.dataset.asciiFallbacks = JSON.stringify([...entries.values()].filter(entry => entry.failed && visibleBox(entry.source)).map(entry => entry.failed))
         status.textContent = failures ? `有 ${failures} 个图形暂不支持 ASCII，已保留原图。` : ''; status.style.display = failures ? 'block' : 'none'
@@ -192,7 +218,8 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     const schedule = () => { if (closed || queued) return; queued = true; win!.requestAnimationFrame(() => { queued = false; void compose() }) }
     const observer = new win!.MutationObserver(records => {
       const real = records.filter(record => {
-        if (record.attributeName === MARK || overlay.contains(record.target) || status.contains(record.target) || record.target === style) return false
+        if (record.attributeName === MARK || overlay.contains(record.target) || status.contains(record.target) || record.target === style || isOwnedNode(record.target)
+          || record.type === 'childList' && [...record.addedNodes, ...record.removedNodes].some(isOwnedNode)) return false
         // Draw counters describe a frame; they do not change its source geometry.
         if (record.target instanceof win!.HTMLCanvasElement && record.target.getAttribute('data-iexp-continuous-visual') === 'true'
           && (record.attributeName === 'data-drawn-frames' || record.attributeName === 'data-particle-state')) return false
@@ -200,6 +227,11 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       })
       if (!real.length) return
       for (const entry of entries.values()) if (real.some(record => entry.source.contains(record.target) || record.target instanceof win!.Element && record.target.contains(entry.source))) invalidate(entry)
+      if (real.some(isAdaptiveScopeMutation)) {
+        for (const [source, entry] of entries) if (!sourceEligible(source)) { restore(entry); entry.capture?.dispose(); entries.delete(source) }
+        committed = committed.filter(item => sourceEligible(item.entry.source))
+        clip(committed)
+      }
       if (hasPopup()) { pending = undefined; for (const entry of entries.values()) restore(entry); committed = []; }
       clip(committed); schedule()
     })
@@ -208,6 +240,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
     const frame = (event: Event) => {
       const source = event.target as Source
       if (source.localName === 'canvas') {
+        if (!sourceEligible(source)) { frameFailures.delete(source as HTMLCanvasElement); return }
         const code = (event as CustomEvent<{code?: string}>).detail?.code
         if (event.type === 'iexp:visual-frame-error' && code !== 'SOURCE_RELEASED') frameFailures.set(source as HTMLCanvasElement, code ?? 'frame unavailable')
         else frameFailures.delete(source as HTMLCanvasElement)
@@ -231,7 +264,7 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       void createAsciiGpuEffect({stage,width,height,background,loadFactory:options.loadFactory,signal:abort.signal,onError:report,onFrame: painted => {
         if (closed || failed || pending?.revision !== painted) return
         if (hasPopup()) { for (const entry of entries.values()) restore(entry); committed = []; clip([]); return }
-        committed = pending.items.filter(item => item.epoch === item.entry.epoch && !item.entry.inspecting && item.entry.source.isConnected)
+        committed = pending.items.filter(item => item.epoch === item.entry.epoch && !item.entry.inspecting && item.entry.source.isConnected && sourceEligible(item.entry.source))
         for (const item of committed) hide(item.entry)
         clip(committed); overlay.dataset.asciiRevision = String(painted)
       }}).then(value => { if (closed || failed) value.dispose(); else { effect = value; schedule() } }, report)
@@ -248,6 +281,8 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       try { effect?.dispose() } finally { releaseSlot?.(); overlay.remove(); status.remove(); style.remove() }
     }
   }
+  const scopeObserver = new win!.MutationObserver(records => { if (records.some(isAdaptiveScopeMutation)) sync() })
+  scopeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ADAPTIVE_GPU, ADAPTIVE_THEME] })
   const unsubscribe = store.subscribe(sync); doc.addEventListener('visibilitychange', sync); sync()
-  return () => { disposed = true; unsubscribe(); doc.removeEventListener('visibilitychange', sync); stop?.() }
+  return () => { disposed = true; unsubscribe(); scopeObserver.disconnect(); doc.removeEventListener('visibilitychange', sync); stop?.() }
 }
