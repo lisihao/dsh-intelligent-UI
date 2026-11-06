@@ -1,3 +1,4 @@
+import { builtInThemes } from '../src/theme-contracts.js'
 import { describe, expect, it, vi } from 'vitest'
 import {
   type AdaptiveCompositionSettings,
@@ -86,16 +87,39 @@ describe('AdaptiveCompositionCoordinator', () => {
   it('does not disclose experimental local defaults as recommendations to Jev', async () => {
     const saved = {...settings(), adaptive:{enabled:true,styleMode:'automatic' as const,blockLayout:true}}
     const port = new FakeJev()
+    port.answerFor = request => ({answers:request.questions.map(question=>({id:question.id,kind:'choice' as const,optionId:question.id.endsWith(':component-set')?'clear-glass':question.options[0]!.id}))})
     const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>saved,getJev:()=>port})
     const result = await coordinator.compose(input({value:'# Source\n\nOrdinary prose.\n\n```js\nconst answer = 42\n```'}))
     expect(result.status).toBe('selected')
+    expect(result.selection?.blockLayout?.blocks.every(block=>block.selection.componentSet==='clear-glass')).toBe(true)
     const request = port.requests[0]!
     const state = request.state as {composition:{candidateBundle:Record<string,unknown>}}
     expect(state.composition.candidateBundle).not.toHaveProperty('defaultAnswers')
+    const program = state.composition.candidateBundle.blockLayout as {blocks:Array<{reference:{id:string},fieldBindings?:{componentSet:string},presentations:Array<{selection:Record<string,unknown>}>}>}
+    for (const binding of program.blocks) {
+      expect(binding.fieldBindings?.componentSet).toBe(`${binding.reference.id}:component-set`)
+      for (const plan of binding.presentations) {
+        expect(plan.selection).not.toHaveProperty('componentSet')
+        expect(plan.selection.chart).not.toBe('auto')
+      }
+    }
     expect(request.questions.every(question=>question.options.every(option=>option.id !== 'auto'))).toBe(true)
     const presentationQuestions = request.questions.filter(question=>question.id.endsWith(':presentation'))
     expect(presentationQuestions).toHaveLength(2)
     expect(presentationQuestions.every(question=>question.options.length >= 3)).toBe(true)
+    coordinator.dispose()
+  })
+
+  it('preserves a legitimate auto theme id when removing inactive chart placeholders', async () => {
+    const automaticName = {...builtInThemes.find(theme=>theme.id==='ascii')!,id:'auto'}
+    const saved = {...settings('selected'),adaptive:{enabled:true,styleMode:'selected' as const,blockLayout:true},theme:{activeId:'auto',installed:[automaticName]}}
+    const port = new FakeJev()
+    const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>saved,getJev:()=>port})
+    const result = await coordinator.compose(input({value:'| Item | Value (USD) |\n| --- | ---: |\n| A | 4 |\n| B | 6 |'}))
+    expect(result.status).toBe('selected')
+    const state = port.requests[0]!.state as {composition:{candidateBundle:{blockLayout:{blocks:Array<{presentations:Array<{id:string,selection:{themeId?:string}}>}>}}}}
+    const ascii = state.composition.candidateBundle.blockLayout.blocks.flatMap(block=>block.presentations).find(plan=>plan.id==='chart-ascii')
+    expect(ascii?.selection.themeId).toBe('auto')
     coordinator.dispose()
   })
 

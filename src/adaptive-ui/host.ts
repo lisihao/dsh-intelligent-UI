@@ -130,6 +130,26 @@ function cloneJson<T>(value: unknown): T {
   return JSON.parse(stableJson(value)) as T
 }
 
+/** Local executor placeholders must not masquerade as model-selected bindings. */
+function modelCandidateBundle(bundle: CandidateBundle): unknown {
+  if (!bundle.blockLayout) return bundle
+  const { defaultAnswers: _localFailureDefaults, ...visible } = bundle
+  return {
+    ...visible,
+    blockLayout: {
+      ...bundle.blockLayout,
+      blocks: bundle.blockLayout.blocks.map(binding => ({
+        ...binding,
+        fieldBindings: { componentSet: `${binding.reference.id}:component-set` },
+        presentations: binding.presentations?.map(plan => ({
+          ...plan,
+          selection: Object.fromEntries(Object.entries(plan.selection).filter(([key, value]) => key !== 'componentSet' && !(key === 'chart' && value === 'auto'))),
+        })),
+      })),
+    },
+  }
+}
+
 function reasonFrom(error: unknown, fallback: string): string {
   if (error instanceof NamedError) return error.code
   if (error instanceof Error && /^[A-Z][A-Z0-9_]{2,99}$/.test(error.message)) return error.message
@@ -573,9 +593,7 @@ export class AdaptiveCompositionCoordinator {
         themes: active.snapshot.themes,
         // Experimental local failure defaults are not model recommendations.
         // Keep them in the coordinator, while recording all actual candidates.
-        candidateBundle: active.bundle.blockLayout
-          ? Object.fromEntries(Object.entries(active.bundle).filter(([key]) => key !== 'defaultAnswers'))
-          : active.bundle,
+        candidateBundle: modelCandidateBundle(active.bundle),
       },
     })
     return { state, questions }
