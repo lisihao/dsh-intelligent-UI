@@ -1,8 +1,14 @@
 import { refractor } from 'refractor'
+import http from 'refractor/http'
+import powershell from 'refractor/powershell'
+import mermaid from 'refractor/mermaid'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { createElement as h, useState, type ReactElement, type ReactNode } from 'react'
 import { unified } from 'unified'
+
+// These declared languages occur in the retained Markdown review documents.
+for (const grammar of [http, powershell, mermaid]) refractor.register(grammar)
 
 export interface MarkdownCodeBlockSource {
   /** UTF-16 offsets in the original complete Markdown input, `[start,end)`. */
