@@ -226,6 +226,30 @@ export function analyzeTable(headers: string[], rows: string[][], context = '', 
 const processor = unified().use(remarkParse).use(remarkGfm)
 type AstNode = { type: string, value?: string, children?: AstNode[], position?: { start: { offset?: number }, end: { offset?: number } } }
 function plainText(node: AstNode): string { return node.value ?? node.children?.map(plainText).join('') ?? '' }
+/** Numbered strong-only paragraphs are section boundaries unless their title explicitly refers to table data. */
+const numberedBoldPrefix = /^(?:[一二三四五六七八九十百千万零〇两]+[、.．]|\d+[.．](?!\d)|\d+[、)）])\s*/
+const tableNoteReference = /^(?:以上|以下|上述|前述|上表|上图|前表|前图|本表|本图|下表|下图|表中|该表|该数据|这些数据|所列数据|单位(?:均)?(?:为|是|[:：]|$))/
+const previousTableNoteReference = /^(?:以上|上述|前述|上表|上图|前表|前图)/
+const currentTableNoteReference = /^(?:以下|下表|下图)/
+function numberedBoldTitle(node: AstNode): string | undefined {
+  if (node.type !== 'paragraph' || node.children?.length !== 1) return undefined
+  const only = node.children[0]
+  if (only?.type !== 'strong') return undefined
+  const text = plainText(only).trim()
+  return numberedBoldPrefix.test(text) ? text.replace(numberedBoldPrefix, '').trim() : undefined
+}
+function isStandaloneNumberedBoldHeading(node: AstNode): boolean {
+  const title = numberedBoldTitle(node)
+  return !!title && !tableNoteReference.test(title)
+}
+function numberedBoldTableNoteDirection(node: AstNode): 'previous' | 'current' | undefined {
+  const title = numberedBoldTitle(node)
+  if (!title || !tableNoteReference.test(title)) return undefined
+  if (previousTableNoteReference.test(title)) return 'previous'
+  if (currentTableNoteReference.test(title)) return 'current'
+  return undefined
+}
+function isContextBoundary(node: AstNode): boolean { return node.type === 'table' || node.type === 'heading' || isStandaloneNumberedBoldHeading(node) }
 function unreliableCell(node: AstNode): boolean { return ['delete', 'html', 'footnoteReference', 'image', 'imageReference'].includes(node.type) || !!node.children?.some(unreliableCell) }
 /** Source offsets and table cells come from the maintained CommonMark/GFM AST, never a pipe-splitting parser. */
 export function parseMarkdownTables(markdown: string): MarkdownTable[] {
@@ -237,6 +261,7 @@ export function parseMarkdownTables(markdown: string): MarkdownTable[] {
     for (let index = 0; index < siblings.length; index++) {
       const child = siblings[index]!
       if (child.type === 'heading') context = plainText(child)
+      if (isStandaloneNumberedBoldHeading(child)) context = plainText(child).trim()
       if (child.type === 'table') {
         const cells = child.children?.map(row => row.children?.map(plainText) ?? []) ?? []
         const headers = cells[0] ?? [], rows = cells.slice(1)
@@ -244,9 +269,10 @@ export function parseMarkdownTables(markdown: string): MarkdownTable[] {
         if (start !== undefined && end !== undefined) {
           // Keep qualifications on either side, but never borrow from another table or section.
           const before = siblings.slice(0, index)
-          const previousBoundary = before.findLastIndex(sibling => sibling.type === 'table' || sibling.type === 'heading')
+          // Only explicit backward/forward references select one side; ambiguous local notes stay conservatively attached.
+          const previousBoundary = before.findLastIndex(sibling => isContextBoundary(sibling) || numberedBoldTableNoteDirection(sibling) === 'previous')
           const preceding = before.slice(previousBoundary + 1)
-          const nextBoundary = siblings.findIndex((sibling, siblingIndex) => siblingIndex > index && (sibling.type === 'table' || sibling.type === 'heading'))
+          const nextBoundary = siblings.findIndex((sibling, siblingIndex) => siblingIndex > index && (isContextBoundary(sibling) || numberedBoldTableNoteDirection(sibling) === 'current'))
           const following = siblings.slice(index + 1, nextBoundary < 0 ? siblings.length : nextBoundary)
           const prefix = preceding.map(plainText).join('\n').slice(-500)
           const suffix = following.map(plainText).join('\n')

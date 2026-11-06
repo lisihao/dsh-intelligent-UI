@@ -82,6 +82,87 @@ describe('automatic content analysis', () => {
     expect(parseMarkdownTables(`${table}\n\n以上数据不可比。`)[0]?.plan).toBeUndefined()
     expect(parseMarkdownTables(`${table}\n\n## 其他数据\n\n以上数据不可比。`)[0]?.plan).toBeDefined()
   })
+  it('does not let an independent bold disclaimer hide a direct-comparison ban', () => {
+    const source = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n**以上数据不可比。**'
+    expect(parseMarkdownTables(source)[0]?.plan).toBeUndefined()
+
+    const qualified = parseMarkdownTables('| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n**以上数据按估算口径，仅供参考。**')[0]
+    expect(qualified?.plan?.notes?.join(' ')).toContain('仅供参考')
+  })
+  it('keeps an independent bold unit qualification attached to its table', () => {
+    const source = '**单位：亿元，按估算口径。**\n\n| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |'
+    const [table] = parseMarkdownTables(source)
+    expect(table?.plan?.series[0]?.unit).toBe('亿元')
+    expect(table?.plan?.notes?.join(' ')).toContain('按估算口径')
+  })
+  it('keeps numbered bold table notes in context instead of treating their numbers as section markers', () => {
+    const table = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |'
+    const before = parseMarkdownTables(`**1. 单位：亿元，按估算口径。**\n\n${table}`)[0]
+    expect(before?.plan?.series[0]?.unit).toBe('亿元')
+    expect(before?.plan?.notes?.join(' ')).toContain('单位：亿元')
+
+    const incomparable = parseMarkdownTables(`${table}\n\n**1. 以上数据不可比。**`)[0]
+    expect(incomparable?.plan).toBeUndefined()
+
+    const after = parseMarkdownTables(`${table}\n\n**1. 上述数据按估算口径，仅供参考。**`)[0]
+    expect(after?.plan?.notes?.join(' ')).toContain('上述数据按估算口径')
+
+    const nextTable = '| 类别 | 金额 |\n|---|---:|\n| C | 30 |\n| D | 40 |'
+    const separated = parseMarkdownTables(`${table}\n\n**1. 上表不可比。**\n\n${nextTable}`)
+    expect(separated).toHaveLength(2)
+    expect(separated[0]?.plan).toBeUndefined()
+    expect(separated[1]?.plan).toBeDefined()
+  })
+  it('keeps a numbered 本表 comparison note after its table', () => {
+    const source = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n**1. 本表数据不可比。**'
+    expect(parseMarkdownTables(source)[0]?.plan).toBeUndefined()
+  })
+  it('keeps a numbered 本表 qualification after its table', () => {
+    const source = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n**1. 本表按估算口径，仅供参考。**'
+    expect(parseMarkdownTables(source)[0]?.plan?.notes?.join(' ')).toContain('本表按估算口径')
+  })
+  it('bounds chart notes at numbered standalone bold sections while keeping inline bold prose local', () => {
+    const tableSource = '| 项目 | 金额 |\n|---|---:|\n| 基础预算 | 10 |\n| 增量预算 | 20 |\n| 合计 | 30 |'
+    const markdown = `**十三、组织、增量预算与回报测算**
+
+预算单位：亿元；按已确认预算口径估算，不含后续扩展项。
+
+${tableSource}
+
+本表总额为预算口径，合计不应与后续投资回报重复相加。
+
+**十四、回报假设与测算**
+
+CAD 示例是另一组假设测算，不代表预算回报。
+
+预算说明中的 **局部强调** 仍属于同一段落。`
+    const [table] = parseMarkdownTables(markdown)
+    expect(table?.context).toBe('十三、组织、增量预算与回报测算')
+    expect(markdown.slice(table!.start, table!.end)).toBe(tableSource)
+    expect(table?.rows[2]).toEqual(['合计', '30'])
+    expect(table?.plan).toMatchObject({
+      basis: '单位：亿元',
+      series: [{ name: '金额', unit: '亿元', values: [10, 20], originals: ['10', '20'] }],
+      sourceRows: [0, 1],
+      omittedRowRanges: [[2, 3]],
+    })
+    expect(table?.plan?.notes?.join(' ')).toContain('按已确认预算口径估算')
+    expect(table?.plan?.notes?.join(' ')).toContain('不应与后续投资回报重复相加')
+    expect(table?.plan?.notes?.join(' ')).not.toContain('CAD 示例')
+    expect(table?.plan?.notes?.join(' ')).not.toContain('假设测算')
+
+    const inline = parseMarkdownTables(`## 普通段落\n\n普通说明中的 **局部强调** 仍属于同一段落，按预算口径估算。\n\n| 项目 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n这段 **后置强调** 仍属于表格上下文，按同一口径估算。`)[0]
+    expect(inline?.context).toBe('普通段落')
+    expect(inline?.plan?.notes?.join(' ')).toContain('后置强调')
+
+    const heading = parseMarkdownTables(`## 实际标题\n\n单位：亿元。\n\n| 项目 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n## 后续标题\n\n这部分不可比。`)[0]
+    expect(heading?.context).toBe('实际标题')
+    expect(heading?.plan?.notes?.join(' ')).not.toContain('不可比')
+  })
+  it('retains decimal-valued bold qualifications instead of treating the decimal point as numbering', () => {
+    const table = parseMarkdownTables('| 项目 | 金额（亿元） |\n| --- | ---: |\n| A | 10 |\n| B | 20 |\n\n**1.5亿元只是估算单价，未经审计。**')[0]
+    expect(table?.plan?.notes?.join(' ')).toContain('1.5亿元只是估算单价')
+  })
   it('does not revive struck-through or qualified numbers as active chart values', () => {
     const table = (cell: string) => `| 类别 | 数量 |\n|---|---|\n|A|${cell}|\n|B|20|`
     expect(parseMarkdownTables(table('~~10~~'))[0]?.plan).toBeUndefined()

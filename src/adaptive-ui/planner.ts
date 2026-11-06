@@ -4,6 +4,7 @@ import {
   parseMarkdownTables,
   rowsFromRecords,
   type AutoChartPlan,
+  type MarkdownTable,
 } from '../content-analysis.js'
 import {
   analyzeGraph,
@@ -40,6 +41,7 @@ import {
   type BlockPresentationId,
 } from './presentation-recipes.js'
 import { canvasBlockCandidates } from './canvas-block-recipes.js'
+import { sourceOrganizationCandidates } from './source-organization.js'
 import {
   componentSetCandidateGuidance,
   presentationGuidance,
@@ -701,7 +703,7 @@ function describeReasons(reasons: readonly string[]): string {
 function experimentalPurpose(field: string, option: string, scope: 'root' | 'block'): string {
   if (field === 'theme') return 'Apply the installed theme consistently across the complete document without changing the source.'
   if (field === 'surface') return option === 'source' ? 'Keep this scope in its original source-oriented form.' : 'Allow only source-backed semantic presentation for this scope.'
-  if (field === 'component-set') return 'Apply the executable component treatment only where the exact block has a real card or control consumer.'
+  if (field === 'component-set') return 'Choose the executable material for the ThemeCard surface that wraps this complete source block; the global theme supplies document-wide color and typeface tokens separately.'
   if (field === 'layout') {
     if (scope === 'root') {
       if (option === 'auto') return 'Use deterministic source checks to choose the document reading frame.'
@@ -741,7 +743,7 @@ function experimentalPurpose(field: string, option: string, scope: 'root' | 'blo
 function experimentalTradeoff(field: string, option: string): string {
   if (field === 'theme') return 'The theme stays coherent across all blocks; it does not rewrite source content or change block eligibility.'
   if (field === 'surface') return option === 'source' ? 'It favors direct source reading and may show fewer semantic enhancements.' : 'It may add validated views, while the original source remains available.'
-  if (field === 'component-set') return 'It changes only executable visual adapters, not facts, source order, units, or relationships.'
+  if (field === 'component-set') return 'It changes the block surface’s border, grouping, depth, and contrast treatment, not source facts, units, qualifications, or relationships.'
   if (field === 'layout') {
     if (option === 'auto') return 'It leaves routing to deterministic source checks.'
     if (option === 'heading-index') return 'It adds navigation but does not summarize or reorder headings.'
@@ -824,6 +826,9 @@ function experimentalQuestion(id: string, field: string, candidates: CandidateMa
         'Choose only listed option IDs; do not invent source content, relationships, code, HTML, or components.',
         'Preserve original facts, units, qualifications, links, footnotes, and execution states.',
         'Use the listed source range and local eligibility evidence; no choice applies outside its block.',
+        ...(field === 'component-set'
+          ? ['The global theme supplies document-wide color and typeface tokens; this block material is selected independently. A manual material lock, when configured, is reflected only in these local options.']
+          : []),
       ],
     },
     options: optionIds.map(optionId => {
@@ -859,6 +864,10 @@ interface PresentationBuildCandidate {
   readonly candidate: BlockPresentationCandidate
   readonly purpose?: string
   readonly tradeoff?: string
+  /** A bounded, source-bound chart projection; never a duplicate raw table. */
+  readonly chartMapping?: Json
+  /** A registered block-local organization mapping owned by its adapter. */
+  readonly mapping?: Json
 }
 
 function recipeSelection(overrides: Partial<BaseCompositionSelection> = {}): BaseCompositionSelection {
@@ -931,6 +940,14 @@ function presentationQuestion(id: string, plans: readonly PresentationBuildCandi
           contentFit: guidance.contentFit,
           tradeoff: plan.tradeoff ?? guidance.tradeoff,
           evidence: [...plan.candidate.evidence],
+          ...(plan.chartMapping === undefined ? {} : {
+            chartMapping: plan.chartMapping,
+            sourceScope: compactSourceScope('block', reference),
+          }),
+          ...(plan.mapping === undefined ? {} : {
+            mapping: plan.mapping,
+            sourceScope: compactSourceScope('block', reference),
+          }),
         },
       }
     }),
@@ -952,8 +969,8 @@ function markdownAtSourcePath(value: unknown, path: readonly number[]): string |
  */
 type FullMarkdownTables = Map<string, ReturnType<typeof parseMarkdownTables>>
 
-function applyFullMarkdownTableCandidates(block: CompiledBlock, input: CompositionInput, root: CandidateBundle, candidates: CandidateMap, tablesByPath: FullMarkdownTables): void {
-  if (block.kind !== 'table' || block.start === undefined || block.end === undefined || input.isStreaming === true) return
+function fullMarkdownTable(block: CompiledBlock, input: CompositionInput, tablesByPath: FullMarkdownTables): MarkdownTable | undefined {
+  if (block.kind !== 'table' || block.start === undefined || block.end === undefined || input.isStreaming === true) return undefined
   const pathKey = JSON.stringify(block.path)
   let tables = tablesByPath.get(pathKey)
   if (!tables) {
@@ -961,7 +978,12 @@ function applyFullMarkdownTableCandidates(block: CompiledBlock, input: Compositi
     tables = markdown === undefined ? [] : attempt<ReturnType<typeof parseMarkdownTables>>([], () => parseMarkdownTables(markdown))
     tablesByPath.set(pathKey, tables)
   }
-  const table = tables.find(item => item.start === block.start && item.end === block.end)
+  return tables.find(item => item.start === block.start && item.end === block.end)
+}
+
+function applyFullMarkdownTableCandidates(block: CompiledBlock, input: CompositionInput, root: CandidateBundle, candidates: CandidateMap, tablesByPath: FullMarkdownTables): void {
+  const table = fullMarkdownTable(block, input, tablesByPath)
+  if (block.kind !== 'table') return
   // Document-scoped Markdown references can change parsed labels and cells.
   // Every table-based adapter uses the same complete-source headers and rows.
   const board = !!table && !!analyzeTaskTable(table.headers, table.rows)
@@ -985,6 +1007,142 @@ function applyFullMarkdownTableCandidates(block: CompiledBlock, input: Compositi
   setCandidate(candidates, 'chart:dense', dense, dense ? 'complete-line-series-plan' : 'no-complete-line-series-plan')
   setCandidate(candidates, 'chart:ascii', asciiData && root.identity.asciiThemeIds.length > 0, asciiData && root.identity.asciiThemeIds.length > 0 ? 'ascii-chart-plan' : asciiData ? 'no-eligible-ascii-theme' : 'no-ascii-chart-plan', 'requires-ascii-theme')
   setCandidate(candidates, 'chart:visx', historic, historic ? 'historical-time-series' : 'no-historical-time-series')
+}
+
+interface ChartMappingSource {
+  readonly headers: readonly string[]
+  readonly rows: readonly (readonly string[])[]
+  readonly plans: readonly AutoChartPlan[]
+  readonly context?: string
+}
+
+const CHART_MAPPING_SAMPLE_LIMIT = 8
+
+function sourceIndexRanges(indices: readonly number[]): Array<[number, number]> {
+  const ordered = [...new Set(indices.filter(index => Number.isInteger(index) && index >= 0))].sort((left, right) => left - right)
+  const ranges: Array<[number, number]> = []
+  for (const index of ordered) {
+    const previous = ranges.at(-1)
+    if (previous && previous[1] === index) previous[1] = index + 1
+    else ranges.push([index, index + 1])
+  }
+  return ranges
+}
+
+/** Keep prompt metadata bounded even when the source table contains a large series. */
+function boundedChartItems(items: readonly Json[]): Json {
+  if (items.length <= CHART_MAPPING_SAMPLE_LIMIT) return { count: items.length, items: [...items] }
+  const headCount = Math.ceil(CHART_MAPPING_SAMPLE_LIMIT / 2)
+  const tailStart = items.length - (CHART_MAPPING_SAMPLE_LIMIT - headCount)
+  return {
+    count: items.length,
+    head: items.slice(0, headCount),
+    tail: items.slice(tailStart),
+    omittedIndexRanges: [[headCount, tailStart]],
+  }
+}
+
+function sourceTotalRows(source: ChartMappingSource, included: ReadonlySet<number>): Json {
+  const totals = source.rows.flatMap((row, sourceRow) => {
+    const label = row[0]?.trim() ?? ''
+    return !included.has(sourceRow) && /^(?:合计|总计|总额|总数|汇总|total|sum)(?:\s*[（(].*[）)])?$/iu.test(label)
+      ? [{ sourceRow, category: label } satisfies Json]
+      : []
+  })
+  return boundedChartItems(totals)
+}
+
+function chartPlanMapping(plan: AutoChartPlan, source: ChartMappingSource): Json {
+  const sourceRows = plan.sourceRows ?? plan.labels.map((_label, index) => index)
+  const sourceColumns = plan.sourceColumns ?? plan.series.map((_series, index) => index + 1)
+  const includedRows = new Set(sourceRows)
+  const categoryPoints: Json[] = plan.labels.map((category, index) => ({
+    sourceRow: sourceRows[index] ?? null,
+    category,
+  }))
+  const series = plan.series.map((entry, seriesIndex): Json => {
+    const sourceColumn = sourceColumns[seriesIndex] ?? null
+    const points: Json[] = entry.values.map((value, index) => ({
+      sourceRow: sourceRows[index] ?? null,
+      category: plan.labels[index] ?? null,
+      value,
+      original: entry.originals?.[index] ?? null,
+    }))
+    return {
+      name: entry.name,
+      unit: entry.unit,
+      sourceColumn,
+      sourceHeader: sourceColumn === null ? null : source.headers[sourceColumn] ?? null,
+      values: boundedChartItems(points),
+    }
+  })
+  const selectedColumns = new Set(sourceColumns)
+  const omittedFields: Json[] = source.headers.flatMap((header, sourceColumn) => sourceColumn > 0 && !selectedColumns.has(sourceColumn)
+    ? [{ sourceColumn, header } satisfies Json]
+    : [])
+  return {
+    plan: {
+      kind: plan.kind,
+      title: plan.title ?? null,
+      basis: plan.basis ?? null,
+      reason: plan.reason,
+    },
+    categoryAxis: {
+      sourceColumn: 0,
+      sourceHeader: source.headers[0] ?? null,
+      kind: plan.kind === 'line' ? 'source-time-or-ordered-category' : 'source-category',
+      categories: boundedChartItems(categoryPoints),
+    },
+    valueAxis: {
+      units: [...new Set(plan.series.map(entry => entry.unit))],
+      series,
+    },
+    sourceRows: {
+      coordinateSystem: 'table-data-row-zero-based',
+      sourceRowCount: plan.sourceRowCount ?? source.rows.length,
+      includedRanges: sourceIndexRanges(sourceRows),
+    },
+    sourceColumns: {
+      coordinateSystem: 'table-column-zero-based',
+      sourceColumnCount: plan.sourceColumnCount ?? source.headers.length,
+      categoryColumn: 0,
+      valueColumns: sourceColumns,
+    },
+    omitted: {
+      rowRanges: plan.omittedRowRanges ?? [],
+      columnRanges: plan.omittedColumnRanges ?? [],
+      totals: sourceTotalRows(source, includedRows),
+      fields: boundedChartItems(omittedFields),
+    },
+    sourceQualifications: {
+      context: source.context ?? null,
+      basis: plan.basis ?? null,
+      notes: plan.notes ?? [],
+      reason: plan.reason,
+    },
+    fullSource: 'The complete original source block remains accessible. Point values and examples are sampled with explicit counts and exact source ranges; this mapping does not duplicate the raw table.',
+  }
+}
+
+function chartMappingSource(block: CompiledBlock, input: CompositionInput, tablesByPath: FullMarkdownTables): ChartMappingSource | undefined {
+  const markdownTable = fullMarkdownTable(block, input, tablesByPath)
+  if (markdownTable) return {
+    headers: markdownTable.headers,
+    rows: markdownTable.rows,
+    plans: markdownTable.plans,
+    context: markdownTable.context,
+  }
+  if (block.kind === 'table') return undefined
+  const table = attempt(undefined as ReturnType<typeof rowsFromRecords> | undefined, () => rowsFromRecords(block.value))
+  if (!table) return undefined
+  const plans = inspectSource(block.value, input.isStreaming === true).chartPlans
+  return { headers: table.headers, rows: table.rows, plans }
+}
+
+function chartMappingForBlock(block: CompiledBlock, input: CompositionInput, tablesByPath: FullMarkdownTables): Json | undefined {
+  const source = chartMappingSource(block, input, tablesByPath)
+  if (!source?.plans.length) return undefined
+  return { plans: source.plans.map(plan => chartPlanMapping(plan, source)) }
 }
 
 function blockCandidates(block: CompiledBlock, local: CandidateBundle, input: CompositionInput, root: CandidateBundle, tablesByPath: FullMarkdownTables): CandidateMap {
@@ -1022,7 +1180,7 @@ function explicitObjectCandidate(block: CompiledBlock, input: CompositionInput):
   return inspected.object ?? (inspected.illustrationCount > 0 ? { kind: 'illustration', domain: 'general' } : undefined)
 }
 
-function explicitBlockPresentations(block: CompiledBlock, reference: BlockSourceReference, candidates: CandidateMap, input: CompositionInput, root: CandidateBundle): PresentationBuildCandidate[] {
+function explicitBlockPresentations(block: CompiledBlock, reference: BlockSourceReference, candidates: CandidateMap, input: CompositionInput, root: CandidateBundle, tablesByPath: FullMarkdownTables): PresentationBuildCandidate[] {
   const plans: PresentationBuildCandidate[] = []
   const reasons = (field: string, option: string): readonly string[] => candidates.get(`${field}:${option}`)?.reasons ?? []
   const add = (id: string, selection: BaseCompositionSelection, evidence: readonly string[], details?: Omit<PresentationBuildCandidate, 'candidate'>) => {
@@ -1040,12 +1198,13 @@ function explicitBlockPresentations(block: CompiledBlock, reference: BlockSource
   if (candidates.get('layout:records')?.eligible) add('records', recipeSelection({ layout: 'records' }), reasons('layout', 'records'))
   if (candidates.get('layout:flow')?.eligible) add('flow', recipeSelection({ layout: 'flow' }), reasons('layout', 'flow'))
 
+  const chartMapping = chartMappingForBlock(block, input, tablesByPath)
   for (const [id, chart] of Object.entries(chartPresentationCharts)) {
     if (candidates.get(`chart:${chart}`)?.eligible) {
       const themeId = id === 'chart-ascii' ? root.identity.asciiThemeIds[0] : BLOCK_GLOBAL_THEME_ID
       if (themeId !== undefined) add(id, recipeSelection({ themeId, chart, layout: 'table' }), reasons('chart', chart), id === 'chart-ascii'
-        ? { purpose: `Render validated source values through the registered ASCII chart adapter under the eligible ASCII theme “${themeId}”.` }
-        : undefined)
+        ? { purpose: `Render validated source values through the registered ASCII chart adapter under the eligible ASCII theme “${themeId}”.`, ...(chartMapping === undefined ? {} : { chartMapping }) }
+        : chartMapping === undefined ? undefined : { chartMapping })
     }
   }
 
@@ -1087,6 +1246,16 @@ function explicitBlockPresentations(block: CompiledBlock, reference: BlockSource
   // present in the renderer rather than becoming texture input alone.
   for (const canvas of canvasBlockCandidates(block.value, input.capabilities, input.isStreaming === true)) {
     add(canvas.id, recipeSelection(), canvas.evidence, { purpose: canvas.purpose })
+  }
+
+  // The registered organization adapters retain the full source block and
+  // consume only their compiler-local UTF-16 mapping. They never relax chart
+  // eligibility or create a synthetic source summary.
+  for (const organization of sourceOrganizationCandidates(block.value)) {
+    add(organization.id, recipeSelection(), organization.evidence, {
+      purpose: organization.purpose,
+      mapping: organization.mapping,
+    })
   }
 
   return plans
@@ -1173,7 +1342,7 @@ function buildBlockLayoutCandidates(input: CompositionInput): CandidateBundle {
     const candidates = allBlockComponentCandidates(blockCandidates(block, local, input, root, tablesByPath), input)
     const reference = sourceReference(block)
     const presentationId = blockQuestionId(reference, 'presentation')
-    const presentations = explicitBlockPresentations(block, reference, candidates, input, root)
+    const presentations = explicitBlockPresentations(block, reference, candidates, input, root, tablesByPath)
     questions.push(presentationQuestion(presentationId, presentations, reference))
     defaultAnswers[presentationId] = presentations[0]!.candidate.id
     const questionIds: string[] = [presentationId]
@@ -1342,6 +1511,9 @@ function isConcretePresentationSelection(candidate: BlockPresentationCandidate, 
   if (candidate.id === 'board') return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'none', layout: 'board' })
   if (candidate.id === 'records') return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'none', layout: 'records' })
   if (candidate.id === 'flow') return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'none', layout: 'flow' })
+  if (candidate.id === 'source-list-grid' || candidate.id === 'source-label-table') {
+    return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'none', layout: 'document' })
+  }
   if (candidate.id === 'illustration-native') return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'none', layout: 'document' })
   if (candidate.id === 'object-ink') return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'ink-object', layout: 'document' })
   if (candidate.id === 'object-ascii') return hasOnly({ surface: 'semantic', chart: 'auto', objectEffect: 'ascii-object', layout: 'document' })

@@ -45,6 +45,18 @@ const presentation = 'source-bound'
 [mixed-source]: https://sources.example.invalid/mixed-source "固定本地来源"
 [^mixed-note]: 固定本地脚注；该脚注不请求外部网络。`
 
+const sourceOrganizationFixtureSource = `# 公开条目组织验收
+
+这是固定公开夹具，用于验证来源中的明确标签、限定语、链接、脚注和代码在不同来源组织呈现中仍可回溯。它不构成真实 Jev5、模型、付费调用、外部服务或生产效果证据。[公开范围说明](https://sources.example.invalid/public-source-organization)[^organization-note]
+
+- **适用范围：** 只组织同级、非任务的无序条目；原始顺序来自来源，不能推出优先级、因果或执行顺序。
+- **核对材料：** [公开资料链接](https://sources.example.invalid/public-jev5-reference)只作为来源文本保留；此夹具不读取该 URL、不使用凭据，也不调用模型。
+- **代码边界：** \`const route = 'fixture-only'\` 是来源中的代码；它不是连接配置，也不表示已执行。
+- **限制条件：** 本地选择只证明候选、指定配方和已挂载 DOM；不能证明真实模型质量、外部服务效果或生产使用。
+
+[organization-reference]: https://sources.example.invalid/public-source-organization "固定公开夹具引用"
+[^organization-note]: 该脚注保留来源限定；测试不会抓取链接、创建真实会话或产生付费调用。`
+
 function startPreview() {
   const child = spawn(process.execPath, ['tools/adaptive-ui-preview.mjs'], {
     cwd: root,
@@ -250,6 +262,154 @@ function assertMixedSnapshot(snapshot, viewportWidth) {
   assert.match(snapshot.footnoteText ?? '', /固定本地脚注/)
   assert.equal(snapshot.sourceTable, true)
   assert.ok(snapshot.width > 0)
+}
+
+async function sourceOrganizationSnapshot(page, documentId, expected) {
+  return await waitFor(`${documentId} selected source organization and receipt`, () => page.eval(({ documentId, expected }) => {
+    const events = window.__adaptiveUiPreviewEvents ?? []
+    const composition = [...events].reverse().find(event => event.type === 'composition' && event.documentId === documentId)
+    const receipt = [...events].reverse().find(event => event.type === 'receipt' && event.documentId === documentId && event.observed === true)
+    if (composition && composition.status !== 'selected') throw new Error(`SOURCE_ORGANIZATION_COMPOSITION_NOT_SELECTED:${composition.status}:${composition.reason ?? 'unknown'}`)
+    const output = document.querySelector('#preview-output')
+    const scope = output?.querySelector('[data-iexp-composition-scope]')
+    const root = output?.querySelector('[data-iexp-block-layout]') ?? scope
+    if (!composition || !receipt || !scope || !root || composition.status !== 'selected') return undefined
+    const blocks = composition.selection?.blockLayout?.blocks ?? []
+    const selected = blocks.filter(block => block.presentation === expected.presentation)
+    const presentationNode = [...root.querySelectorAll('[data-iexp-presentation]')].find(node => node.getAttribute('data-iexp-presentation') === expected.presentation)
+    const visible = element => {
+      if (!(element instanceof HTMLElement)) return false
+      const rect = element.getBoundingClientRect()
+      const style = getComputedStyle(element)
+      return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+    }
+    if (selected.length !== 1 || !presentationNode || !visible(presentationNode)) return undefined
+    const grid = root.querySelector('ul.iexp-source-list-grid[data-iexp-source-organization="source-list-grid"]')
+    const table = root.querySelector('table.iexp-source-label-table[data-iexp-source-organization="source-label-table"]')
+    const expectedElement = expected.presentation === 'source-list-grid' ? grid : table
+    if (!expectedElement || !visible(expectedElement)) return undefined
+    const materialOwner = presentationNode.closest('[data-iexp-component-set]')
+      ?? presentationNode.querySelector('[data-iexp-component-set]')
+      ?? (presentationNode.matches('[data-iexp-component-set]') ? presentationNode : null)
+    const range = (element, prefix) => ({
+      start: element?.getAttribute(`data-iexp-source-${prefix}-start`) ?? null,
+      end: element?.getAttribute(`data-iexp-source-${prefix}-end`) ?? null,
+    })
+    const gridItems = grid ? [...grid.querySelectorAll(':scope > li')].map(item => ({
+      visible: visible(item),
+      text: item.textContent?.trim() ?? '',
+      item: range(item, 'item'),
+      links: [...item.querySelectorAll('a')].map(anchor => ({ text: anchor.textContent?.trim() ?? '', href: anchor.getAttribute('href') })),
+      code: [...item.querySelectorAll('code')].map(code => code.textContent?.trim() ?? ''),
+    })) : []
+    const labelRows = table ? [...table.querySelectorAll('tbody > tr.iexp-source-label-row')].map(row => {
+      const label = row.querySelector('th.iexp-source-label-cell')
+      const detail = row.querySelector('td.iexp-source-label-detail')
+      return {
+        visible: visible(row),
+        item: range(row, 'item'),
+        label: label?.textContent?.trim() ?? '',
+        labelRange: range(label, 'label'),
+        detail: detail?.textContent?.trim() ?? '',
+        detailVisible: visible(detail),
+        links: [...(detail?.querySelectorAll('a') ?? [])].map(anchor => ({ text: anchor.textContent?.trim() ?? '', href: anchor.getAttribute('href') })),
+        code: [...(detail?.querySelectorAll('code') ?? [])].map(code => code.textContent?.trim() ?? ''),
+      }
+    }) : []
+    const sourceLink = [...root.querySelectorAll('a')].find(anchor => anchor.getAttribute('href') === 'https://sources.example.invalid/public-source-organization')
+    const publicReference = [...root.querySelectorAll('a')].find(anchor => anchor.getAttribute('href') === 'https://sources.example.invalid/public-jev5-reference')
+    const footnoteRef = root.querySelector('a[data-footnote-ref], a[href*="organization-note"], sup a')
+    const footnoteDefinition = root.querySelector('[data-footnotes] li, li[id*="organization-note"], li[id*="fn-"]')
+    const documentElement = document.documentElement
+    return {
+      status: scope.getAttribute('data-iexp-composition-status'),
+      scopeTheme: scope.getAttribute('data-iexp-adaptive-theme'),
+      selection: composition.selection,
+      schema: composition.schema,
+      receiptObserved: receipt.observed === true,
+      decisionCalls: receipt.decisionCalls,
+      selectedPresentationCount: selected.length,
+      selectedPresentation: selected[0]?.presentation,
+      selectedComponentSet: selected[0]?.selection?.componentSet,
+      selectedTheme: selected[0]?.selection?.themeId,
+      presentationMaterial: materialOwner?.getAttribute('data-iexp-component-set') ?? null,
+      grid: grid ? {
+        visible: visible(grid),
+        list: range(grid, 'list'),
+        items: gridItems,
+      } : undefined,
+      labelTable: table ? {
+        visible: visible(table),
+        list: range(table, 'list'),
+        rows: labelRows,
+      } : undefined,
+      sourceText: root.textContent ?? '',
+      sourceLinkHref: sourceLink?.getAttribute('href') ?? null,
+      publicReferenceHref: publicReference?.getAttribute('href') ?? null,
+      footnoteHref: footnoteRef?.getAttribute('href') ?? null,
+      footnoteText: footnoteDefinition?.textContent?.trim() ?? null,
+      pageScrollWidth: documentElement.scrollWidth,
+      pageClientWidth: documentElement.clientWidth,
+      width: root.getBoundingClientRect().width,
+    }
+  }, { documentId, expected }))
+}
+
+function assertSourceRange(range, label) {
+  assert.match(range.start ?? '', /^\d+$/, `${label} must retain a numeric source start`)
+  assert.match(range.end ?? '', /^\d+$/, `${label} must retain a numeric source end`)
+  assert.ok(Number(range.end) > Number(range.start), `${label} must retain a nonempty half-open source range`)
+}
+
+function assertSourceOrganizationSnapshot(snapshot, expected, viewportWidth) {
+  const labels = ['适用范围：', '核对材料：', '代码边界：', '限制条件：']
+  assert.equal(snapshot.status, 'selected')
+  assert.equal(snapshot.receiptObserved, true)
+  assert.equal(snapshot.decisionCalls, 1)
+  assert.equal(snapshot.selectedPresentationCount, 1)
+  assert.equal(snapshot.selectedPresentation, expected.presentation)
+  assert.equal(snapshot.selectedComponentSet, expected.componentSet)
+  assert.equal(snapshot.selectedTheme, expected.theme)
+  assert.equal(snapshot.scopeTheme, expected.theme)
+  assert.equal(snapshot.presentationMaterial, expected.componentSet)
+  assert.ok(snapshot.schema?.questionIds.some(id => id.endsWith(':presentation')), 'source organization has actual block presentation questions')
+  assert.ok(Object.values(snapshot.schema?.optionIds ?? {}).some(options => options.includes(expected.presentation)), `${expected.presentation} must be an actual planner option`)
+  assert.equal(snapshot.sourceLinkHref, 'https://sources.example.invalid/public-source-organization')
+  assert.equal(snapshot.publicReferenceHref, 'https://sources.example.invalid/public-jev5-reference')
+  assert.match(snapshot.footnoteHref ?? '', /organization-note|fn-/)
+  assert.match(snapshot.footnoteText ?? '', /不会抓取链接、创建真实会话或产生付费调用/)
+  assert.match(snapshot.sourceText, /只组织同级、非任务的无序条目/)
+  assert.match(snapshot.sourceText, /不能推出优先级、因果或执行顺序/)
+  assert.match(snapshot.sourceText, /const route = 'fixture-only'/)
+  assert.ok(snapshot.width > 0)
+  assert.ok(snapshot.pageScrollWidth <= snapshot.pageClientWidth + 1, `page has horizontal overflow at ${viewportWidth}px: ${JSON.stringify({ pageScrollWidth: snapshot.pageScrollWidth, pageClientWidth: snapshot.pageClientWidth })}`)
+  if (expected.presentation === 'source-list-grid') {
+    assert.equal(snapshot.labelTable, undefined, `unexpected label table when source-list-grid is selected at ${viewportWidth}px`)
+    assert.equal(snapshot.grid?.visible, true)
+    assertSourceRange(snapshot.grid?.list ?? {}, 'grid list')
+    assert.equal(snapshot.grid?.items.length, labels.length)
+    for (const [index, item] of (snapshot.grid?.items ?? []).entries()) {
+      assert.equal(item.visible, true, `grid item ${index} must be visible at ${viewportWidth}px`)
+      assert.match(item.text, new RegExp(labels[index]))
+      assertSourceRange(item.item, `grid item ${index}`)
+    }
+    assert.deepEqual(snapshot.grid?.items[1]?.links, [{ text: '公开资料链接', href: 'https://sources.example.invalid/public-jev5-reference' }])
+    assert.deepEqual(snapshot.grid?.items[2]?.code, ["const route = 'fixture-only'"])
+    return
+  }
+  assert.equal(snapshot.grid, undefined, `unexpected source grid when source-label-table is selected at ${viewportWidth}px`)
+  assert.equal(snapshot.labelTable?.visible, true)
+  assertSourceRange(snapshot.labelTable?.list ?? {}, 'label table list')
+  assert.equal(snapshot.labelTable?.rows.length, labels.length)
+  for (const [index, row] of (snapshot.labelTable?.rows ?? []).entries()) {
+    assert.equal(row.visible, true, `label row ${index} must be visible at ${viewportWidth}px`)
+    assert.equal(row.detailVisible, true, `label detail ${index} must be visible at ${viewportWidth}px`)
+    assert.equal(row.label, labels[index])
+    assertSourceRange(row.item, `label row ${index}`)
+    assertSourceRange(row.labelRange, `label ${index}`)
+  }
+  assert.deepEqual(snapshot.labelTable?.rows[1]?.links, [{ text: '公开资料链接', href: 'https://sources.example.invalid/public-jev5-reference' }])
+  assert.deepEqual(snapshot.labelTable?.rows[2]?.code, ["const route = 'fixture-only'"])
 }
 
 async function selectedScenario(page, documentId, expected) {
@@ -532,6 +692,47 @@ try {
 [^2]: 资料 B：合成验收约束；该引用不请求外部网络。`)
   await setSelect(page, '输出显示方式', 'visual')
 
+  const sourceOrganizationGrid = {
+    documentId: 'synthetic-source-organization-grid',
+    presentation: 'source-list-grid',
+    theme: 'uiverse-clear-glass',
+    componentSet: 'clear-glass',
+  }
+  const sourceOrganizationLabelTable = {
+    documentId: 'synthetic-source-organization-label-table',
+    presentation: 'source-label-table',
+    theme: 'uiverse-mechanical-outline',
+    componentSet: 'mechanical-outline',
+  }
+
+  await setSelect(page, '合成场景', 'source-organization-grid')
+  const organizationGridDesktop = await sourceOrganizationSnapshot(page, sourceOrganizationGrid.documentId, sourceOrganizationGrid)
+  assertSourceOrganizationSnapshot(organizationGridDesktop, sourceOrganizationGrid, 1440)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-source-organization-grid-1440.png'), format: 'png', fullPage: true })
+  await setSelect(page, '输出显示方式', 'compare')
+  const organizationGridRaw = await waitFor('complete source-organization grid source in comparison mode', () => page.eval(() => document.querySelector('.iexp-raw-output pre')?.textContent ?? undefined))
+  assert.equal(organizationGridRaw, sourceOrganizationFixtureSource)
+  await setSelect(page, '输出显示方式', 'visual')
+  await page.setViewport({ width: 390, height: 844, mobile: true })
+  const organizationGridNarrow = await sourceOrganizationSnapshot(page, sourceOrganizationGrid.documentId, sourceOrganizationGrid)
+  assertSourceOrganizationSnapshot(organizationGridNarrow, sourceOrganizationGrid, 390)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-source-organization-grid-390.png'), format: 'png', fullPage: true })
+
+  await page.setViewport({ width: 1440, height: 900, mobile: false })
+  await setSelect(page, '合成场景', 'source-organization-label-table')
+  const organizationLabelDesktop = await sourceOrganizationSnapshot(page, sourceOrganizationLabelTable.documentId, sourceOrganizationLabelTable)
+  assertSourceOrganizationSnapshot(organizationLabelDesktop, sourceOrganizationLabelTable, 1440)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-source-organization-label-table-1440.png'), format: 'png', fullPage: true })
+  await setSelect(page, '输出显示方式', 'compare')
+  const organizationLabelRaw = await waitFor('complete source-organization label-table source in comparison mode', () => page.eval(() => document.querySelector('.iexp-raw-output pre')?.textContent ?? undefined))
+  assert.equal(organizationLabelRaw, sourceOrganizationFixtureSource)
+  await setSelect(page, '输出显示方式', 'visual')
+  await page.setViewport({ width: 390, height: 844, mobile: true })
+  const organizationLabelNarrow = await sourceOrganizationSnapshot(page, sourceOrganizationLabelTable.documentId, sourceOrganizationLabelTable)
+  assertSourceOrganizationSnapshot(organizationLabelNarrow, sourceOrganizationLabelTable, 390)
+  await page.screenshot({ path: join(evidenceDirectory, 'adaptive-source-organization-label-table-390.png'), format: 'png', fullPage: true })
+  await page.setViewport({ width: 1440, height: 900, mobile: false })
+
   await setSelect(page, '合成场景', 'mixed-block-layout')
   const mixed = await mixedSnapshot(page)
   assertMixedSnapshot(mixed, 1440)
@@ -638,6 +839,8 @@ try {
     'synthetic-strategy-flow',
     'synthetic-comparison-records',
     'synthetic-cited-report-index',
+    'synthetic-source-organization-grid',
+    'synthetic-source-organization-label-table',
     'synthetic-mixed-block-layout',
     'synthetic-scope-plain',
     'synthetic-live-static',
@@ -669,14 +872,18 @@ try {
       join(evidenceDirectory, 'adaptive-strategy-flow-1440.png'),
       join(evidenceDirectory, 'adaptive-comparison-records-1440.png'),
       join(evidenceDirectory, 'adaptive-cited-report-index-1440.png'),
+      join(evidenceDirectory, 'adaptive-source-organization-grid-1440.png'),
+      join(evidenceDirectory, 'adaptive-source-organization-grid-390.png'),
+      join(evidenceDirectory, 'adaptive-source-organization-label-table-1440.png'),
+      join(evidenceDirectory, 'adaptive-source-organization-label-table-390.png'),
       join(evidenceDirectory, 'adaptive-mixed-block-layout-1440.png'),
       join(evidenceDirectory, 'adaptive-mixed-block-layout-390.png'),
       join(evidenceDirectory, 'adaptive-live-static-390.png'),
     ],
     selectedDocuments: selectedDocuments.length,
     receiptsObserved: serverReceipts.filter(event => event.observed === true).length,
-    covered: ['board/table', 'soft-relief/mechanical-outline', 'visx/OpenUI', 'explicit nodes/edges React Flow', 'records/clear-glass with condition and unit preservation', 'cited report heading index with complete raw source', 'mixed source-bound chart/board/arrow-flow in one document at default and narrow widths', 'production Settings block-layout toggle and customizable physical-key shortcut', 'raw/compare', 'explicit live static snapshot', 'disable local fallback', 'global-ASCII/local-Plain style scope'],
-    notClaimed: ['real Jev quality', 'real model', 'paid model', 'native application acceptance'],
+    covered: ['board/table', 'soft-relief/mechanical-outline', 'visx/OpenUI', 'explicit nodes/edges React Flow', 'records/clear-glass with condition and unit preservation', 'cited report heading index with complete raw source', 'source-list-grid and source-label-table on the same public fixture with per-item source ranges, links, footnote, code, complete raw source, selected clear-glass/mechanical-outline material, and no horizontal page overflow at 1440/390', 'mixed source-bound chart/board/arrow-flow in one document at default and narrow widths', 'production Settings block-layout toggle and customizable physical-key shortcut', 'raw/compare', 'explicit live static snapshot', 'disable local fallback', 'global-ASCII/local-Plain style scope'],
+    notClaimed: ['real Jev quality', 'real Jev5 service execution', 'real model', 'paid model', 'external document retrieval', 'native application acceptance'],
   }, null, 2))
 } finally {
   try { offConsole?.() } catch {}

@@ -14,7 +14,7 @@ import { TableViewport } from './table-viewport.js'
 import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
-import { Component, Fragment, createElement as h, useCallback, useContext, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode, type ComponentProps } from 'react'
+import { Children, Component, Fragment, createElement as h, isValidElement, useCallback, useContext, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode, type ComponentProps } from 'react'
 import { Renderer, type LibraryExtension, type ActionEvent } from '@openuidev/react-lang'
 import { ThemeProvider, MarkDownRenderer, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, LineChart, BarChart, IconWrapper } from '@openuidev/react-ui'
 import { openuiLibrary } from '@openuidev/react-ui/genui-lib'
@@ -34,7 +34,7 @@ import { FlowView, type FlowViewPlan } from './flow-view.js'
 import { analyzeGraph, analyzeTaskRecords, analyzeTaskTable, analyzeMasterDetail, parseMarkdownLayouts, type FlowPlan } from './content-layout.js'
 import { BoardView, MasterDetailView, HeadingIndex, headingAnchor } from './layout-views.js'
 import { analyzeTableCharts, parseMarkdownTables, rowsFromRecords, selectIcon, type AutoChartPlan } from './content-analysis.js'
-import { blockIdFromMarkdownProps, blockPresentationPlugin, continuousBlockSectionsPlugin, resolvedBlockPresentation, type ResolvedBlockPresentation } from './adaptive-ui/block-presentations.js'
+import { blockIdFromMarkdownProps, blockPresentationPlugin, continuousBlockSectionsPlugin, resolvedBlockPresentation, sourceOrganizationPlugin, type ResolvedBlockPresentation } from './adaptive-ui/block-presentations.js'
 import { BLOCK_PRESENTATION_LABELS, type BlockPresentationId } from './adaptive-ui/presentation-recipes.js'
 import { CanvasBlockView } from './adaptive-ui/canvas-block-view.js'
 
@@ -371,6 +371,55 @@ function BlockPresentationView({ block, id, value, isStreaming = false, children
   }
   return h(BlockThemeScope, { selection }, scopedSelection(selection, view))
 }
+type SourceOrganizationElementProps = {
+  readonly children?: ReactNode
+  readonly className?: string
+  readonly node?: unknown
+  readonly [key: string]: unknown
+}
+function sourceOrganizationClassName(name: string, className?: string): string {
+  return [name, className].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ')
+}
+function sourceOrganizationDomProps(props: SourceOrganizationElementProps): Record<string, unknown> {
+  const { children: _children, node: _node, className: _className, ...attributes } = props
+  return attributes
+}
+function SourceListGrid(props: SourceOrganizationElementProps): ReactElement {
+  return h('ul', {
+    ...sourceOrganizationDomProps(props),
+    className: sourceOrganizationClassName('iexp-source-list-grid', props.className),
+  }, props.children)
+}
+function SourceLabelTable(props: SourceOrganizationElementProps): ReactElement {
+  const rows = Children.toArray(props.children).filter(node => typeof node !== 'string' || node.trim().length > 0)
+  return h('table', {
+    ...sourceOrganizationDomProps(props),
+    'aria-label': '来源标签与详情',
+    className: sourceOrganizationClassName('iexp-source-label-table', props.className),
+  }, h('tbody', null, rows))
+}
+function SourceLabelCell({ children }: SourceOrganizationElementProps): ReactElement {
+  // The row owns the real table cell; this marker passes the original strong
+  // node through without manufacturing a label string.
+  return h(Fragment, null, children)
+}
+function sourceLabelAttributes(label: ReactNode): Record<string, unknown> {
+  if (!isValidElement(label)) return {}
+  const props = label.props as Record<string, unknown>
+  return Object.fromEntries(Object.entries(props).filter(([key]) => key === 'data-iexp-source-label-start' || key === 'data-iexp-source-label-end'))
+}
+function SourceLabelRow(props: SourceOrganizationElementProps): ReactElement {
+  const nodes = Children.toArray(props.children).filter(node => typeof node !== 'string' || node.trim().length > 0)
+  const [label, ...detail] = nodes
+  return h('tr', {
+    ...sourceOrganizationDomProps(props),
+    className: sourceOrganizationClassName('iexp-source-label-row', props.className),
+  }, h('th', {
+    scope: 'row',
+    className: 'iexp-source-label-cell',
+    ...sourceLabelAttributes(label),
+  }, label), h('td', { className: 'iexp-source-label-detail' }, ...detail))
+}
 function MarkdownContent({ text, isStreaming, path, program }: { text: string, isStreaming: boolean, path: readonly number[], program: CompositionSelection | undefined }): ReactElement {
   const composition = program
   const experimentalProgram = !!program?.blockLayout
@@ -396,7 +445,7 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
       return scopedSelection(block?.selection, output)
     }]))
     const astPlugins = experimentalProgram
-      ? [blockPresentationPlugin(markdownBlocks), ...(sections ? [continuousBlockSectionsPlugin(sections, markdownBlocks)] : [])]
+      ? [blockPresentationPlugin(markdownBlocks), sourceOrganizationPlugin(text, markdownBlocks), ...(sections ? [continuousBlockSectionsPlugin(sections, markdownBlocks)] : [])]
       : sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : []
     const blockRenderer = ({ children, ...props }: { children?: ReactNode, [key: string]: unknown }) => {
       const id = blockIdFromMarkdownProps(props)
@@ -405,6 +454,10 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
     return { remarkPlugins: [remarkGfm, ...astPlugins], components: {
       ...headings,
       'iexp-block': blockRenderer,
+      'iexp-source-list-grid': SourceListGrid,
+      'iexp-source-label-table': SourceLabelTable,
+      'iexp-source-label-row': SourceLabelRow,
+      'iexp-source-label-cell': SourceLabelCell,
       tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
         const start = node?.position?.start.offset, end = node?.position?.end.offset, block = markdownBlockAt(program, path, start, end), effective = block?.selection ?? composition

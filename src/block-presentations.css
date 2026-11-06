@@ -84,11 +84,113 @@
   margin-block: calc(16px * var(--iexp-density));
 }
 
+/* Source organization keeps the original list order and source nodes. These
+   are compact reading structures, not inferred comparison cards or datasets. */
+.iexp-source-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: calc(12px * var(--iexp-density));
+  min-width: 0;
+  max-width: 100%;
+  margin-block: calc(12px * var(--iexp-density));
+  padding: 0;
+  list-style: none;
+}
+
+.iexp-source-list-grid > li {
+  min-width: 0;
+  margin: 0;
+  padding: calc(12px * var(--iexp-density));
+  overflow-wrap: anywhere;
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-list-radius, var(--iexp-card-radius));
+  background: var(--iexp-card);
+}
+
+.iexp-source-list-grid > li > :first-child,
+.iexp-source-list-grid > li > :first-child > :first-child {
+  margin-top: 0;
+}
+
+.iexp-source-list-grid > li > :last-child,
+.iexp-source-list-grid > li > :last-child > :last-child {
+  margin-bottom: 0;
+}
+
+.iexp-source-label-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: separate;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-source-table-radius, var(--iexp-card-radius));
+  background: var(--iexp-card);
+}
+
+.iexp-source-label-row > :is(.iexp-source-label-cell, .iexp-source-label-detail) {
+  min-width: 0;
+  padding: calc(10px * var(--iexp-density)) calc(12px * var(--iexp-density));
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  border-block-end: 1px solid var(--iexp-line);
+}
+
+.iexp-source-label-row:last-child > :is(.iexp-source-label-cell, .iexp-source-label-detail) {
+  border-block-end: 0;
+}
+
+.iexp-source-label-cell {
+  width: min(32%, 18rem);
+  color: var(--iexp-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+
+.iexp-source-label-detail {
+  color: inherit;
+}
+
+.iexp-source-label-detail > :first-child {
+  margin-top: 0;
+}
+
+.iexp-source-label-detail > :last-child {
+  margin-bottom: 0;
+}
+
 @container (max-width: 420px) {
   .iexp-block-card,
   .iexp-block-disclosure-card {
     padding: 12px;
     border-radius: var(--iexp-page-card-radius);
+  }
+}
+
+@media (max-width: 560px) {
+  .iexp-source-list-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iexp-source-label-table,
+  .iexp-source-label-table > tbody,
+  .iexp-source-label-table .iexp-source-label-row,
+  .iexp-source-label-table .iexp-source-label-cell,
+  .iexp-source-label-table .iexp-source-label-detail {
+    display: block;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .iexp-source-label-table .iexp-source-label-cell {
+    padding-block-end: calc(4px * var(--iexp-density));
+    border-block-end: 0;
+  }
+
+  .iexp-source-label-table .iexp-source-label-detail {
+    padding-block-start: calc(4px * var(--iexp-density));
   }
 }
 

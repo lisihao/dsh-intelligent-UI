@@ -4,7 +4,7 @@ import paperFlowPackage from '../theme/paper-flow.dsh-theme.json' with { type: '
 import { builtInThemes, themePackageSchema, type ThemePackage } from '../src/theme-contracts.js'
 import { neutralDesignRubric, presentationGuidance } from '../src/adaptive-ui/design-guidance.js'
 import { BLOCK_PRESENTATION_IDS } from '../src/adaptive-ui/presentation-recipes.js'
-import { buildCompositionCandidates, type CandidateBundle, type CompositionInput } from '../src/adaptive-ui/planner.js'
+import { buildCompositionCandidates, validateCompositionChoices, type CandidateBundle, type CompositionInput } from '../src/adaptive-ui/planner.js'
 
 function input(value: unknown, overrides: Partial<Omit<CompositionInput, 'value'>> = {}): CompositionInput {
   return {
@@ -86,6 +86,50 @@ describe('experimental adaptive design guidance', () => {
     expect(empryoText).not.toContain('default')
   })
 
+  it('keeps automatic global theme choices separate from equally shaped per-block material choices', () => {
+    const bundle = buildCompositionCandidates(input(source))
+    const theme = question(bundle, 'theme')
+    const binding = bundle.blockLayout!.blocks[0]!
+    const materials = question(bundle, `${binding.reference.id}:component-set`)
+
+    for (const candidate of theme.options) {
+      const description = candidate.description as Record<string, unknown>
+      const metadata = description.theme as Record<string, unknown>
+      expect(description.purpose).toContain('global color')
+      expect(description.purpose).toContain('independently')
+      expect(metadata).not.toHaveProperty('componentSet')
+      expect(JSON.stringify(description).toLowerCase()).not.toContain('current theme')
+    }
+
+    const schemas = materials.options.map(candidate => Object.keys(candidate.description as Record<string, unknown>).sort())
+    expect(schemas).toEqual(schemas.map(() => schemas[0]))
+    expect(materials.options.map(candidate => (candidate.description as { material: { id: string } }).material.id))
+      .toEqual(['native', 'soft-relief', 'clear-glass', 'mechanical-outline'])
+    for (const candidate of materials.options) {
+      const description = candidate.description as Record<string, unknown>
+      expect(description).toMatchObject({
+        purpose: expect.stringContaining('ThemeCard'),
+        visualCharacteristics: expect.any(String),
+        appropriateWhen: expect.any(String),
+        benefits: expect.any(String),
+        tradeoff: expect.any(String),
+      })
+      expect(JSON.stringify(description).toLowerCase()).not.toContain('default recommendation')
+    }
+
+    for (const candidate of theme.options) {
+      const selection = validateCompositionChoices(bundle, { ...bundle.defaultAnswers, theme: candidate.id })
+      expect(selection.themeId).toBe(candidate.id)
+    }
+    for (const candidate of materials.options) {
+      const selection = validateCompositionChoices(bundle, { ...bundle.defaultAnswers, [`${binding.reference.id}:component-set`]: candidate.id })
+      expect(selection.blockLayout?.blocks.find(block => block.id === binding.reference.id)?.selection.componentSet).toBe(candidate.id)
+    }
+    const locked = buildCompositionCandidates(input(source, { styleMode: 'selected', selectedThemeId: 'uiverse-soft-relief' }))
+    const lockedBinding = locked.blockLayout!.blocks[0]!
+    expect(question(locked, `${lockedBinding.reference.id}:component-set`).options.map(candidate => candidate.id)).toEqual(['soft-relief'])
+  })
+
   it('derives concrete continuous-reading guidance from an imported continuous theme without forcing a root frame', () => {
     const bundle = buildCompositionCandidates(input(source, { themes: [...builtInThemes, paperFlow] }))
     const paper = option(bundle, 'theme', 'paper-flow')
@@ -115,9 +159,13 @@ describe('experimental adaptive design guidance', () => {
       sourceFidelity: expect.stringContaining('Hard constraint'),
       criteria: expect.arrayContaining(['content fit', 'readability', 'scannability', 'navigation', 'explicit source relationships', 'proportionate density', 'interaction cost']),
       comparison: expect.stringContaining('concrete reading or inspection need'),
+      visualOrganization: expect.stringContaining('group existing source fields'),
       decorativeOnlyChange: expect.stringContaining('concrete'),
       prohibitedBiases: expect.arrayContaining([expect.stringContaining('novelty'), expect.stringContaining('native')]),
     })
+    expect(rubric.sourceFidelity).toEqual(expect.stringContaining('semantic step or time order'))
+    expect(rubric.contentBoundary).toEqual(expect.stringContaining('no registered adapter provides a source summary'))
+    expect(rubric.contentBoundary).not.toEqual(expect.stringContaining('Do not add, omit, summarize, reorder'))
     for (const prompt of [presentation, material]) {
       expect(prompt.designRubricRef).toBe('composition.designRubric')
       expect(prompt.sourceScope).toMatchObject({ blockId: binding.reference.id, kind: binding.reference.kind, path: binding.reference.path })
@@ -138,7 +186,8 @@ describe('experimental adaptive design guidance', () => {
       })
     }
 
-    expect(BLOCK_PRESENTATION_IDS).toHaveLength(39)
+    expect(BLOCK_PRESENTATION_IDS).toEqual(expect.arrayContaining(['source-list-grid', 'source-label-table']))
+    expect(BLOCK_PRESENTATION_IDS).toHaveLength(41)
     for (const id of BLOCK_PRESENTATION_IDS) {
       const guidance = presentationGuidance(id)
       expect(guidance.purpose.length).toBeGreaterThan(30)
@@ -149,6 +198,10 @@ describe('experimental adaptive design guidance', () => {
     const cards = option(bundle, `${binding.reference.id}:presentation`, 'cards')
     const disclosure = option(bundle, `${binding.reference.id}:presentation`, 'disclosure')
     expect(cards).toMatchObject({ contentFit: expect.any(String), tradeoff: expect.stringContaining('does not split') })
-    expect(disclosure).toMatchObject({ contentFit: expect.any(String), tradeoff: expect.stringContaining('Collapsed') })
+    expect(disclosure).toMatchObject({
+      purpose: expect.stringContaining('starts fully expanded'),
+      contentFit: expect.stringContaining('collapse it after inspection'),
+      tradeoff: expect.stringContaining('user-initiated collapse'),
+    })
   })
 })

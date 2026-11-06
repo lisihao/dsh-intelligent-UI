@@ -76,28 +76,28 @@ const knownThemeGuidance: Readonly<Record<string, ThemeGuidance>> = {
 
 const materialGuidance: Readonly<Record<string, ThemeGuidance>> = {
   native: {
-    visualCharacteristics: 'Uses the host-native controls and card surfaces without an additional component adapter.',
-    contentFit: 'Fits continuous reading, familiar controls, and source where the existing host hierarchy already makes sections clear.',
-    benefits: 'Keeps interaction patterns familiar and avoids adding visual layers that do not help the exact block.',
-    limitations: 'May provide less visual separation when a real supported card or control group needs stronger local boundaries.',
+    visualCharacteristics: 'Keeps every compiled source block in its ThemeCard ownership surface and relies on the host-native border, grouping, depth, and contrast treatment rather than adding a material adapter.',
+    contentFit: 'Fits any compiled source block, including prose, tables, flows, code, and records, when the host surface already makes the block boundary and reading order clear.',
+    benefits: 'Preserves the host’s familiar contrast and grouping cues while keeping the exact block available as one readable unit.',
+    limitations: 'It adds no material-specific border or depth cue, so adjacent bounded blocks can be less visually distinct when their source structure needs stronger local separation.',
   },
   'soft-relief': {
-    visualCharacteristics: 'Uses soft-relief adapted cards and controls with rounded, low-contrast depth.',
-    contentFit: 'Fits supported local controls or cards that benefit from gentle grouping without turning prose into separate summaries.',
-    benefits: 'Adds a restrained containment cue around actual component consumers.',
-    limitations: 'Low-contrast relief may be less effective for dense numerical scanning or many adjacent controls.',
+    visualCharacteristics: 'Applies the registered soft-relief ThemeCard surface to the complete block: a one-pixel boundary, rounded grouping, and paired light/dark shadows create low-contrast depth.',
+    contentFit: 'Fits prose, tables, flows, code, or records when gentle containment helps separate one complete source block from nearby blocks without changing its contents.',
+    benefits: 'Adds a visible local grouping cue and tactile depth around the existing block while leaving its source structure intact.',
+    limitations: 'The soft border and low-contrast depth can make dense numeric rows or many neighboring surfaces slower to scan than a higher-contrast treatment.',
   },
   'clear-glass': {
-    visualCharacteristics: 'Uses clear-glass adapted cards and controls with layered translucent-looking depth and blur.',
-    contentFit: 'Fits a small number of supported controls or overview cards where local layers clarify the active region.',
-    benefits: 'Can distinguish real interactive surfaces without changing source order or meaning.',
-    limitations: 'Additional visual layering can increase reading effort when the block is primarily dense text or data.',
+    visualCharacteristics: 'Applies the registered clear-glass ThemeCard surface to the complete block: a one-pixel border, translucent card layer, blur, and shadow create stronger layered depth.',
+    contentFit: 'Fits prose, tables, flows, code, or records when a layered block boundary helps distinguish a discrete source region from its surrounding document.',
+    benefits: 'Provides clear local grouping and depth without changing source fields, semantic order, or the renderer’s source retention.',
+    limitations: 'Transparency, blur, and shadow add visual layering and can reduce immediate contrast or increase reading effort for dense prose and numerical comparison.',
   },
   'mechanical-outline': {
-    visualCharacteristics: 'Uses mechanical-outline adapted cards and controls with crisp borders and compact corners.',
-    contentFit: 'Fits supported technical controls, concise record fields, and task-oriented surfaces where explicit boundaries aid scanning.',
-    benefits: 'Makes actionable controls and discrete fields easy to locate.',
-    limitations: 'The strong boundary treatment can add visual weight where uninterrupted prose is the main task.',
+    visualCharacteristics: 'Applies the registered mechanical-outline ThemeCard surface to the complete block: a high-contrast multi-pixel border and offset shadow give the block a pronounced structural edge.',
+    contentFit: 'Fits prose, tables, flows, code, or records when an explicit high-contrast boundary helps readers distinguish a technical or task-oriented source block.',
+    benefits: 'Makes the complete block boundary and internal grouping easy to locate during scanning without inventing fields or relationships.',
+    limitations: 'The strong border and offset depth add visual weight and can compete with uninterrupted prose or tightly packed data when a quieter surface is sufficient.',
   },
 }
 
@@ -136,12 +136,11 @@ function fallbackThemeGuidance(theme: ThemePackage): ThemeGuidance {
  */
 export function themeCandidateGuidance(theme: ThemePackage): CandidateDesignGuidance {
   const guidance = knownThemeGuidance[theme.id] ?? fallbackThemeGuidance(theme)
-  const componentSet = theme.formatVersion === 2 ? theme.componentSet : 'native'
   const presentation = theme.formatVersion === 3 ? theme.presentation : 'standard'
   const asciiRenderer = theme.formatVersion === 3 ? theme.asciiRenderer ?? null : null
   const declaredDescription = theme.id === 'empryo' ? null : normalizeThemeText(theme.description)
   return {
-    purpose: 'Apply this installed theme consistently across the complete document without changing the source.',
+    purpose: 'Apply this installed theme’s global color, typeface, spacing, and surface tokens across the complete document without changing the source. Each compiler-owned block chooses its material independently through its local component-set options.',
     appropriateWhen: guidance.contentFit,
     tradeoff: guidance.limitations,
     visualCharacteristics: guidance.visualCharacteristics,
@@ -158,7 +157,6 @@ export function themeCandidateGuidance(theme: ThemePackage): CandidateDesignGuid
       formatVersion: theme.formatVersion,
       presentation,
       asciiRenderer,
-      componentSet,
       appearance: {
         backgroundColor: theme.appearance.backgroundColor,
         translucent: theme.appearance.translucent,
@@ -202,7 +200,7 @@ export function componentSetCandidateGuidance(componentSet: string): CandidateDe
     }
   }
   return {
-    purpose: 'Apply this executable component treatment only where the exact block has a real card or control consumer.',
+    purpose: 'Apply this executable material to the ThemeCard surface that already wraps the complete compiler-owned block; it is independently selected from the document’s global color and typeface theme.',
     appropriateWhen: guidance.contentFit,
     tradeoff: guidance.limitations,
     visualCharacteristics: guidance.visualCharacteristics,
@@ -214,12 +212,13 @@ export function componentSetCandidateGuidance(componentSet: string): CandidateDe
 /** A neutral evaluation schema shared by every experimental decision prompt. */
 export function neutralDesignRubric(): Json {
   return {
-    sourceFidelity: 'Hard constraint: preserve source facts, values, units, qualifications, links, code, execution state, order, and explicit uncertainty.',
+    sourceFidelity: 'Hard constraint: preserve source facts, values, units, qualifications, links, code, execution state, explicit uncertainty, and any semantic step or time order. Keep the full original source accessible once.',
     criteria: ['content fit', 'readability', 'scannability', 'navigation', 'explicit source relationships', 'proportionate density', 'interaction cost'],
     comparison: 'Compare listed candidates against the concrete reading or inspection need of the exact source scope and its attached evidence.',
-    decorativeOnlyChange: 'Allow a decorative-only change only when it gives a concrete reading, inspection, navigation, or interaction benefit for that scope.',
+    visualOrganization: 'A registered source-bound view may group existing source fields, use a responsive layout, project validated values into graph geometry or numerical scale, and add UI labels that make no factual claim.',
+    decorativeOnlyChange: 'A decorative material can be selected when its stated border, grouping, depth, or contrast gives a concrete reading or interaction benefit proportionate to its cost for that scope.',
     prohibitedBiases: ['Do not reward novelty or visual diversity.', 'Do not prefer native or any other material merely because it is native or available.', 'Do not use quotas, score manipulation, or a lexical rule to choose a style.'],
-    contentBoundary: 'Do not add, omit, summarize, reorder, or change source content, relationships, or claims.',
+    contentBoundary: 'Do not invent factual claims, values, relationships, summaries, or unsupported adapters. A registered view may reorganize its marks and controls only according to its explicit source mapping; no registered adapter provides a source summary.',
   }
 }
 
@@ -235,9 +234,9 @@ const blockPresentationGuidance: Readonly<Record<BlockPresentationId, BlockPrese
     tradeoff: 'It does not split the block into new cards, summaries, or records; added framing may not help already dense content.',
   },
   disclosure: {
-    purpose: 'Keep the complete source block available through a real expandable and collapsible disclosure.',
-    contentFit: 'Fits secondary detail that readers may need to inspect on demand while the surrounding document remains easier to scan.',
-    tradeoff: 'Collapsed detail has an interaction cost and can hide information until expanded; it does not delete, summarize, or rewrite the source.',
+    purpose: 'Keep the complete source block in a real expandable and collapsible disclosure that starts fully expanded.',
+    contentFit: 'Fits a complete block whose reader may choose to collapse it after inspection when reducing occupied page space is useful.',
+    tradeoff: 'Collapsed detail is never the initial state: the complete block starts expanded, and only a user-initiated collapse saves page space. It adds a control but does not split, summarize, delete, or rewrite the source.',
   },
   table: {
     purpose: 'Show the complete source table with its existing rows, columns, values, and qualifications.',
@@ -258,6 +257,16 @@ const blockPresentationGuidance: Readonly<Record<BlockPresentationId, BlockPrese
     purpose: 'Show source-provided relationships or an explicitly framed ordered workflow as a read-only flow.',
     contentFit: 'Fits source whose explicit sequence, graph edges, or stated workflow is easier to follow spatially than as a list.',
     tradeoff: 'It never adds dependencies, causality, missing steps, or a process that the source did not state.',
+  },
+  'source-list-grid': {
+    purpose: 'Arrange the complete items of one eligible source list in the registered list-grid adapter.',
+    contentFit: 'Fits a direct source-owned unordered list when its existing sibling items can be scanned as parallel items without inventing a rank, sequence, or summary.',
+    tradeoff: 'The explicit block-local item mapping remains authoritative; responsive regrouping can change visual placement, but the full original list remains available once and no item gains a factual label that its source did not provide.',
+  },
+  'source-label-table': {
+    purpose: 'Arrange an eligible source list with explicit bold labels in the registered label-table adapter.',
+    contentFit: 'Fits direct source-owned list items that each provide one explicit label and detail, so readers can inspect the supplied label-to-detail pairs more quickly.',
+    tradeoff: 'It uses only the mapped explicit labels and details; responsive rows can change visual placement, but it does not infer fields, summarize prose, or remove the full original list.',
   },
   'chart-openui': {
     purpose: 'Render the locally validated source chart through the OpenUI adapter.',

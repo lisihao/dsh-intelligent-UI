@@ -17,6 +17,7 @@ await build({
   entryPoints: {
     host: 'src/adaptive-ui/host.ts',
     planner: 'src/adaptive-ui/planner.ts',
+    themeContracts: 'src/theme-contracts.ts',
   },
   outdir: runtimeDirectory,
   bundle: true,
@@ -28,6 +29,7 @@ await build({
 
 const { AdaptiveCompositionCoordinator } = await import(pathToFileURL(join(runtimeDirectory, 'host.js')).href)
 const { buildCompositionCandidates, validateCompositionChoices } = await import(pathToFileURL(join(runtimeDirectory, 'planner.js')).href)
+const { builtInThemes } = await import(pathToFileURL(join(runtimeDirectory, 'themeContracts.js')).href)
 const elkWorkerSource = await readFile(resolve(root, 'node_modules/elkjs/lib/elk-worker.min.js'), 'utf8')
 const browserBundle = await build({
   absWorkingDir: root,
@@ -59,6 +61,14 @@ const fixtureDocuments = new Map([
   ['synthetic-comparison-records', { scenario: 'comparison-records', kind: 'records' }],
   ['synthetic-cited-report-index', { scenario: 'cited-report-index', kind: 'markdown' }],
   ['synthetic-mixed-block-layout', { scenario: 'mixed-block-layout', kind: 'markdown', blockLayout: true }],
+  ['synthetic-source-organization-grid', {
+    scenario: 'source-organization-grid', kind: 'markdown', blockLayout: true,
+    organizationPresentation: 'source-list-grid', organizationTheme: 'uiverse-clear-glass', organizationComponentSet: 'clear-glass',
+  }],
+  ['synthetic-source-organization-label-table', {
+    scenario: 'source-organization-label-table', kind: 'markdown', blockLayout: true,
+    organizationPresentation: 'source-label-table', organizationTheme: 'uiverse-mechanical-outline', organizationComponentSet: 'mechanical-outline',
+  }],
 ])
 
 const scenarioChoices = {
@@ -178,16 +188,95 @@ function mixedAnswers(request, bundle) {
   if (!['chart', 'board', 'flow'].every(role => seenRoles.has(role))) throw new Error('SYNTHETIC_BLOCK_QUESTION_ROLE_MISSING')
   return answers
 }
+function organizationFixture(fixture) {
+  if (typeof fixture?.organizationPresentation !== 'string'
+    || typeof fixture.organizationTheme !== 'string'
+    || typeof fixture.organizationComponentSet !== 'string') return undefined
+  return {
+    presentation: fixture.organizationPresentation,
+    theme: fixture.organizationTheme,
+    componentSet: fixture.organizationComponentSet,
+  }
+}
+function organizationAnswers(request, bundle, fixture) {
+  const organization = organizationFixture(fixture)
+  if (!organization) throw new Error('SYNTHETIC_ORGANIZATION_FIXTURE_INVALID')
+  const answers = { ...bundle.defaultAnswers }
+  let organizationPresentationQuestions = 0
+  for (const question of request.questions) {
+    if (!Array.isArray(question.options) || question.options.length < 2) throw new Error('SYNTHETIC_DECISIONS_REQUIRES_TWO_CHOICES')
+    const field = questionField(question)
+    const block = blockBindingForQuestion(question, bundle)
+    let desired
+    if (block) {
+      if (field === 'presentation') {
+        const hasOrganizationPresentation = question.options.some(option => option.id === organization.presentation)
+        desired = hasOrganizationPresentation ? organization.presentation : 'reading'
+        if (hasOrganizationPresentation) organizationPresentationQuestions++
+      } else if (field === 'component-set') {
+        desired = organization.componentSet
+      }
+    } else if (field === 'theme') {
+      desired = organization.theme
+    } else if (field === 'surface') {
+      desired = 'semantic'
+    } else if (field === 'layout') {
+      desired = 'document'
+    } else if (field === 'inspection') {
+      desired = 'none'
+    }
+    if (desired === undefined) throw new Error(`SYNTHETIC_UNEXPECTED_ORGANIZATION_QUESTION_${question.id}`)
+    answers[question.id] = requiredOption(question, desired, `organization_${field ?? 'unknown'}`)
+  }
+  if (organizationPresentationQuestions !== 1) throw new Error(`SYNTHETIC_ORGANIZATION_PRESENTATION_COUNT_${organizationPresentationQuestions}`)
+  return answers
+}
+function validateOrganizationSelection(request, bundle, selection, fixture) {
+  const organization = organizationFixture(fixture)
+  if (!organization) throw new Error('SYNTHETIC_ORGANIZATION_FIXTURE_INVALID')
+  const selectedBlocks = selection.blockLayout?.blocks ?? []
+  const candidates = blockReferences(bundle)
+  const candidateById = new Map(candidates.map(block => [block.id, block]))
+  if (selection.blockLayout?.version !== 1 || selection.blockLayout.inspection !== 'none' || selectedBlocks.length !== candidates.length) throw new Error('SYNTHETIC_ORGANIZATION_SELECTION_INVALID')
+  const organizationBlocks = []
+  const selectedIds = new Set()
+  for (const block of selectedBlocks) {
+    const candidate = candidateById.get(block.id)
+    if (!candidate || JSON.stringify(candidate.path) !== JSON.stringify(block.path) || candidate.start !== block.start || candidate.end !== block.end || candidate.kind !== block.kind) throw new Error(`SYNTHETIC_ORGANIZATION_REFERENCE_INVALID_${block.id}`)
+    if (!Array.isArray(block.evidence) || block.evidence.length === 0) throw new Error(`SYNTHETIC_ORGANIZATION_EVIDENCE_MISSING_${block.id}`)
+    if (selectedIds.has(block.id)) throw new Error(`SYNTHETIC_ORGANIZATION_SELECTION_DUPLICATE_${block.id}`)
+    selectedIds.add(block.id)
+    if (block.presentation === organization.presentation) organizationBlocks.push(block)
+  }
+  if (selection.themeId !== organization.theme) throw new Error(`SYNTHETIC_ORGANIZATION_THEME_INVALID_${selection.themeId ?? 'missing'}`)
+  if (organizationBlocks.length !== 1) throw new Error(`SYNTHETIC_ORGANIZATION_SELECTED_PRESENTATION_COUNT_${organizationBlocks.length}`)
+  const organizationBlock = organizationBlocks[0]
+  if (organizationBlock.selection?.componentSet !== organization.componentSet) throw new Error(`SYNTHETIC_ORGANIZATION_COMPONENT_SET_INVALID_${organizationBlock.selection?.componentSet ?? 'missing'}`)
+  if (organizationBlock.selection?.themeId !== organization.theme) throw new Error(`SYNTHETIC_ORGANIZATION_BLOCK_THEME_INVALID_${organizationBlock.selection?.themeId ?? 'missing'}`)
+  if (!organizationBlock.evidence.includes('source:unordered-list')) throw new Error('SYNTHETIC_ORGANIZATION_SOURCE_EVIDENCE_MISSING')
+  const presentationQuestions = request.questions.filter(question => {
+    const block = blockBindingForQuestion(question, bundle)
+    return block && questionField(question) === 'presentation' && question.options.some(option => option.id === organization.presentation)
+  })
+  if (presentationQuestions.length !== 1) throw new Error(`SYNTHETIC_ORGANIZATION_OPTION_COUNT_${presentationQuestions.length}`)
+}
 function plannerBundleFromRequest(request) {
   const state = asRecord(request.state, 'SYNTHETIC_REQUEST_STATE_INVALID')
   const source = asRecord(state.source, 'SYNTHETIC_REQUEST_SOURCE_INVALID')
   const composition = asRecord(state.composition, 'SYNTHETIC_REQUEST_COMPOSITION_INVALID')
   const fixture = fixtureDocuments.get(source.documentId)
+  const experimentalProjection = fixture?.blockLayout === true
+  if (experimentalProjection && composition.inputFormat !== 'block-design-context@2') throw new Error('SYNTHETIC_BLOCK_CONTEXT_FORMAT_INVALID')
+  if (experimentalProjection && composition.styleMode !== blockLayoutServerSettings.adaptive.styleMode) throw new Error('SYNTHETIC_BLOCK_CONTEXT_STYLE_MODE_INVALID')
   const rebuilt = buildCompositionCandidates({
     value: source.value,
-    themes: composition.themes,
-    selectedThemeId: composition.selectedThemeId,
-    styleMode: composition.styleMode,
+    // The experimental projection intentionally excludes the current theme
+    // catalog. This local oracle uses the exact fixed server catalog only to
+    // rebuild and compare the real request questions; it never returns it to
+    // the synthetic decision endpoint.
+    themes: experimentalProjection ? builtInThemes : composition.themes,
+    selectedThemeId: experimentalProjection ? blockLayoutServerSettings.theme.activeId : composition.selectedThemeId,
+    styleMode: experimentalProjection ? blockLayoutServerSettings.adaptive.styleMode : composition.styleMode,
     capabilities: composition.capabilities,
     isStreaming: composition.isStreaming,
     ...(fixture?.blockLayout === true ? { blockLayout: true } : {}),
@@ -258,7 +347,9 @@ class SyntheticJevPort {
     const bundle = plannerBundleFromRequest(request)
     if (fixture.blockLayout === true && (decisionCallsByDocument.get(documentId) ?? 0) > 0) throw new Error('SYNTHETIC_BLOCK_DECISION_CALL_DUPLICATE')
     const preferred = scenarioChoices[fixture.scenario]
-    const answers = fixture.blockLayout === true ? mixedAnswers(request, bundle) : { ...bundle.defaultAnswers }
+    const answers = fixture.blockLayout === true
+      ? organizationFixture(fixture) ? organizationAnswers(request, bundle, fixture) : mixedAnswers(request, bundle)
+      : { ...bundle.defaultAnswers }
     for (const question of request.questions) {
       if (question.options.length < 2) throw new Error('SYNTHETIC_DECISIONS_REQUIRES_TWO_CHOICES')
       const desired = fixture.blockLayout === true ? answers[question.id] : preferred[question.id]
@@ -267,7 +358,10 @@ class SyntheticJevPort {
       answers[question.id] = option
     }
     const selection = validateCompositionChoices(bundle, answers)
-    if (fixture.blockLayout === true) {
+    if (fixture.blockLayout === true && organizationFixture(fixture)) {
+      validateOrganizationSelection(request, bundle, selection, fixture)
+      decisionCallsByDocument.set(documentId, (decisionCallsByDocument.get(documentId) ?? 0) + 1)
+    } else if (fixture.blockLayout === true) {
       const selectedBlocks = selection.blockLayout?.blocks ?? []
       const candidates = blockReferences(bundle)
       const candidateById = new Map(candidates.map(block => [block.id, block]))

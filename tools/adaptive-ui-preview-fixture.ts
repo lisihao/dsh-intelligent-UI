@@ -160,6 +160,22 @@ const presentation = 'source-bound'
 [mixed-source]: https://sources.example.invalid/mixed-source "固定本地来源"
 [^mixed-note]: 固定本地脚注；该脚注不请求外部网络。`
 
+// Fixed public fixture only: it gives the real block compiler an ordinary
+// labelled source list without claiming that any Jev service or external URL
+// was contacted. The two scenarios below intentionally reuse this exact
+// source while selecting different registered source-preserving recipes.
+const sourceOrganizationFixtureSource = `# 公开条目组织验收
+
+这是固定公开夹具，用于验证来源中的明确标签、限定语、链接、脚注和代码在不同来源组织呈现中仍可回溯。它不构成真实 Jev5、模型、付费调用、外部服务或生产效果证据。[公开范围说明](https://sources.example.invalid/public-source-organization)[^organization-note]
+
+- **适用范围：** 只组织同级、非任务的无序条目；原始顺序来自来源，不能推出优先级、因果或执行顺序。
+- **核对材料：** [公开资料链接](https://sources.example.invalid/public-jev5-reference)只作为来源文本保留；此夹具不读取该 URL、不使用凭据，也不调用模型。
+- **代码边界：** \`const route = 'fixture-only'\` 是来源中的代码；它不是连接配置，也不表示已执行。
+- **限制条件：** 本地选择只证明候选、指定配方和已挂载 DOM；不能证明真实模型质量、外部服务效果或生产使用。
+
+[organization-reference]: https://sources.example.invalid/public-source-organization "固定公开夹具引用"
+[^organization-note]: 该脚注保留来源限定；测试不会抓取链接、创建真实会话或产生付费调用。`
+
 const scenarios = [
   { id: 'board-soft', label: '相同任务源：柔和浮雕看板', documentId: 'synthetic-task-board-soft', value: taskSource },
   { id: 'table-mechanical', label: '相同任务源：机械描边原表', documentId: 'synthetic-task-table-mechanical', value: taskSource },
@@ -171,6 +187,8 @@ const scenarios = [
   { id: 'comparison-records', label: '方案比较记录：Clear glass 详情', documentId: 'synthetic-comparison-records', value: comparisonRecordsSource },
   { id: 'cited-report-index', label: '多节有引文报告：章节目录', documentId: 'synthetic-cited-report-index', value: citedReportSource },
   { id: 'mixed-block-layout', label: '混合区块：图表、看板与流程并存', documentId: 'synthetic-mixed-block-layout', value: mixedBlockLayoutSource, blockLayout: true },
+  { id: 'source-organization-grid', label: '同一公开条目源：Clear glass 网格', documentId: 'synthetic-source-organization-grid', value: sourceOrganizationFixtureSource, blockLayout: true },
+  { id: 'source-organization-label-table', label: '同一公开条目源：机械描边标签详情', documentId: 'synthetic-source-organization-label-table', value: sourceOrganizationFixtureSource, blockLayout: true },
 ] as const
 
 type Scenario = typeof scenarios[number]
