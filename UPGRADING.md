@@ -152,3 +152,30 @@ The new settings section is registered and disposed through owned slots. The rev
 ### Settings connection recovery
 
 The client settings store clears a read error after a successful read or acknowledged save, and ignores responses from reads superseded by a newer read or save. Header transparency distinguishes unavailable settings reads from an unacknowledged write; a later successful read must not hide a failed write or retry it. Verify transient read recovery, overlapping reads, delayed failures after saves, preserved preferences and visible write failures with the appearance-client tests and the installed header. No durable format, credentials or host networking is changed.
+
+
+### Unified session collaboration header (rc.2 adapter)
+
+`collaboration-entry.ts` consumes published session selector hooks and the
+`agentTeam`, `subagentCatalog`, `subagentTiming` and version-1
+`solar-pstack-status` projections. `collaboration-model.ts` adapts only observed
+fields into the owned `collaboration-view.ts`; no official component source or
+original pstack implementation is copied. Navigation uses public
+`uiWorkspace.openSession` with the exact catalog mode, and checks the originating
+session still owns the main-view retain. A child session's direct parent is the
+Team lead, matching the published rc.2 Team UI. No model-facing rules, model
+choice, reasoning effort, session events or task database change.
+
+`collaboration-header-policy.ts` uses the published slot registry's list-cell
+priority shadowing: priority -100 on `agent-team`, `subagent-catalog`,
+`solar-pstack-status`, `cost-meter-statistics` and `agy-link-status`, only in
+`conversation.session.header.actions`. It does not dispose another plugin's
+registration or modify installed source. The owned Collaboration entry and the
+overrides share the plugin lifetime; unload restores the original winners.
+The composer cost entry and AGY subscription settings are separate slots.
+These IDs are observed in rc.2, cost-meter 1.9.11, AGY Link 0.4.94 and the reviewed
+pstack companion panel. On upgrades, recheck exact IDs, projection payloads,
+read-only versus continuable navigation, pending/unknown results, cross-session
+isolation, disable/re-enable, Markdown/source fidelity, native popover layering,
+keyboard interaction and normal/narrow viewport geometry. Source and keyless
+fixtures do not by themselves prove installed-App acceptance.
