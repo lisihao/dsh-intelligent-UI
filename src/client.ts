@@ -39,13 +39,22 @@ import type { IntelligentUiClient } from './public-api.js'
 import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
 import { installShellLayoutStyles } from './shell-layout-style.js'
+import { CollaborationEntry } from './collaboration-entry.js'
+export { CollaborationEntry } from './collaboration-entry.js'
+import { installCollaborationHeaderPolicy } from './collaboration-header-policy.js'
+import { installCollaborationStyles } from './collaboration-style.js'
+export { collaborationCss } from './collaboration-style.js'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { CollaborationTarget } from './collaboration-contracts.js'
+
 import { installAsciiVisualTheme } from './ascii-visual-theme.js'
 import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contracts.js'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
 
 export const name = 'intelligent-experience-platform'
-export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme', 'locale']
+export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme', 'locale', 'uiWorkspace']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
 type PreviewApi = Pick<DataBrowserApi,'localFiles'> & InsightPreviewApi
 type ClientApi = ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
@@ -334,6 +343,13 @@ export function apply(ctx: Context): void {
   ctx.effect(() => () => { displayModes.clear(); researchModes.clear() }, 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
   ctx.effect(() => installShellLayoutStyles(), 'intelligent-experience: shell layout')
+  ctx.effect(() => installCollaborationStyles(), 'intelligent-experience: collaboration styles')
+  ctx.effect(() => ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({ name: 'conversation.session.header.actions', id: 'solar-collaboration', order: -100 }, (props: PropsRuntime<'conversation.session.header.actions'>) => h(CollaborationEntry, { ...props, key: props.sessionId, DocumentView: ScopedDocumentView, connectionState: (ctx.get('connection') as unknown as ConnectionHandle).state, onOpen: (target: CollaborationTarget) => {
+    if ((sessionContext.sessions.retainInfo(props.sessionId).getSnapshot().retainedBy.mainView ?? 0) === 0) throw Error('当前主视图已切换，请重新打开协作面板。')
+    if ('sessionId' in target) ctx.uiWorkspace.openSession(target.sessionId as SessionId)
+    else ctx.uiWorkspace.openSession({ ...target, parentSessionId: target.parentSessionId as SessionId, childSessionId: target.childSessionId as SessionId })
+  } }))), 'intelligent-experience: collaboration panel')
+  installCollaborationHeaderPolicy(ctx)
   ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
   const store = new ExperienceStore()

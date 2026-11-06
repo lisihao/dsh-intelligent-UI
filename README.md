@@ -6,6 +6,24 @@ The historical package name **`@lisihao/dsh-solar-intelligent-experience-platfor
 
 **内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
 
+## Unified conversation collaboration panel
+
+The current candidate replaces the separate Agent Team, child-session catalog
+and pstack header controls with one **协作** entry. **团队** shows the lead's
+members and shared tasks; **子任务** shows the current session's child sessions
+and observed pstack role tasks/results. Normal navigation preserves each child's
+original address and mode. Missing projections and disconnected records are
+explicit; inactive does not mean completed, and supplied pstack rules do not
+prove a tool was called. The panel never creates, resumes or resends a task.
+
+Only the redundant header cost-details and AGY status entries are shadowed.
+Composer cost details and all subscription/provider settings remain owned by
+their original plugins. The presentation follows the active Intelligent UI theme
+and preserves full result source alongside Markdown reading. Disabling this
+plugin removes its overrides and restores the original header entries. This is
+a local development candidate; installation and native acceptance are recorded
+separately from source and synthetic browser checks.
+
 ## Built-in component intelligence
 
 Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.
