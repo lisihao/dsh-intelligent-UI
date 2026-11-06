@@ -19,9 +19,11 @@ import { join } from 'node:path'
 import { z as schema } from 'zod'
 import { ExperienceStore } from './store.js'
 import { ExperienceControl } from './control.js'
-import { artifactSchema } from './contracts.js'
+import { DIL_PROTOCOL, artifactSchema, dilSourceSchema } from './contracts.js'
 import { LOCAL_IMPORT_PROVIDER } from './file-library-contracts.js'
 import { McpHost } from './mcp-host.js'
+import { dilAuthoringGuide } from './dil/catalog.js'
+import { installDilAuthoringPrompt, installDilHost } from './dil/host.js'
 
 export { UiComponentsControl } from './uiverse/host.js'
 export { ResearchControl } from './research-host.js'
@@ -37,7 +39,12 @@ export const Config: z<Config> = z.object({
   maxArtifactsPerSession: z.number().min(1).max(10000).default(500),
   mcpEndpoint: z.string().default(''),
 })
-const presentationInput = schema.strictObject({ protocol: schema.enum(['content', 'openui']), label: schema.string().min(1).max(300), payload: schema.json() })
+const presentationInput = schema.union([
+  schema.strictObject({ protocol: schema.literal('content'), label: schema.string().min(1).max(300), payload: schema.json() }),
+  schema.strictObject({ protocol: schema.literal('openui'), label: schema.string().min(1).max(300), payload: schema.json() }),
+  schema.strictObject({ protocol: schema.literal(DIL_PROTOCOL), label: schema.string().min(1).max(300), payload: dilSourceSchema }),
+])
+const catalogInput = schema.strictObject({ format: schema.enum(['openui', DIL_PROTOCOL]).optional() })
 
 function renderedToolText(content: readonly unknown[]): string {
   return content.flatMap(block => {
@@ -86,10 +93,12 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   ctx.effect(()=>()=>adaptive.dispose(), 'intelligent-experience: adaptive decisions')
   // Jev is an optional peer; no UI dependency starts or enables its other consumers.
   ctx.inject(['jev' as never], child => child.effect(()=>adaptive.attachJev(child.get('jev' as never) as unknown as JevCompositionPort),'intelligent-experience: Jev composition consumer'))
-  const control = new ExperienceControl(ctx, store, mcp, adaptive)
+  const dil = installDilHost(ctx, { store, maxArtifactBytes: config.maxArtifactBytes, settings: () => store.settings() })
+  const control = new ExperienceControl(ctx, store, mcp, adaptive, dil)
   if (current.takeover && current.mcpApps && config.mcpEndpoint) void control.activateMcp()
   ctx.effect(() => store.subscribe(settings => { current = settings; if (!settings.takeover || !settings.mcpApps) void mcp.closeAll().catch(error => ctx.logger('solar-experience').warn('%s', error)) }))
   ctx.effect(() => () => mcp.dispose())
+  installDilAuthoringPrompt(ctx, () => current)
   for (const [id, protocol] of [['openui', 'openui'], ['content', 'content'], [LOCAL_IMPORT_PROVIDER, 'content'], ['mcp-app', 'mcp-app']] as const) {
     ctx.effect(() => control.registry.register({ id, version: '1', capabilities: [protocol] }, value => value))
   }
@@ -118,7 +127,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   })
   ctx.effect(() => () => { active = false; return Promise.allSettled([...pending]).then(() => undefined) })
   ctx.tools.register({
-    name: 'solar_present', description: '保存并在当前会话呈现内容页面。protocol=content 接收普通文本或结构化 JSON；protocol=openui 接收 OpenUI Lang 文本。保留原始输入，不调用额外模型。',
+    name: 'solar_present', description: '保存并在当前会话呈现内容页面。protocol=content 接收普通文本或结构化 JSON；protocol=openui 接收 OpenUI Lang 文本；protocol=dil 仅接收 DIL 源码文本，由 Host 编译并保留原文。不调用额外模型。',
     // Zod carries a non-enumerable ~standard helper on its schema object.
     // The DSH boundary accepts only the JSON document, never helper functions.
     parameters: JSON.parse(JSON.stringify(schema.toJSONSchema(presentationInput))),
@@ -129,12 +138,21 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       if (!exec.agent) throw new Error('EXPERIENCE_SESSION_REQUIRED: 内容页面需要当前会话。')
       exec.signal.throwIfAborted()
       const value = presentationInput.parse(args)
+      const source = { sessionId: String(exec.agent.id), callId: String(exec.callId), kind: 'generated' as const, label: value.label }
+      if (value.protocol === DIL_PROTOCOL) return dil.publish({ source, sourceText: value.payload })
       if (value.protocol === 'openui' && typeof value.payload !== 'string') throw new Error('EXPERIENCE_OPENUI_TEXT_REQUIRED: OpenUI 内容必须是语言文本。')
-      return store.publish({ source: { sessionId: String(exec.agent.id), callId: String(exec.callId), kind: 'generated', label: value.label }, protocol: value.protocol, raw: value.payload, payload: value.payload, providerId: value.protocol === 'openui' ? 'openui' : 'content' })
+      return store.publish({ source, protocol: value.protocol, raw: value.payload, payload: value.payload, providerId: value.protocol === 'openui' ? 'openui' : 'content' })
     },
   })
-  ctx.tools.register({ name: 'solar_ui_catalog', description: '读取智能 UI 的完整能力目录、可用性和 OpenUI 语法；包含所有已安装风格、已编译组件、内容布局、图表和受约束视觉效果。开发归档与尚不可自动使用的目录项会明确标记。', parameters: {type: 'object', properties: {}, additionalProperties: false},
+  ctx.tools.register({ name: 'solar_ui_catalog', description: '读取智能 UI 的完整能力目录。默认返回 OpenUI 语法；format=dil 返回本地实际支持的 DIL 编写指南。开发归档与尚不可自动使用的目录项会明确标记。', parameters: JSON.parse(JSON.stringify(schema.toJSONSchema(catalogInput))),
     output: {schema: {type: 'object', properties: {prompt: {type: 'string'},capabilities:{type:'object',additionalProperties:true}}, required: ['prompt','capabilities']}, render: (_args, value) => [{type: 'text', text: (value as {prompt: string}).prompt+'\n\nAvailable intelligent UI capabilities (availability is explicit):\n'+JSON.stringify((value as {capabilities:unknown}).capabilities)}]},
-    async execute(_args, exec) {exec.signal.throwIfAborted(); const {openuiLibrary, openuiPromptOptions} = await import('@openuidev/react-ui/genui-lib'); const settings=await store.settings(); return {prompt: openuiLibrary.prompt(openuiPromptOptions),capabilities:getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])])}},
+    async execute(args, exec) {
+      exec.signal.throwIfAborted()
+      const input = catalogInput.parse(args === undefined ? {} : args)
+      if (input.format === DIL_PROTOCOL) return { prompt: dilAuthoringGuide, capabilities: { protocol: DIL_PROTOCOL, guide: JSON.parse(dilAuthoringGuide) } }
+      const {openuiLibrary, openuiPromptOptions} = await import('@openuidev/react-ui/genui-lib')
+      const settings=await store.settings()
+      return {prompt: openuiLibrary.prompt(openuiPromptOptions),capabilities:getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])])}
+    },
   })
 }

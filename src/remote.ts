@@ -1,7 +1,7 @@
 import {composeInputSchema,compositionResultSchema,compositionStatusSchema,compositionCancelInputSchema,compositionCancelResultSchema,compositionReceiptInputSchema,compositionReceiptResultSchema} from './adaptive-ui/contracts.js'
 import type { TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import { z } from 'zod'
-import { PACKAGE, SERVICE, artifactSchema, settingsSchema, saveSettingsSchema, publishSchema, widgetInputSchema, widgetStateSchema, saveWidgetStateSchema } from './contracts.js'
+import { PACKAGE, SERVICE, artifactSchema, settingsSchema, saveSettingsSchema, publishSchema, widgetInputSchema, widgetStateSchema, saveWidgetStateSchema, dilCompilePreviewInputSchema, dilCompilePreviewResultSchema, dilRuntimeInfoInputSchema, dilRuntimeInfoSchema } from './contracts.js'
 import { themeCatalogResultSchema, downloadThemeSchema } from './theme-source.js'
 import { installThemeSchema, removeThemeSchema } from './theme-contracts.js'
 import { insightPreviewSnapshotSchema } from './insight-preview-contracts.js'
@@ -27,6 +27,8 @@ const specs = [
   ['localFiles', undefined, z.array(artifactSchema)],
   ['insightPreview', sessionInputSchema, insightPreviewSnapshotSchema],
   ['publish', publishSchema, artifactSchema],
+  ['dilRuntimeInfo', dilRuntimeInfoInputSchema, dilRuntimeInfoSchema],
+  ['dilCompilePreview', dilCompilePreviewInputSchema, dilCompilePreviewResultSchema],
   ['widgetState', widgetInputSchema, widgetStateSchema],
   ['saveWidgetState', saveWidgetStateSchema, widgetStateSchema],
   ['mcpStatus', undefined, z.json()],

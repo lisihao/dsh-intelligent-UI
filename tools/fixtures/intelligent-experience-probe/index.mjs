@@ -84,10 +84,23 @@ async function waitForArtifacts(service, sessionId, timeoutMs = 10_000) {
   throw new Error(`Timed out waiting for persisted generated and readable assistant artifacts for Agent ${sessionId}; last observed ${JSON.stringify(artifacts.map(({ id, source, payload }) => ({ id, source, payloadType: typeof payload })))}`)
 }
 
+async function waitForRunnerClose(frameUrl, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs
+  do {
+    try {
+      const response = await fetch(frameUrl)
+      if (response.status !== 200) return true
+    } catch { return true }
+    await new Promise(resolve => setTimeout(resolve, 25))
+  } while (Date.now() < deadline)
+  return false
+}
+
 async function probe(ctx) {
-  const checks = { service: false, settingsOff: false, cas: false, settingsOn: false, toolRegistered: false, agentToolExecution: false, artifactRead: false, rawAndProvenance: false, settingsRestored: false, registry: false, durableMarker: false, disposed: false, researchService: false, researchAgentExecution: false, researchSourceBinding: false, researchHumanReview: false, researchDisposal: false }
+  const checks = { service: false, settingsOff: false, cas: false, settingsOn: false, toolRegistered: false, agentToolExecution: false, artifactRead: false, rawAndProvenance: false, settingsRestored: false, registry: false, durableMarker: false, disposed: false, researchService: false, researchAgentExecution: false, researchSourceBinding: false, researchHumanReview: false, researchDisposal: false, dilGate: false, dilCompilePreview: false, dilRuntimeInfo: false, dilStaticRunner: false, dilToolPersistence: false, dilWidgetState: false, dilRunnerClosed: false }
   let caught
   let evidenceArtifacts = []
+  let dilRunnerUrl
   try {
     const service = ctx.get(serviceName)
     assert(service && typeof service.settings === 'function' && typeof service.saveSettings === 'function', 'solarExperience settings service is unavailable')
@@ -118,6 +131,24 @@ async function probe(ctx) {
     let state = await service.settings()
     assert(state.revision === 0 && state.takeover === false, `expected initial off settings revision 0; got ${JSON.stringify(state)}`)
     checks.settingsOff = true
+    const dilSource = [
+      'Scratch DIL source preserved by the Host.',
+      '{@body const [seats,setSeats] = DIL.useState(5)}',
+      '<box gap={4}>',
+      '  <title>Seats</title>',
+      '  <slider value={seats} onChange={setSeats}/>',
+      '  <text>{seats}</text>',
+      '</box>',
+    ].join('\n')
+    let disabledDIL = 0
+    for (const request of [
+      () => service.dilCompilePreview({ sessionId: 'scratch-dil-gate', source: dilSource }),
+      () => service.dilRuntimeInfo({ sessionId: 'scratch-dil-gate' }),
+    ]) {
+      try { await request() } catch (error) { if (/DIL_DISABLED/.test(`${error?.code ?? ''} ${error?.message ?? ''}`)) disabledDIL++ }
+    }
+    assert(disabledDIL === 2, `DIL experiment gate did not reject preview and runtime while off: ${disabledDIL}/2`)
+    checks.dilGate = true
     const enabled = await service.saveSettings({ expectedRevision: state.revision, takeover: true, openui: true, mcpApps: false })
     checks.cas = enabled.revision === state.revision + 1
     assert(checks.cas, 'settings save did not increment the revision')
@@ -186,6 +217,52 @@ async function probe(ctx) {
       checks.artifactRead = true
       checks.rawAndProvenance = true
       checks.assistantPayloadReadable = true
+
+      // These calls use the already-created scratch Agent only as the normal
+      // tool session identity. They do not enqueue a followup or model request.
+      const modelCallsBeforeDil = adapter.calls
+      const disabledTool = await tools.execute({ callId: randomUUID(), name: 'solar_present', arguments: { protocol: 'dil', label: 'Disabled scratch DIL', payload: dilSource }, agent: handle.agent, signal: new AbortController().signal })
+      assert(disabledTool.isError && /DIL_DISABLED/.test(JSON.stringify(disabledTool)), `solar_present accepted DIL while the experiment was disabled: ${JSON.stringify(disabledTool)}`)
+      const dilEnabled = await service.saveSettings({
+        expectedRevision: state.revision,
+        takeover: state.takeover,
+        openui: state.openui,
+        mcpApps: state.mcpApps,
+        adaptive: { enabled: false, styleMode: 'automatic', blockLayout: true },
+      })
+      state = dilEnabled
+      assert(dilEnabled.adaptive?.blockLayout === true && dilEnabled.adaptive.enabled === false, 'DIL gate did not persist blockLayout without silently enabling adaptive composition')
+
+      const compiled = await service.dilCompilePreview({ sessionId: agentId, source: dilSource })
+      assert(compiled.payload?.formatVersion === 1 && compiled.payload.source === dilSource && compiled.payload.referenceCommit === 'c4920ad2327ee5dfdfb42744e4696286868d934e' && compiled.payload.compiled?.source === dilSource, 'real DIL compile preview did not preserve source and compiler provenance')
+      checks.dilCompilePreview = true
+
+      const runtime = await service.dilRuntimeInfo({ sessionId: agentId })
+      const runner = new URL(runtime.frameUrl)
+      assert(runtime.protocolVersion === 1 && runner.protocol === 'http:' && runner.hostname === '127.0.0.1', `DIL runtime did not return a loopback frame URL: ${JSON.stringify(runtime)}`)
+      dilRunnerUrl = runtime.frameUrl
+      const runnerResponse = await fetch(dilRunnerUrl)
+      const runnerHtml = await runnerResponse.text()
+      assert(runnerResponse.status === 200 && runnerResponse.headers.get('content-security-policy')?.includes("default-src 'none'") && runnerHtml.length > 0 && !runnerHtml.includes(dilSource), 'DIL runner was not reachable as a static source-free CSP document')
+      checks.dilRuntimeInfo = true
+      checks.dilStaticRunner = true
+
+      const dilCallId = randomUUID()
+      const dilTool = await tools.execute({ callId: dilCallId, name: 'solar_present', arguments: { protocol: 'dil', label: 'Scratch DIL artifact', payload: dilSource }, agent: handle.agent, signal: new AbortController().signal })
+      assert(!dilTool.isError, `real solar_present DIL tool failed: ${JSON.stringify(dilTool)}`)
+      const dilArtifacts = await service.artifacts({ sessionId: agentId })
+      const dilArtifact = dilArtifacts.find(record => record.protocol === 'dil' && record.source.callId === dilCallId)
+      assert(dilArtifact && dilArtifact.raw === dilSource && dilArtifact.payload?.formatVersion === 1 && dilArtifact.payload.source === dilSource && dilArtifact.payload.referenceCommit === 'c4920ad2327ee5dfdfb42744e4696286868d934e' && dilArtifact.payload.compiled?.source === dilSource, 'real DIL tool did not persist exact raw source and compiled durable payload')
+      checks.dilToolPersistence = true
+
+      const initialWidget = await service.widgetState({ sessionId: agentId, artifactId: dilArtifact.id })
+      assert(initialWidget.revision === 0 && JSON.stringify(initialWidget.state) === '{}', 'DIL artifact did not share the existing empty widget-state record')
+      const savedWidget = await service.saveWidgetState({ sessionId: agentId, artifactId: dilArtifact.id, expectedRevision: 0, state: { seats: 7 } })
+      const restoredWidget = await service.widgetState({ sessionId: agentId, artifactId: dilArtifact.id })
+      assert(savedWidget.revision === 1 && savedWidget.state.seats === 7 && JSON.stringify(restoredWidget) === JSON.stringify(savedWidget), 'DIL widget state did not use the existing revision-checked state path')
+      checks.dilWidgetState = true
+      assert(adapter.calls === modelCallsBeforeDil, `DIL preview/runtime/tool checks unexpectedly invoked the fixture model: ${adapter.calls} vs ${modelCallsBeforeDil}`)
+      evidenceArtifacts = dilArtifacts
     } finally {
       await handle.dispose()
       disposeAdapter()
@@ -253,9 +330,9 @@ async function probe(ctx) {
       await otherResearchHandle.dispose()
       disposeResearchAdapter()
     }
-    const restored = await service.saveSettings({ expectedRevision: state.revision, takeover: false, openui: true, mcpApps: false })
+    const restored = await service.saveSettings({ expectedRevision: state.revision, takeover: false, openui: true, mcpApps: false, adaptive: { enabled: false, styleMode: 'automatic', blockLayout: false } })
     state = await service.settings()
-    assert(state.takeover === false && state.revision === restored.revision, 'settings did not restore to off')
+    assert(state.takeover === false && state.adaptive?.blockLayout === false && state.revision === restored.revision, 'settings did not restore the DIL experiment to off')
     checks.settingsRestored = true
 
     checks.artifactRead = true
@@ -282,6 +359,8 @@ async function probe(ctx) {
     assert(tools.get('solar_research_submit') === undefined, 'solar_research_submit remained after main-plugin disposal')
     assert(typeof ctx.get('agents')?.create === 'function' && typeof ctx.get('llm')?.registerAdapter === 'function', 'main-plugin disposal removed unrelated host Agent/LLM services')
     checks.researchDisposal = true
+    assert(typeof dilRunnerUrl === 'string' && await waitForRunnerClose(dilRunnerUrl), 'DIL loopback runner remained reachable after the main plugin lifecycle disposed')
+    checks.dilRunnerClosed = true
 
     checks.disposed = true
   } catch (error) { caught = errorValue(error) }

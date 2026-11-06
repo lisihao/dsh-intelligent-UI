@@ -1,2 +1,3 @@
 import { defineConfig } from 'vitest/config'
-export default defineConfig({test:{include:['tests/**/*.test.ts'],testTimeout:15000}})
+import { dilReferenceAliases } from './tools/dil-reference.mjs'
+export default defineConfig({resolve:{alias:dilReferenceAliases()},test:{include:['tests/**/*.test.ts'],testTimeout:15000}})

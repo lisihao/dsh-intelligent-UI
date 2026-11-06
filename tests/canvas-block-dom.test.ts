@@ -181,7 +181,7 @@ describe('production Markdown Canvas source qualification', () => {
     const item = await mountProductionMarkdown(source)
     const content = canvasScope.calls[0]!.content as HTMLElement
     expect(content).toBe(item.host.querySelector('[data-canvas-block-source]'))
-    expect(content.querySelector<HTMLButtonElement>('button[aria-label="Copy code"]')).not.toBeNull()
+    expect(content.querySelector<HTMLButtonElement>('button[aria-label="复制原始代码"]')).not.toBeNull()
     expect(() => readCanvasHtmlTextureSource(content)).toThrowError(expect.objectContaining({ code: 'unsafe-content' }))
   })
 })

@@ -1,3 +1,4 @@
+import { dilReferencePlugin } from './dil-reference.mjs'
 import { createServer } from 'node:http'
 import { mkdir, readFile, rm } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
@@ -45,7 +46,7 @@ const browserBundle = await build({
     'process.env.NODE_ENV': '"production"',
     __IEXP_ELK_WORKER_SOURCE__: JSON.stringify(elkWorkerSource),
   },
-  plugins: [openuiCssPlugin],
+  plugins: [openuiCssPlugin, dilReferencePlugin()],
 })
 const browserScript = browserBundle.outputFiles.find(file => file.path.endsWith('.js'))?.text
 if (!browserScript) throw new Error('ADAPTIVE_PREVIEW_BROWSER_BUNDLE_MISSING')

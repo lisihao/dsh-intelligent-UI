@@ -3427,3 +3427,10 @@ The optional Jev service is an external installed peer, not redistributed by thi
 ## Markdown semantic rendering
 
 The pinned, unmodified dependencies are KaTeX 0.16.47 (MIT), remark-math 6.0.0 (MIT, copyright Junyoung Choi), rehype-katex 7.0.1 (MIT, copyright Junyoung Choi), refractor 5.0.0 (MIT) and github-slugger 2.0.0 (ISC). KaTeX's WOFF2 fonts are embedded from that distribution for offline rendering. The exact shipped KaTeX, refractor and github-slugger license texts are included as `lib/KaTeX-MIT.txt`, `lib/refractor-MIT.txt` and `lib/github-slugger-ISC.txt`; the math parser/render bridge retain their distributed README license notices in their installed packages. Their source and licenses remain at https://github.com/remarkjs/remark-math, https://github.com/KaTeX/KaTeX, https://github.com/wooorm/refractor and https://github.com/Flet/github-slugger.
+
+
+## DIL reference compiler and sandbox
+
+Selected unmodified source from [yunyv/dsh-intelligent-ui](https://github.com/yunyv/dsh-intelligent-ui/tree/c4920ad2327ee5dfdfb42744e4696286868d934e) is bundled at the fixed commit `c4920ad2327ee5dfdfb42744e4696286868d934e`. Its MIT license is copyright 2026 yunyv; the vendored DIL replica has a separate MIT license, copyright 2026 DJJ. Full original notices ship as `lib/DIL-yunyv-MIT.txt` and `lib/DIL-replica-MIT.txt`, with source copies in assets/. This is a replica integration and does not distribute an OpenAI runtime bundle. The reference plugin itself is not installed or enabled.
+
+[Zephinel/dsh-intelligent-ui](https://github.com/Zephinel/dsh-intelligent-ui/tree/ca7bc47cc9ae589d361d57248e10e8fc4f3220d0) and [comeonzhj/dsh-intelligent-ui](https://github.com/comeonzhj/dsh-intelligent-ui/tree/68426b8477915a6cb469d2179c4eeccc5d575d69) were inspected as behavioral references. Their plugin clients and the latter's ECharts distribution are not copied into this package. Exact source identities and the adopted mechanisms are recorded in `docs/integrations/dil-generative-ui.md`.

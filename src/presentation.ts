@@ -1,3 +1,5 @@
+import { DilArtifactView, dilArtifactIdentity } from './dil/artifact.js'
+import type { DilApi } from './contracts.js'
 import {normalizeCompositionSource} from './adaptive-ui/source-contracts.js'
 import { AdaptiveCompositionView, CompositionRuntimeContext } from './adaptive-ui/view.js'
 import { CompositionSelectionContext, ExperimentalBlockDispatchContext, useCompositionSelection, useExperimentalBlockDispatch } from './adaptive-ui/scope.js'
@@ -710,7 +712,7 @@ function AssistantArtifactContent({artifact,isStreaming}:{artifact:ExperienceArt
   return nodes.length?h('div',null,...nodes):h(ContentView,{value:assistantContent(message),isStreaming,decide:false})
 }
 
-export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = false, onContinue, stateApi, mcpApi, displayMode }: { displayMode?: DisplayMode, artifact: ExperienceArtifact, openuiEnabled?: boolean, isStreaming?: boolean, stateApi?: WidgetStateApi, mcpApi?: McpUiApi, onContinue?: (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void> }): ReactElement {
+export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = false, onContinue, stateApi, mcpApi, displayMode, dilEnabled = false, dilApi }: { displayMode?: DisplayMode, artifact: ExperienceArtifact, openuiEnabled?: boolean, isStreaming?: boolean, stateApi?: WidgetStateApi, mcpApi?: McpUiApi, dilEnabled?: boolean, dilApi?: DilApi, onContinue?: (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void> }): ReactElement {
   const theme = useExperienceTheme()
   const library = useSyncExternalStore(openUiWidgets.subscribe, openUiWidgets.getSnapshot, openUiWidgets.getSnapshot)
   const [pending] = useState(() => new Set<AbortController>())
@@ -719,6 +721,8 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
   const [actionError, setActionError] = useState('')
   const [state, setState] = useState<Record<string, unknown>>({})
   const [stateReady, setStateReady] = useState(!stateApi)
+  const currentStateOwner = `${artifact.source.sessionId}\u0000${artifact.id}`
+  const [stateOwner, setStateOwner] = useState(currentStateOwner)
   const [stateError, setStateError] = useState('')
   const stateControl = useRef<{ revision: number, disposed: boolean, canSave: boolean, last: string, timer?: ReturnType<typeof setTimeout>, saving: boolean, next?: SaveWidgetStateInput['state'] }>({ revision: 0, disposed: false, saving: false, canSave: false, last: '{}' })
   const stateKey = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(artifact.id) && !!artifact.source.sessionId
@@ -726,11 +730,11 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     setErrors([]); setActionError(''); setState({}); setStateError('')
     const control = { revision: 0, disposed: false, saving: false, canSave: false, last: '{}' } as typeof stateControl.current
     stateControl.current = control
-    if (!stateApi || !stateKey) { setStateReady(true); return () => { control.disposed = true } }
+    if (!stateApi || !stateKey) { setStateOwner(currentStateOwner); setStateReady(true); return () => { control.disposed = true } }
     setStateReady(false)
     void stateApi.widgetState({ sessionId: artifact.source.sessionId, artifactId: artifact.id }).then(result => {
-      if (!control.disposed) { const saved = widgetStateSchema.parse(result); control.revision = saved.revision; control.canSave = true; control.last = JSON.stringify(saved.state); setState(saved.state); setStateReady(true) }
-    }).catch(error => { if (!control.disposed) { setStateError(`无法恢复组件状态：${error instanceof Error ? error.message : String(error)}`); setStateReady(true) } })
+      if (!control.disposed) { const saved = widgetStateSchema.parse(result); control.revision = saved.revision; control.canSave = true; control.last = JSON.stringify(saved.state); setState(saved.state); setStateOwner(currentStateOwner); setStateReady(true) }
+    }).catch(error => { if (!control.disposed) { setStateError(`无法恢复组件状态：${error instanceof Error ? error.message : String(error)}${artifact.protocol === 'dil' ? '。本次使用初始状态，修改不会保存。' : ''}`); setStateOwner(currentStateOwner); setStateReady(true) } })
     return () => { control.disposed = true; if (control.timer) clearTimeout(control.timer) }
   }, [artifact.id, artifact.source.sessionId, stateApi, stateKey])
   const updateState = (next: Record<string, unknown>) => {
@@ -753,12 +757,14 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     }
     control.timer = setTimeout(() => { void flush() }, 300)
   }
-  const visual = artifact.protocol === 'openui' && openuiEnabled && typeof artifact.payload === 'string'
-    ? h('div', null, stateReady ? h(Renderer, { response: artifact.payload, library, isStreaming, initialState: state, onStateUpdate: updateState, onAction: (event) => { if (event.type !== 'continue_conversation' || !onContinue) { setActionError('此交互类型没有可用的会话执行路径，未执行任何操作。'); return }; const controller = new AbortController(); pending.add(controller); setActionError(''); void onContinue(event, state, controller.signal).catch(error => { if (!controller.signal.aborted) setActionError(`提交失败：${error instanceof Error ? error.message : String(error)}`) }).finally(() => pending.delete(controller)) }, onError: (items) => setErrors(items.map(item => item.message)) }) : h('p', { role: 'status' }, '正在恢复组件状态…'), stateError && h('p', { role: 'alert' }, stateError), errors.length > 0 && h('p', { role: 'alert' }, `OpenUI 渲染错误：${errors.join('; ')}`), actionError && h('p', { role: 'alert' }, actionError))
+  const visual = artifact.protocol === 'dil'
+    ? h(DilArtifactView, { key: dilArtifactIdentity(artifact), artifact, enabled: dilEnabled, api: dilApi, stateReady: stateReady && stateOwner === currentStateOwner, initialState: state, onStateChange: updateState, onContinue, renderMarkdown: (text: string) => h(ContentView, { value: text, decide: false }) })
+    : artifact.protocol === 'openui' && openuiEnabled && typeof artifact.payload === 'string'
+    ? h('div', null, stateReady ? h(Renderer, { response: artifact.payload, library, isStreaming, initialState: state, onStateUpdate: updateState, onAction: (event) => { if (event.type !== 'continue_conversation' || !onContinue) { setActionError('此交互类型没有可用的会话执行路径，未执行任何操作。'); return }; const controller = new AbortController(); pending.add(controller); setActionError(''); void onContinue(event, state, controller.signal).catch(error => { if (!controller.signal.aborted) setActionError(`提交失败：${error instanceof Error ? error.message : String(error)}`) }).finally(() => pending.delete(controller)) }, onError: (items) => setErrors(items.map(item => item.message)) }) : h('p', { role: 'status' }, '正在恢复组件状态…'), errors.length > 0 && h('p', { role: 'alert' }, `OpenUI 渲染错误：${errors.join('; ')}`), actionError && h('p', { role: 'alert' }, actionError))
     : artifact.protocol === 'openui' && !openuiEnabled
       ? h('p', { role: 'status' }, 'OpenUI 展示已关闭。请查看原始内容。')
     : artifact.protocol === 'mcp-app'
       ? h(McpContent, { artifact, api: mcpApi })
       : artifact.source.kind==='assistant'?h(AssistantArtifactContent,{artifact,isStreaming}):h(ContentView, { value: artifact.payload, isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}` })
-  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : artifact.protocol === 'openui' ? h(AdaptiveCompositionView,{value:{type:'openui',source:artifact.payload},isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}`},h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)) : h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual))))
+  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : artifact.protocol === 'openui' ? h(AdaptiveCompositionView,{value:{type:'openui',source:artifact.payload},isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}`},h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)) : h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)), stateError && (artifact.protocol === 'dil' || artifact.protocol === 'openui') && h('p', { role: 'alert' }, stateError)))
 }

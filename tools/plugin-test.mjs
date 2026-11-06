@@ -390,12 +390,12 @@ async function main() {
       await command(dshCli, ['--profile', PROFILE], env)
       marker = JSON.parse(await readFile(env.SOLAR_PLUGIN_PROBE_MARKER, 'utf8'))
       if (marker?.ok !== true) throw new Error(`keyless fixture reported failure: ${JSON.stringify(marker)}`)
-      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'canvasDiscovery', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
+      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'canvasDiscovery', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'dilGate', 'dilCompilePreview', 'dilRuntimeInfo', 'dilStaticRunner', 'dilToolPersistence', 'dilWidgetState', 'dilRunnerClosed', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
       const missing = required.filter((key) => marker.checks?.[key] !== true)
       if (missing.length) throw new Error(`probe missing checks ${missing.join(', ')}: ${JSON.stringify(marker)}`)
       const root = join(scratch, 'solar', 'intelligent-experience-platform')
       const settings = JSON.parse(await readFile(join(root, 'settings.json'), 'utf8'))
-      if (settings.takeover !== false || settings.revision !== 2) throw new Error(`settings restore was not durable: ${JSON.stringify(settings)}`)
+      if (settings.takeover !== false || settings.adaptive?.blockLayout !== false || settings.revision !== 3) throw new Error(`settings restore was not durable: ${JSON.stringify(settings)}`)
       if (!Array.isArray(marker.artifacts) || marker.artifacts.length < 2 || !marker.artifacts.some((entry) => entry.source?.kind === 'generated') || !marker.artifacts.some((entry) => entry.source?.kind === 'assistant')) throw new Error('probe receipt did not include both generated content and standard assistant artifacts for the actual Agent')
       themes = await checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSettings: settings })
     } catch (error) { failure = error; themes = error.themeEvidence ?? themes }

@@ -4,7 +4,7 @@ import { builtInThemes } from './theme-contracts.js'
 import { composeInputSchema,compositionCancelInputSchema,compositionReceiptInputSchema,type ComposeInput,type CompositionCancelInput,type CompositionReceiptInput } from './adaptive-ui/contracts.js'
 import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import { SERVICE, publishSchema, widgetInputSchema, saveWidgetStateSchema, type ExperienceApi, type WidgetStateApi, type ThemeApi, type PublishInput, type SaveSettingsInput, type SaveWidgetStateInput } from './contracts.js'
+import { DIL_PROTOCOL, SERVICE, dilCompilePreviewInputSchema, dilRuntimeInfoInputSchema, publishSchema, widgetInputSchema, saveWidgetStateSchema, type DilApi, type ExperienceApi, type WidgetStateApi, type ThemeApi, type PublishInput, type SaveSettingsInput, type SaveWidgetStateInput } from './contracts.js'
 import type { InstallThemeInput, RemoveThemeInput } from './theme-contracts.js'
 import { z } from 'zod'
 import { sessionInputSchema } from './remote.js'
@@ -16,11 +16,12 @@ import type { DownloadThemeInput } from './theme-source.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/core'
 import { readInsightPreview } from './insight-preview-source.js'
 import type { InsightPreviewPorts } from './insight-preview-contracts.js'
+import type { DilHost } from './dil/host.js'
 
-export class ExperienceControl extends TypertRemoteService implements ExperienceApi, WidgetStateApi, ThemeApi {
+export class ExperienceControl extends TypertRemoteService implements ExperienceApi, DilApi, WidgetStateApi, ThemeApi {
   readonly registry = new ExperienceRegistry()
   private mcpError: string | undefined
-  constructor(ctx: Context, readonly store: ExperienceStore, readonly mcp: McpHost, readonly adaptive?: AdaptiveCompositionCoordinator) { super(ctx, SERVICE) }
+  constructor(ctx: Context, readonly store: ExperienceStore, readonly mcp: McpHost, readonly adaptive?: AdaptiveCompositionCoordinator, readonly dil?: DilHost) { super(ctx, SERVICE) }
   private owner(): void {
     if (this.ctx.invocation && this.ctx.invocation.peer.principal.kind !== 'owner') throw new Error('EXPERIENCE_OWNER_REQUIRED: 此操作仅允许本机所有者使用。')
   }
@@ -75,8 +76,30 @@ export class ExperienceControl extends TypertRemoteService implements Experience
   async publish(input: PublishInput) {
     this.owner()
     const value = publishSchema.parse(input)
+    if (value.protocol === DIL_PROTOCOL) {
+      if (!this.dil) throw new Error('DIL_UNAVAILABLE: the Host DIL compiler is not installed.')
+      return this.dil.publish({ source: value.source, sourceText: value.payload })
+    }
     const payload = z.json().parse(await this.registry.route(value.protocol, value.providerId, value.payload))
     return this.store.publish({ ...value, payload })
+  }
+  @Remote
+  async dilRuntimeInfo(input: { sessionId: string }) {
+    this.owner()
+    const value = dilRuntimeInfoInputSchema.parse(input)
+    if (!this.dil) throw new Error('DIL_UNAVAILABLE: the Host DIL runtime is not installed.')
+    // The session identifier follows the existing session-scoped RPC boundary;
+    // it is not embedded into the local static frame URL or server state.
+    void value.sessionId
+    return this.dil.runtimeInfo()
+  }
+  @Remote
+  async dilCompilePreview(input: { sessionId: string; source: string }) {
+    this.owner()
+    const value = dilCompilePreviewInputSchema.parse(input)
+    if (!this.dil) throw new Error('DIL_UNAVAILABLE: the Host DIL compiler is not installed.')
+    void value.sessionId
+    return { payload: await this.dil.compilePreview(value.source) }
   }
   @Remote
   async widgetState(input: {sessionId: string; artifactId: string}) { this.owner(); return this.store.widgetState(widgetInputSchema.parse(input)) }
