@@ -82,11 +82,23 @@ async function snapshot(page) {
     const slider = root?.querySelector('input[name="seats"]')
     const coverage = root?.querySelector('input[name="coverage"]')
     const select = root?.querySelector('select[name="tier"]')
+    // Whole-page clipping can conceal overflow inside a rounded reading/card surface.
+    const containedBounds = tree ? [...tree.querySelectorAll('[data-dil-tag], input, select, textarea, button, .iexp-dil-chart-plot')].flatMap(element => {
+      if (!(element instanceof HTMLElement) || !element.getClientRects().length) return []
+      const parent = element.parentElement?.closest('[data-dil-tag="card"], [data-dil-tag="chart"], [data-dil-tag="pie-chart"], label')
+        ?? root?.querySelector('.dil-browser-surface')
+      if (!(parent instanceof HTMLElement)) return []
+      const rect = element.getBoundingClientRect(), outer = parent.getBoundingClientRect(), css = getComputedStyle(parent)
+      const left = outer.left + parseFloat(css.borderLeftWidth) + parseFloat(css.paddingLeft)
+      const right = outer.right - parseFloat(css.borderRightWidth) - parseFloat(css.paddingRight)
+      return [{ tag: element.getAttribute('data-dil-tag') ?? element.tagName.toLowerCase(), name: element.getAttribute('name'), left: rect.left, right: rect.right, containerLeft: left, containerRight: right }]
+    }) : []
     let frameReadable = false
     try { frameReadable = Boolean(iframe?.contentWindow?.location.href) } catch { frameReadable = false }
     return {
       program: root?.getAttribute('data-dil-browser-program') ?? null,
       enabled: root?.getAttribute('data-dil-browser-enabled') ?? null,
+      containedBounds,
       nativeTree: Boolean(tree), nativeText: tree?.textContent ?? '',
       fallback: Boolean(root?.querySelector('[data-dil-fallback]')), fallbackText: root?.querySelector('[data-dil-fallback]')?.textContent ?? '',
       iframeCount: root?.querySelectorAll('iframe[data-dil-sandbox="true"]').length ?? 0,
@@ -103,7 +115,13 @@ async function snapshot(page) {
   })
 }
 
+function assertContentBounds(value, width) {
+  const exceeded = value.containedBounds.filter(item => item.left < item.containerLeft - 0.5 || item.right > item.containerRight + 0.5)
+  assert.deepEqual(exceeded, [], `native content crosses its container inset at ${width}px: ${JSON.stringify(exceeded)}`)
+}
+
 function assertInitial(value, width) {
+  assertContentBounds(value, width)
   assert.equal(value.nativeTree, true, `DIL native tree did not mount at ${width}px`)
   assert.equal(value.fallback, false, `DIL unexpectedly fell back at ${width}px: ${value.fallbackText}`)
   assert.equal(value.iframeCount, 1, `DIL sandbox iframe count mismatch at ${width}px`)
@@ -156,6 +174,7 @@ async function exerciseInteractiveProgram(page, sleep, width, screenshotPath) {
   assert.equal(updated.iframeCount, 1, 'compiled update must not rebuild the sandbox frame')
   assert.equal(updated.slider, String(seats)); assert.equal(updated.coverage, true); assert.equal(updated.tier, 'pro')
   assert.match(updated.nativeText, new RegExp(`月度金额：¥${String(expectedMonthly)}`))
+  assertContentBounds(updated, width)
   assert.ok(updated.scrollWidth <= updated.clientWidth, `updated page overflows at ${width}px`)
   await page.screenshot({ path: screenshotPath, format: 'png', fullPage: true })
 
@@ -232,8 +251,8 @@ export async function runDilBrowserAcceptance({ evidenceDirectory = defaultEvide
     await mkdir(evidenceDirectory, { recursive: true })
     browser = await Browser.launch({ width: 1440, height: 900 })
     const viewports = []
-    for (const width of [1440, 390]) {
-      const page = await browser.newPage({ width, height: width === 1440 ? 900 : 844, mobile: width === 390 })
+    for (const width of [1440, 390, 320]) {
+      const page = await browser.newPage({ width, height: width === 1440 ? 900 : 844, mobile: width <= 390 })
       try {
         await page.goto(preview.origin)
         const initial = await waitFor(`DIL initial render at ${width}px`, async () => {

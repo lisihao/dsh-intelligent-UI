@@ -44,6 +44,8 @@ The same default-off **内容块智能布局（实验）** switch and **⌥⌘I*
 
 The explicit catalog includes sliders, switches, checkbox/radio/select controls, tabs, progress, forms, structured text/tables and declared chart data. Local state and calculations update in the browser. Only an explicit form submit invokes the existing conversation continuation with its current action, fields and state. Source streaming uses a debounced Host compile RPC; state saves use the existing revision-checked API. Neither local interaction nor compilation invokes a model. Turning the experiment off disposes the runner and preserves readable source; compilation/runtime failures retain source and diagnostics.
 
+DIL cards retain content insets and fit native controls within their containing surface. The real-browser check covers 1440px, 390px and 320px, including nested bounds rather than only page overflow.
+
 This is a supported native adapter vocabulary, not unrestricted HTML/JSX or a claim of full ChatGPT runtime compatibility. [Reference identities, architecture and boundaries](docs/integrations/dil-generative-ui.md); [verification ledger](docs/acceptance/2026-11-06-rich-markdown-and-dil.md). Installation and official Desktop CSP/runtime acceptance are separate from source and isolated-browser checks.
 
 ## Semantic Markdown rendering

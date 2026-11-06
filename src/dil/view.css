@@ -403,3 +403,27 @@
     animation: none;
   }
 }
+
+/* Keep native controls within their own content box, including rounded material cards. */
+.dsh-experience .iexp-dil :is(.iexp-dil-native-tree, .iexp-dil-form, .iexp-dil-card, .iexp-dil-chart) {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.dsh-experience .iexp-dil-card {
+  padding: calc(16px * var(--iexp-density));
+}
+
+.dsh-experience .iexp-dil-chart {
+  padding: calc(12px * var(--iexp-density));
+}
+
+.dsh-experience .iexp-dil-slider {
+  display: block;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  margin: 0;
+}

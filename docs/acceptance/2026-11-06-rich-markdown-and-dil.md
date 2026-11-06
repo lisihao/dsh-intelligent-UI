@@ -50,3 +50,12 @@ Default and narrow screenshots were visually checked. An initial fixture omitted
 The tools use a development CDP helper, optionally supplied by `DIL_BROWSER_CDP`; the default is under the current user's Codex design-taste skill. A missing helper produces a named error. This dependency belongs to the optional browser acceptance command, not the installed plugin. `node tools/browser-dil/preview.mjs` starts the fixed local preview without invoking a model.
 
 The browser receipt and screenshots stay in ignored local acceptance storage. Installed official Desktop execution and real-model DIL authoring remain untested in this delivery.
+
+
+## Follow-up: nested bounds in the narrow preview
+
+The owner reported that content extended past the simulated-phone surface. Real-browser measurement confirmed that the range input's native 2px horizontal margins put its right edge 2px beyond its label's content edge, even while the clipped document had no horizontal scroll overflow. The DIL card also had no default content inset.
+
+The adapter now uses bounded border-box containers, default card/chart content insets, and a full-width block slider without native outer margins. Explicit source padding still takes precedence. Material tokens and control handlers are unchanged. The browser verifier checks native controls and figures against their containing content edges before interaction and after a compatible program update, at 1440px, 390px and 320px. It failed on the original code and passed with this correction; the complete local-control/submit/state/disable/watchdog fixture still passed with zero model calls. Corrected 390px and 320px screenshots were inspected.
+
+The affected build, typecheck, component tests and built-package scratch Host probe were run again. Unchanged broad-source tests from the earlier gate were reused; no new all-suite claim is made for this localized CSS correction. No official Desktop installation was performed.

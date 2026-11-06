@@ -22,6 +22,6 @@ function runBrowserAcceptance(): Promise<string> {
 describe('DIL real browser acceptance', () => {
   browserIt('runs the Host compiler, opaque frame/Worker, native view, watchdog, and narrow viewport fixture', async () => {
     const output = await runBrowserAcceptance()
-    expect(output).toMatch(/DIL_BROWSER_RECEIPT=\{.*"viewports":2.*"modelCalls":0/s)
+    expect(output).toMatch(/DIL_BROWSER_RECEIPT=\{.*"viewports":3.*"modelCalls":0/s)
   }, 90_000)
 })
