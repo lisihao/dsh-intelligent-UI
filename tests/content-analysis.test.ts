@@ -70,6 +70,16 @@ describe('automatic content analysis', () => {
     expect(analyzeTable(['公司', '金额（元）'], [['A', '10'], ['B', '20']], '单位：美元')).toBeUndefined()
     expect(analyzeTable(['公司', '金额'], [['A', '10'], ['B', '20']], '单位：美元；单位：元')).toBeUndefined()
   })
+  it('preserves an explicit CAD million header scale without conversion or unit mixing', () => {
+    const plan = analyzeTable(['项目', '规划金额，CAD 百万'], [['A', '6.0'], ['B', '1.5']])!
+    expect(plan.series[0]).toMatchObject({ unit: 'CAD 百万', values: [6, 1.5], originals: ['6.0', '1.5'] })
+    expect(plan.basis).toBe('单位：CAD 百万')
+
+    const mixed = analyzeTableCharts(['项目', '金额，CAD 百万', '金额，CAD 千万'], [['A', '1', '2'], ['B', '3', '4']])
+    expect(mixed).toHaveLength(1)
+    expect(mixed[0]?.sourceColumns).toEqual([1])
+    expect(analyzeTable(['项目', '金额，USD millions'], [['A', '1'], ['B', '2']])).toBeUndefined()
+  })
   it('does not borrow a nearby table unit or an adjacent section qualification', () => {
     const source = '## 金额\n\n单位：美元\n\n| 类别 | 金额 |\n|---|---|\n|A|10|\n|B|20|\n\n## 耗时\n\n单位：毫秒\n\n| 类别 | 耗时 |\n|---|---|\n|C|30|\n|D|40|'
     expect(parseMarkdownTables(source).map(table => table.plan?.series[0]?.unit)).toEqual(['USD', 'ms'])
@@ -120,6 +130,51 @@ describe('automatic content analysis', () => {
   it('keeps a numbered 本表 qualification after its table', () => {
     const source = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |\n\n**1. 本表按估算口径，仅供参考。**'
     expect(parseMarkdownTables(source)[0]?.plan?.notes?.join(' ')).toContain('本表按估算口径')
+  })
+  it('keeps adjacent budget qualifiers but stops before a later list-led ROI block', () => {
+    const table = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |'
+    const source = `**1. 单位：亿元，按预算口径估算。**
+
+${table}
+
+预算表后首段按已确认预算口径估算。
+
+预算表后次段按本表口径保留，不含后续回报。
+
+回报采用两张表：
+
+- 技术采用：只记录实际采用和复现验证。
+- 经济价值：只记录可验证的成本节省。
+
+成本节省示例是假设测算，不代表已实现收益。`
+    const [parsed] = parseMarkdownTables(source)
+    expect(parsed?.plan?.series[0]?.unit).toBe('亿元')
+    expect(parsed?.plan?.notes?.join(' ')).toContain('预算表后首段按已确认预算口径估算')
+    expect(parsed?.plan?.notes?.join(' ')).toContain('预算表后次段按本表口径保留')
+    expect(parsed?.plan?.notes?.join(' ')).not.toContain('成本节省示例')
+
+    const prohibited = parseMarkdownTables(`${table}\n\n预算表说明：这些口径不能直接比较。\n\n回报采用两张表：\n\n- 技术采用：实际采用。\n- 经济价值：可验证价值。\n\n成本节省示例是假设测算。`)[0]
+    expect(prohibited?.plan).toBeUndefined()
+  })
+  it('keeps a list led by an explicit table-note paragraph and stops at the next independent paragraph', () => {
+    const table = '| 类别 | 金额 |\n|---|---:|\n| A | 10 |\n| B | 20 |'
+    const prohibited = parseMarkdownTables(`${table}\n\n本表注意：\n\n- A/B 口径不同，不能直接比较。\n\n成本节省示例是假设测算。`)[0]
+    expect(prohibited?.plan).toBeUndefined()
+
+    const qualified = parseMarkdownTables(`${table}\n\n本表注意：\n\n- A/B 口径不同，请分别核对。\n\n成本节省示例是假设测算，不代表已实现收益。`)[0]
+    expect(qualified?.plan?.notes?.join(' ')).toContain('A/B 口径不同')
+    expect(qualified?.plan?.notes?.join(' ')).not.toContain('成本节省示例')
+  })
+  it('retains explicit note paragraphs after a note list without borrowing a later independent example', () => {
+    const source = '| 项目 | 金额 |\n|---|---:|\n| A | 6 |\n| B | 2 |\n\n本表注意：\n\n- 估算口径，不是实际开支。\n\n本表金额按估算口径，仅供参考。\n\n本表另外说明：\n\n- 未包括后续回报。\n\n成本节省示例是假设测算，不代表本表预算。'
+    const notes = parseMarkdownTables(source)[0]?.plan?.notes?.join(' ')
+    expect(notes).toContain('不是实际开支')
+    expect(notes).toContain('本表金额按估算口径')
+    expect(notes).not.toContain('成本节省示例')
+  })
+  it('retains an adjacent example qualification that is not expressed as an estimate', () => {
+    const source = '下表仅为便于讨论的可缩放投入案例，这是人员示例，不代表全部既有人力。\n\n| 项目 | 金额 |\n|---|---:|\n| A | 6 |\n| B | 2 |'
+    expect(parseMarkdownTables(source)[0]?.plan?.notes?.join(' ')).toContain('不代表全部既有人力')
   })
   it('bounds chart notes at numbered standalone bold sections while keeping inline bold prose local', () => {
     const tableSource = '| 项目 | 金额 |\n|---|---:|\n| 基础预算 | 10 |\n| 增量预算 | 20 |\n| 合计 | 30 |'
