@@ -571,7 +571,11 @@ export class AdaptiveCompositionCoordinator {
         capabilities: active.input.capabilities,
         isStreaming: active.input.isStreaming === true,
         themes: active.snapshot.themes,
-        candidateBundle: active.bundle,
+        // Experimental local failure defaults are not model recommendations.
+        // Keep them in the coordinator, while recording all actual candidates.
+        candidateBundle: active.bundle.blockLayout
+          ? Object.fromEntries(Object.entries(active.bundle).filter(([key]) => key !== 'defaultAnswers'))
+          : active.bundle,
       },
     })
     return { state, questions }

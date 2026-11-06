@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BLOCK_PRESENTATION_IDS } from './presentation-recipes.js'
 import { componentSetSchema, type ComponentSet, type ThemePackage, type ThemePreference } from '../theme-contracts.js'
 
 /** The only Jev feature this consumer ever registers or evaluates. */
@@ -47,6 +48,8 @@ export const blockCompositionSchema = z.strictObject({
   end: z.number().int().nonnegative().optional(),
   kind: z.string().min(1).max(64),
   selection: baseCompositionSelectionSchema,
+  /** Explicit source-bound renderer recipe; absent reads earlier experimental results. */
+  presentation: z.enum(BLOCK_PRESENTATION_IDS).optional(),
   evidence: z.array(z.string().min(1).max(500)).max(32),
 }).superRefine((block, ctx) => {
   if ((block.start === undefined) !== (block.end === undefined) || block.start !== undefined && block.end! <= block.start) {

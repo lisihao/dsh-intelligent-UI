@@ -100,9 +100,14 @@ function blockBindings(bundle) {
 function blockReferences(bundle) {
   return blockBindings(bundle).map(binding => binding.reference)
 }
-function sourceRole(value) {
+function sourceRole(value, kind) {
   const encoded = typeof value === 'string' ? value : JSON.stringify(value) ?? ''
   const text = encoded.toLowerCase()
+  // The compiler's source kind outranks incidental words in a prose heading.
+  if (kind === 'prose') return 'prose'
+  if (kind === 'code' || /(?:```|code|snippet|代码|const\s+|function\s+)/.test(text)) return 'code'
+  if (kind === 'ordered-list' || kind === 'flow') return 'flow'
+  if (kind === 'prose' && !/(?:flow|arrow|sequence|relationship|流程|关系|箭头|arrow-chain|->|→)/.test(text)) return 'prose'
   if (/(?:task|board|status|任务|状态|validated-task)/.test(text)) return 'board'
   if (/(?:flow|arrow|sequence|relationship|流程|关系|箭头|arrow-chain|->|→)/.test(text)) return 'flow'
   if (/(?:chart|histor|numeric|line|visx|table|历史|数值|延迟|chart-plan)/.test(text)) return 'chart'
@@ -112,21 +117,31 @@ function sourceRole(value) {
 function questionField(question) {
   const prompt = isRecord(question.prompt) ? question.prompt : undefined
   if (typeof prompt?.field === 'string') return prompt.field
+  if (question.id.endsWith(':presentation')) return 'presentation'
   return ['theme', 'surface', 'chart', 'component-set', 'layout', 'object-effect', 'live', 'loading', 'text-motion'].includes(question.id) ? question.id : undefined
 }
 function blockBindingForQuestion(question, bundle) {
   const binding = blockBindings(bundle).find(item => item.questionIds.includes(question.id))
   return binding?.reference
 }
-function optionId(question, desired, fallback = question.options[0]?.id) {
-  const options = Array.isArray(question.options) ? question.options : []
-  const exact = desired === undefined ? undefined : options.find(option => option.id === desired || option.id === `${questionField(question)}:${desired}`)
-  return exact?.id ?? fallback
-}
 function requiredOption(question, desired, context) {
   const selected = Array.isArray(question.options) ? question.options.find(option => option.id === desired || option.id === `${questionField(question)}:${desired}`)?.id : undefined
   if (!selected) throw new Error(`SYNTHETIC_REQUIRED_OPTION_MISSING_${context}_${desired}`)
   return selected
+}
+function presentationForRole(role) {
+  if (role === 'chart') return 'chart-visx'
+  if (role === 'board') return 'board'
+  if (role === 'flow') return 'flow'
+  if (role === 'code') return 'disclosure'
+  if (role === 'prose') return 'cards'
+  return 'reading'
+}
+function blockSourceValue(source, block) {
+  return typeof source.value === 'string' && block.start !== undefined && block.end !== undefined ? source.value.slice(block.start, block.end) : block
+}
+function blockRole(source, block) {
+  return sourceRole(blockSourceValue(source, block), block.kind)
 }
 function mixedAnswers(request, bundle) {
   const blocks = blockReferences(bundle)
@@ -135,12 +150,10 @@ function mixedAnswers(request, bundle) {
   const state = asRecord(request.state, 'SYNTHETIC_REQUEST_STATE_INVALID')
   const source = asRecord(state.source, 'SYNTHETIC_REQUEST_SOURCE_INVALID')
   for (const block of [...blocks].sort((left, right) => JSON.stringify(left.path).localeCompare(JSON.stringify(right.path)))) {
-    const blockSource = typeof source.value === 'string' && block.start !== undefined && block.end !== undefined ? source.value.slice(block.start, block.end) : block
-    const role = sourceRole(blockSource)
+    const role = blockRole(source, block)
     if (role && !byRole.has(role)) byRole.set(role, block)
   }
   for (const role of ['chart', 'board', 'flow']) if (!byRole.has(role)) throw new Error(`SYNTHETIC_BLOCK_ROLE_MISSING_${role}`)
-  const blockQuestions = request.questions.filter(question => blockBindingForQuestion(question, bundle))
   const answers = { ...bundle.defaultAnswers }
   const seenRoles = new Set()
   for (const question of request.questions) {
@@ -148,27 +161,20 @@ function mixedAnswers(request, bundle) {
     const field = questionField(question)
     const block = blockBindingForQuestion(question, bundle)
     const promptRole = sourceRole({ id: question.id, prompt: question.prompt, options: question.options })
-    const blockSource = block && typeof source.value === 'string' && block.start !== undefined && block.end !== undefined ? source.value.slice(block.start, block.end) : block
-    const role = sourceRole(blockSource) ?? promptRole
-    const blockSpecific = !!block || blockQuestions.includes(question)
-    let desired
-    if (blockSpecific && field === 'surface' && (role === 'chart' || role === 'board' || role === 'flow')) desired = 'semantic'
-    else if (blockSpecific && field === 'chart' && role === 'chart') desired = 'visx'
-    else if (blockSpecific && field === 'layout' && role === 'board') desired = 'board'
-    else if (blockSpecific && field === 'layout' && role === 'flow') desired = 'flow'
-    else if (blockSpecific && field === 'layout' && role === 'prose') desired = 'document'
-    else if (!blockSpecific && field === 'theme') desired = 'uiverse-soft-relief'
-    else if (!blockSpecific && field === 'surface') desired = 'semantic'
-    else if (!blockSpecific && field === 'component-set') desired = 'soft-relief'
-    else if (!blockSpecific && (field === 'chart' || field === 'layout')) desired = field === 'chart' ? 'auto' : 'auto'
-    if (desired && ((role === 'chart' && field === 'chart') || (role === 'board' && field === 'layout') || (role === 'flow' && field === 'layout'))) {
-      answers[question.id] = requiredOption(question, desired, `${role}_${field}`)
-    } else {
-      answers[question.id] = optionId(question, desired, question.options[0]?.id)
-    }
+    const role = block ? blockRole(source, block) ?? promptRole : promptRole
+    const desired = block
+      ? field === 'presentation' ? presentationForRole(role) : field === 'component-set' ? 'soft-relief' : undefined
+      : field === 'theme' ? 'uiverse-soft-relief'
+        : field === 'surface' ? 'semantic'
+          : field === 'component-set' ? 'soft-relief'
+            : field === 'layout' ? 'document'
+              : field === 'inspection' ? 'none'
+                : undefined
+    if (desired === undefined) throw new Error(`SYNTHETIC_UNEXPECTED_DECISION_QUESTION_${question.id}`)
+    answers[question.id] = requiredOption(question, desired, `${role ?? 'root'}_${field}`)
     if (role) seenRoles.add(role)
   }
-  if (blockQuestions.length === 0) throw new Error('SYNTHETIC_BLOCK_QUESTIONS_MISSING')
+  if (!request.questions.some(question => blockBindingForQuestion(question, bundle) && questionField(question) === 'presentation')) throw new Error('SYNTHETIC_BLOCK_QUESTIONS_MISSING')
   if (!['chart', 'board', 'flow'].every(role => seenRoles.has(role))) throw new Error('SYNTHETIC_BLOCK_QUESTION_ROLE_MISSING')
   return answers
 }
@@ -265,11 +271,24 @@ class SyntheticJevPort {
       const selectedBlocks = selection.blockLayout?.blocks ?? []
       const candidates = blockReferences(bundle)
       const candidateById = new Map(candidates.map(block => [block.id, block]))
-      if (selection.blockLayout?.version !== 1 || selection.blockLayout.inspection !== 'none' || selectedBlocks.length < 3) throw new Error('SYNTHETIC_BLOCK_LAYOUT_SELECTION_INVALID')
+      if (request.questions.some(question => question.options.some(option => option.id === 'auto' || option.id.endsWith(':auto')))) throw new Error('SYNTHETIC_BLOCK_LAYOUT_AUTO_OPTION_FORBIDDEN')
+      if (selection.blockLayout?.version !== 1 || selection.blockLayout.inspection !== 'none' || selectedBlocks.length !== candidates.length) throw new Error('SYNTHETIC_BLOCK_LAYOUT_SELECTION_INVALID')
+      const selectedIds = new Set()
       for (const block of selectedBlocks) {
         const candidate = candidateById.get(block.id)
         if (!candidate || JSON.stringify(candidate.path) !== JSON.stringify(block.path) || candidate.start !== block.start || candidate.end !== block.end || candidate.kind !== block.kind) throw new Error(`SYNTHETIC_BLOCK_REFERENCE_INVALID_${block.id}`)
         if (!Array.isArray(block.evidence) || block.evidence.length === 0) throw new Error(`SYNTHETIC_BLOCK_EVIDENCE_MISSING_${block.id}`)
+        if (selectedIds.has(block.id)) throw new Error(`SYNTHETIC_BLOCK_SELECTION_DUPLICATE_${block.id}`)
+        selectedIds.add(block.id)
+        const role = blockRole(source, candidate)
+        if (!role) throw new Error(`SYNTHETIC_BLOCK_ROLE_UNKNOWN_${block.id}`)
+        const expectedPresentation = presentationForRole(role)
+        if (block.presentation !== expectedPresentation) throw new Error(`SYNTHETIC_BLOCK_PRESENTATION_INVALID_${block.id}_${role}_${block.presentation ?? 'missing'}`)
+        const presentationQuestion = request.questions.find(question => question.id === `${candidate.id}:presentation`)
+        if (!presentationQuestion || !presentationQuestion.options.some(option => option.id === expectedPresentation)) throw new Error(`SYNTHETIC_BLOCK_PRESENTATION_OPTION_MISSING_${block.id}_${expectedPresentation}`)
+        if (role === 'chart' && (block.selection.chart !== 'visx' || block.selection.layout !== 'table')) throw new Error(`SYNTHETIC_BLOCK_CHART_SELECTION_INVALID_${block.id}`)
+        if (role === 'board' && block.selection.layout !== 'board') throw new Error(`SYNTHETIC_BLOCK_BOARD_SELECTION_INVALID_${block.id}`)
+        if (role === 'flow' && block.selection.layout !== 'flow') throw new Error(`SYNTHETIC_BLOCK_FLOW_SELECTION_INVALID_${block.id}`)
       }
       if (!selectedBlocks.some(block => block.selection.chart === 'visx')) throw new Error('SYNTHETIC_BLOCK_CHART_NOT_SELECTED')
       if (!selectedBlocks.some(block => block.selection.layout === 'board')) throw new Error('SYNTHETIC_BLOCK_BOARD_NOT_SELECTED')

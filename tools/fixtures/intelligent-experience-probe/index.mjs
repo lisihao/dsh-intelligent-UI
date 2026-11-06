@@ -294,7 +294,8 @@ async function probe(ctx) {
 }
 
 export const name = 'intelligent-experience-probe'
-export const inject = ['appReady']
+// App readiness does not imply that this async plugin service has activated.
+export const inject = ['appReady', 'solarExperience']
 
 export function apply(ctx) {
   const appReady = ctx.get('appReady')

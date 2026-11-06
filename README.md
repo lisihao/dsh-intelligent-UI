@@ -6,6 +6,12 @@ The historical package name **`@lisihao/dsh-solar-intelligent-experience-platfor
 
 **内置组件智能**：同一个插件包含 Uiverse 离线组件库、静默前端开发 skill 和自动内容渲染。开发时可按需检索 3,802 个真实组件；展示图表、任务、记录和流程时，自动使用 15 个经过适配验证的组件，并保留原文、数据与来源。
 
+## Explicit content-block composition (development experiment)
+
+The default-off **内容块智能布局（实验）** setting and configurable shortcut (default **⌥⌘I**) are retained. Each compiled source unit, including ordinary prose and code, offers named executable presentations to Jev. The experimental route uses explicit reading, card and disclosure treatments plus source-validated charts, tables, boards, record details, flows and state/asset adapters. It does not offer `auto` as a model decision or pre-fix prose/code to a source-only presentation. All source content remains available; selection does not rewrite facts, code, links or qualifications.
+
+The complete candidate list and selected presentation are inspectable per block. Suitability explanations describe local source/capability validation; the Decisions response supplies IDs and confidence, not a textual rationale. [Design and boundaries](docs/design/experimental-block-layout.md). Source, real-model preview and installed-app acceptance are separate records.
+
 ## Adaptive conversation UI (development candidate)
 
 The [adaptive composition design](docs/integrations/adaptive-conversation-ui.md) now has a source implementation. An optional Jev consumer chooses among **all installed intelligent UI styles and eligible runtime components**, not only the newly added libraries. Choices include installed theme packages, the three compiled Uiverse component sets, original/semantic surfaces, document/research/table/board/record/flow layouts, existing OpenUI/compact/dense/ASCII charts, visx historical charts and supported source-anchored object effects. The complete catalog distinguishes compiled adapters, development archives and effects without an automatic consumer path; it does not claim every archived component can run in a conversation.

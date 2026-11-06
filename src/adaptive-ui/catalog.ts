@@ -1,3 +1,4 @@
+import { CANVAS_HTML_EFFECT_NAMES } from '../canvas-html-names.js'
 import { CANVAS_UI_COMPONENTS } from '../canvas-catalog.js'
 import { builtInThemes, type ComponentSet, type ThemePackage } from '../theme-contracts.js'
 import curatedSources from '../uiverse-sources.json' with { type: 'json' }
@@ -235,11 +236,14 @@ function adapterEntries(): CatalogEntry[] {
   })))
 }
 
-function canvasEntries(): CatalogEntry[] {
+function canvasEntries(experimentalBlocks = false): CatalogEntry[] {
+  const executableHtml = new Set<string>([...CANVAS_HTML_EFFECT_NAMES, 'bend', 'hex-float', 'particle-scroll'])
   return CANVAS_UI_COMPONENTS.map(component => {
     const native = nativeCanvasObjectEffects.has(component.slug)
     const automatic = native
       ? { availability: 'conditional' as const, eligibility: { allOf: ['explicit-supported-asset', 'webgl', 'not-streaming', 'not-reduced-motion'], reason: 'native-object-route' } }
+      : experimentalBlocks && executableHtml.has(component.slug)
+        ? { availability: 'conditional' as const, eligibility: { allOf: ['experimental-block-layout', 'bounded-noninteractive-source', 'separate-visible-source', 'webgl', 'not-streaming', 'not-reduced-motion'], reason: 'registered-source-bound-visual-copy' } }
       : component.kind === 'html'
         ? { availability: 'blocked' as const, eligibility: { allOf: ['explicit-registered-adapter'], reason: 'arbitrary-html-effects-are-not-automatic' } }
         : { availability: 'metadata-only' as const, eligibility: { allOf: ['explicit-registered-adapter'], reason: 'catalog-object-has-no-native-auto-route' } }
@@ -276,13 +280,13 @@ function normalizedThemes(themes: readonly ThemePackage[]): ThemePackage[] {
  * composition RPC.  In particular, the 3,802-file Galaxy archive is one
  * development-only entry rather than 3,802 implied executable renderers.
  */
-export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInThemes): CompositionCatalog {
+export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInThemes, options: { experimentalBlocks?: boolean } = {}): CompositionCatalog {
   const entries = [
     ...sourceSurfaceEntries,
     ...libraryEntries(),
     archiveEntry,
     ...adapterEntries(),
-    ...canvasEntries(),
+    ...canvasEntries(options.experimentalBlocks === true),
     ...normalizedThemes(themes).map(themeEntry),
   ].sort((left, right) => left.id.localeCompare(right.id))
   return { revision: COMPOSITION_CATALOG_REVISION, entries }

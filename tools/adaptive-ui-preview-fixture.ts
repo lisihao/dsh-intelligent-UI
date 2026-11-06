@@ -16,6 +16,7 @@ type PreviewEvent = {
   documentId: string
   operationId?: string
   status?: string
+  reason?: string
   observed?: boolean
   decisionCalls?: number
   schema?: { revision: number; questionIds: string[]; optionIds?: Record<string, string[]> }
@@ -150,6 +151,12 @@ const mixedBlockLayoutSource = `# 混合区块编排验收
 
 读取来源 → 核对证据 -> 记录结果
 
+## 实现片段
+
+\`\`\`ts
+const presentation = 'source-bound'
+\`\`\`
+
 [mixed-source]: https://sources.example.invalid/mixed-source "固定本地来源"
 [^mixed-note]: 固定本地脚注；该脚注不请求外部网络。`
 
@@ -272,6 +279,7 @@ function createCompositionApi(): CompositionApi {
         documentId: input.documentId,
         operationId: result.operationId,
         status: result.status,
+        reason: result.reason,
         schema: responseSchema(response),
         selection: result.selection,
       })

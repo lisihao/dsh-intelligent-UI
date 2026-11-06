@@ -83,6 +83,22 @@ class FakeJev implements JevCompositionPort {
 async function waitForCalls(port: FakeJev, calls: number): Promise<void> { await vi.waitFor(() => expect(port.calls).toBe(calls)) }
 
 describe('AdaptiveCompositionCoordinator', () => {
+  it('does not disclose experimental local defaults as recommendations to Jev', async () => {
+    const saved = {...settings(), adaptive:{enabled:true,styleMode:'automatic' as const,blockLayout:true}}
+    const port = new FakeJev()
+    const coordinator = new AdaptiveCompositionCoordinator({getSettings:async()=>saved,getJev:()=>port})
+    const result = await coordinator.compose(input({value:'# Source\n\nOrdinary prose.\n\n```js\nconst answer = 42\n```'}))
+    expect(result.status).toBe('selected')
+    const request = port.requests[0]!
+    const state = request.state as {composition:{candidateBundle:Record<string,unknown>}}
+    expect(state.composition.candidateBundle).not.toHaveProperty('defaultAnswers')
+    expect(request.questions.every(question=>question.options.every(option=>option.id !== 'auto'))).toBe(true)
+    const presentationQuestions = request.questions.filter(question=>question.id.endsWith(':presentation'))
+    expect(presentationQuestions).toHaveLength(2)
+    expect(presentationQuestions.every(question=>question.options.length >= 3)).toBe(true)
+    coordinator.dispose()
+  })
+
   it('gates the block compiler with the saved experiment switch and batches its choices', async () => {
     const port = new FakeJev()
     let saved: AdaptiveCompositionSettings = settings()

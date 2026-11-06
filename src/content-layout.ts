@@ -97,7 +97,7 @@ function orderedFlow(source: string, list: List, context: string): FlowPlan | un
 }
 
 /** CommonMark/GFM AST positions are UTF-16 offsets, matching String.slice and the source renderer. */
-export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], outline?: HeadingIndexPlan } {
+export function parseMarkdownLayouts(markdown: string, options: { completeOutline?: boolean } = {}): { flows: FlowPlan[], outline?: HeadingIndexPlan } {
   if (markdown.length > MAX_MARKDOWN_LENGTH) return { flows: [] }
   const root = processor.parse(markdown) as Root
   const flows: FlowPlan[] = [], entries: HeadingEntry[] = []
@@ -120,7 +120,7 @@ export function parseMarkdownLayouts(markdown: string): { flows: FlowPlan[], out
       entries.push(entry)
     }
   }
-  return { flows, ...(entries.length >= 4 && entries.length <= 100 ? { outline: { kind: 'heading-index' as const, entries } } : {}) }
+  return { flows, ...((options.completeOutline ? entries.length >= 2 : entries.length >= 4 && entries.length <= 100) ? { outline: { kind: 'heading-index' as const, entries } } : {}) }
 }
 
 const nonempty = (maximum: number) => z.string().max(maximum).refine(value => value.trim().length > 0, 'Expected nonempty text')

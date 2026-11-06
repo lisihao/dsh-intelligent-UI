@@ -36,6 +36,12 @@ const mixedBlockLayoutSource = `# 混合区块编排验收
 
 读取来源 → 核对证据 -> 记录结果
 
+## 实现片段
+
+\`\`\`ts
+const presentation = 'source-bound'
+\`\`\`
+
 [mixed-source]: https://sources.example.invalid/mixed-source "固定本地来源"
 [^mixed-note]: 固定本地脚注；该脚注不请求外部网络。`
 
@@ -161,6 +167,7 @@ async function mixedSnapshot(page) {
     const events = window.__adaptiveUiPreviewEvents ?? []
     const composition = [...events].reverse().find(event => event.type === 'composition' && event.documentId === 'synthetic-mixed-block-layout')
     const receipt = [...events].reverse().find(event => event.type === 'receipt' && event.documentId === 'synthetic-mixed-block-layout' && event.observed === true)
+    if (composition && composition.status !== 'selected') throw new Error('MIXED_COMPOSITION_NOT_SELECTED:' + composition.status + ':' + (composition.reason ?? 'unknown'))
     const output = document.querySelector('#preview-output')
     const scope = output?.querySelector('[data-iexp-composition-scope]')
     const root = output?.querySelector('[data-iexp-block-layout]') ?? scope
@@ -172,18 +179,39 @@ async function mixedSnapshot(page) {
     const blocks = composition.selection?.blockLayout?.blocks ?? []
     const questionIds = composition.schema?.questionIds ?? []
     const optionIds = composition.schema?.optionIds ?? {}
+    const presentationNodes = [...root.querySelectorAll('[data-iexp-presentation]')]
+    const reference = [...root.querySelectorAll('a')].find(anchor => anchor.textContent?.trim() === '本地资料')
+    const footnoteRef = root.querySelector('a[data-footnote-ref], a[href*="mixed-note"], sup a')
+    const footnoteDefinition = root.querySelector('[data-footnotes] li, li[id*="mixed-note"], li[id*="fn-"]')
+    const codeDisclosure = [...root.querySelectorAll('details')].some(details => (details.textContent ?? '').includes("const presentation = 'source-bound'"))
     return {
       status: scope.getAttribute('data-iexp-composition-status'),
       selection: composition.selection,
       schema: composition.schema,
       blockIds: blocks.map(block => block.id),
+      presentations: blocks.map(block => block.presentation),
+      explicitPresentationMounts: new Set(presentationNodes.filter(element => {
+        const rect = element.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
+      }).map(element => element.getAttribute('data-iexp-block-id'))).size,
+      presentationMismatches: blocks.filter(block => !presentationNodes.some(element => element.getAttribute('data-iexp-block-id') === block.id && element.getAttribute('data-iexp-presentation') === block.presentation)).map(block => block.id),
       chartBlocks: blocks.filter(block => block.selection?.chart === 'visx').length,
       boardBlocks: blocks.filter(block => block.selection?.layout === 'board').length,
       flowBlocks: blocks.filter(block => block.selection?.layout === 'flow').length,
+      chartPresentations: blocks.filter(block => block.presentation === 'chart-visx').length,
+      boardPresentations: blocks.filter(block => block.presentation === 'board').length,
+      flowPresentations: blocks.filter(block => block.presentation === 'flow').length,
+      proseCardPresentations: blocks.filter(block => block.presentation === 'cards').length,
+      codeDisclosurePresentations: blocks.filter(block => block.presentation === 'disclosure').length,
       chartMounts: mounted('.iexp-historical-chart, [data-auto-chart], .iexp-chart-grid'),
       boardMounts: mounted('[data-content-layout="board"], .iexp-task-board, .iexp-task'),
       flowMounts: mounted('.iexp-flow, .react-flow, .iexp-flow-viewport'),
       ordinaryProse: (root.textContent ?? '').includes('这段普通说明必须保留'),
+      codeSource: (root.textContent ?? '').includes("const presentation = 'source-bound'"),
+      codeDisclosure,
+      sourceReferenceHref: reference?.getAttribute('href'),
+      footnoteHref: footnoteRef?.getAttribute('href'),
+      footnoteText: footnoteDefinition?.textContent?.trim(),
       sourceTable: root.querySelectorAll('table').length >= 2,
       receiptObserved: receipt.observed === true,
       decisionCalls: receipt.decisionCalls,
@@ -200,7 +228,14 @@ function assertMixedSnapshot(snapshot, viewportWidth) {
   assert.equal(snapshot.decisionCalls, 1)
   assert.equal(snapshot.questionIdsUnique, true)
   assert.equal(snapshot.multiChoice, true)
-  assert.ok(snapshot.blockIds.length >= 4, `expected source-owned mixed blocks: ${JSON.stringify(snapshot)}`)
+  assert.ok(snapshot.blockIds.length >= 5, `expected source-owned mixed blocks: ${JSON.stringify(snapshot)}`)
+  assert.deepEqual(snapshot.presentationMismatches, [], 'every block must mount its actually selected recipe')
+  assert.equal(snapshot.explicitPresentationMounts, snapshot.blockIds.length, `every source block must render its explicit presentation at ${viewportWidth}px: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.chartPresentations, 1, `expected one explicit historical chart recipe: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.boardPresentations, 1, `expected one explicit task-board recipe: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.flowPresentations, 1, `expected one explicit arrow-flow recipe: ${JSON.stringify(snapshot)}`)
+  assert.ok(snapshot.proseCardPresentations > 0, `expected an explicit cards recipe for prose: ${JSON.stringify(snapshot)}`)
+  assert.equal(snapshot.codeDisclosurePresentations, 1, `expected an explicit disclosure recipe for code: ${JSON.stringify(snapshot)}`)
   assert.equal(snapshot.chartBlocks, 1, `expected one selected historical chart block: ${JSON.stringify(snapshot)}`)
   assert.equal(snapshot.boardBlocks, 1, `expected one selected task-board block: ${JSON.stringify(snapshot)}`)
   assert.equal(snapshot.flowBlocks, 1, `expected one selected arrow-flow block: ${JSON.stringify(snapshot)}`)
@@ -208,6 +243,11 @@ function assertMixedSnapshot(snapshot, viewportWidth) {
   assert.ok(snapshot.boardMounts > 0, `task board is not mounted at ${viewportWidth}px: ${JSON.stringify(snapshot)}`)
   assert.ok(snapshot.flowMounts > 0, `arrow flow is not mounted at ${viewportWidth}px: ${JSON.stringify(snapshot)}`)
   assert.equal(snapshot.ordinaryProse, true)
+  assert.equal(snapshot.codeSource, true)
+  assert.equal(snapshot.codeDisclosure, true)
+  assert.equal(snapshot.sourceReferenceHref, 'https://sources.example.invalid/mixed-source')
+  assert.match(snapshot.footnoteHref ?? '', /mixed-note|fn-/)
+  assert.match(snapshot.footnoteText ?? '', /固定本地脚注/)
   assert.equal(snapshot.sourceTable, true)
   assert.ok(snapshot.width > 0)
 }
