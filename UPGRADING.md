@@ -148,3 +148,37 @@ The document-workbench candidate consumes published `dsh-client-ui-workspace`, `
 Existing unmodified optional owners remain dsh-cost-meter 1.9.11 and dsh-deepseek-web-login 1.0.3. Cost reads use `getLocalState`; budget writes deep-merge only `{budget:{amount}}`. Ledger API estimates are separate from Plan equivalent values, balances and quotas; frozen CNY/EUR amounts take precedence without recalculating old exchange rates; unsupported/custom display currencies retain canonical USD API amounts. Budget-used follows the owner UI formula (`budgetUsed × exchangeRate`), separately from the amount limit. Web reads use only light status, accounts and the static models POST; raw config/guest/session/token fields are dropped immediately. Codex status and `usage {force:false}` use the owner's normal metadata cache/TTL, which can query its upstream on expiry; Grok uses cached status. They never call a model or sign in. Recheck exact route/payload shapes and error states on owner upgrades. Source reads have a 15-second bound and no automatic retry.
 
 The new settings section is registered and disposed through owned slots. The reversible settings adapter keeps original native buttons and pages, exposing them from advanced actions and restoring the flat list when classification is cancelled. No upstream component is invoked privately. Verify all three pages, original-page return, source-qualified same-name models, missing versus zero money/quota, long catalogs, narrow windows, keyboard focus and unload restoration. `tools/model-center` is a real-browser public-service replay with injected data; it proves UI integration, not live account connectivity. Exact packed-plugin and installed Desktop acceptance must remain separate. No dependency, host App, credential store or durable format is replaced.
+
+### Settings connection recovery
+
+The client settings store clears a read error after a successful read or acknowledged save, and ignores responses from reads superseded by a newer read or save. Header transparency distinguishes unavailable settings reads from an unacknowledged write; a later successful read must not hide a failed write or retry it. Verify transient read recovery, overlapping reads, delayed failures after saves, preserved preferences and visible write failures with the appearance-client tests and the installed header. No durable format, credentials or host networking is changed.
+
+
+### Unified session collaboration header (rc.2 adapter)
+
+`collaboration-entry.ts` consumes published session selector hooks and the
+`agentTeam`, `subagentCatalog`, `subagentTiming` and version-1
+`solar-pstack-status` projections. `collaboration-model.ts` adapts only observed
+fields into the owned `collaboration-view.ts`; no official component source or
+original pstack implementation is copied. Navigation uses public
+`uiWorkspace.openSession` with the exact catalog mode, and checks the originating
+session still owns the main-view retain. The browser plugin must declare the
+`uiWorkspace` service in its Cordis `inject` list in addition to declaring the
+workspace module in `dsh.client.inject`; a module dependency alone does not grant
+service access to the plugin context. A child session's direct parent is the
+Team lead, matching the published rc.2 Team UI. No model-facing rules, model
+choice, reasoning effort, session events or task database change.
+
+`collaboration-header-policy.ts` uses the published slot registry's list-cell
+priority shadowing: priority -100 on `agent-team`, `subagent-catalog`,
+`solar-pstack-status`, `cost-meter-statistics` and `agy-link-status`, only in
+`conversation.session.header.actions`. It does not dispose another plugin's
+registration or modify installed source. The owned Collaboration entry and the
+overrides share the plugin lifetime; unload restores the original winners.
+The composer cost entry and AGY subscription settings are separate slots.
+These IDs are observed in rc.2, cost-meter 1.9.11, AGY Link 0.4.94 and the reviewed
+pstack companion panel. On upgrades, recheck exact IDs, projection payloads,
+read-only versus continuable navigation, pending/unknown results, cross-session
+isolation, disable/re-enable, Markdown/source fidelity, native popover layering,
+keyboard interaction and normal/narrow viewport geometry. Source and keyless
+fixtures do not by themselves prove installed-App acceptance.
