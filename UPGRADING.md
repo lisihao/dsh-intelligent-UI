@@ -162,7 +162,10 @@ The client settings store clears a read error after a successful read or acknowl
 fields into the owned `collaboration-view.ts`; no official component source or
 original pstack implementation is copied. Navigation uses public
 `uiWorkspace.openSession` with the exact catalog mode, and checks the originating
-session still owns the main-view retain. A child session's direct parent is the
+session still owns the main-view retain. The browser plugin must declare the
+`uiWorkspace` service in its Cordis `inject` list in addition to declaring the
+workspace module in `dsh.client.inject`; a module dependency alone does not grant
+service access to the plugin context. A child session's direct parent is the
 Team lead, matching the published rc.2 Team UI. No model-facing rules, model
 choice, reasoning effort, session events or task database change.
 
