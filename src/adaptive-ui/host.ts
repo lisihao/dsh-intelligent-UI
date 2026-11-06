@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { builtInThemes, type ThemePackage } from '../theme-contracts.js'
 import { buildCompositionCandidates, validateCompositionChoices } from './planner.js'
+import { neutralDesignRubric } from './design-guidance.js'
 import {
   ADAPTIVE_COMPOSITION_FEATURE_ID,
   ADAPTIVE_COMPOSITION_FORMAT_VERSION,
@@ -33,6 +34,7 @@ import {
 
 const DEFAULT_MAX_SOURCE_BYTES = 1024 * 1024
 const DEFAULT_MAX_CACHE_ENTRIES = 32
+const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@2'
 
 type CandidateBundle = ReturnType<typeof buildCompositionCandidates>
 type CandidateQuestion = CandidateBundle['questions'][number]
@@ -130,23 +132,30 @@ function cloneJson<T>(value: unknown): T {
   return JSON.parse(stableJson(value)) as T
 }
 
-/** Local executor placeholders must not masquerade as model-selected bindings. */
-function modelCandidateBundle(bundle: CandidateBundle): unknown {
-  if (!bundle.blockLayout) return bundle
-  const { defaultAnswers: _localFailureDefaults, ...visible } = bundle
+/**
+ * The model receives the canonical questions separately. Keep only stable
+ * block-to-question links here, never a second catalog or local renderer recipe.
+ */
+function blockFieldBindings(referenceId: string, questionIds: readonly string[]): Readonly<Record<string, string>> {
+  const prefix = `${referenceId}:`
+  const bindings: Record<string, string> = {}
+  for (const questionId of questionIds) {
+    if (!questionId.startsWith(prefix)) continue
+    const field = questionId.slice(prefix.length)
+    if (!field) continue
+    bindings[field.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = questionId
+  }
+  return bindings
+}
+
+function blockDesignContext(program: NonNullable<CandidateBundle['blockLayout']>): unknown {
   return {
-    ...visible,
-    blockLayout: {
-      ...bundle.blockLayout,
-      blocks: bundle.blockLayout.blocks.map(binding => ({
-        ...binding,
-        fieldBindings: { componentSet: `${binding.reference.id}:component-set` },
-        presentations: binding.presentations?.map(plan => ({
-          ...plan,
-          selection: Object.fromEntries(Object.entries(plan.selection).filter(([key, value]) => key !== 'componentSet' && !(key === 'chart' && value === 'auto'))),
-        })),
-      })),
-    },
+    version: program.version,
+    blocks: program.blocks.map(binding => ({
+      reference: binding.reference,
+      questionIds: binding.questionIds,
+      fieldBindings: blockFieldBindings(binding.reference.id, binding.questionIds),
+    })),
   }
 }
 
@@ -575,6 +584,28 @@ export class AdaptiveCompositionCoordinator {
   private jevRequest(active: ActiveRequest): { state: JevJson, questions: readonly JevQuestion[] } {
     const questions = cloneJson<readonly JevQuestion[]>(active.bundle.questions)
       .filter(question => question.options.length >= 2)
+    const composition = active.bundle.blockLayout === undefined
+      ? {
+          // The pre-experiment request is a durable legacy contract.
+          selectedThemeId: active.snapshot.selectedThemeId,
+          styleMode: active.snapshot.styleMode,
+          capabilities: active.input.capabilities,
+          isStreaming: active.input.isStreaming === true,
+          themes: active.snapshot.themes,
+          candidateBundle: active.bundle,
+        }
+      : {
+          // `inputVersion` remains the only opaque request-specific fingerprint.
+          // Automatic mode deliberately has no current-theme hint; all model
+          // choices live in the authoritative `questions` array above.
+          inputFormat: BLOCK_DESIGN_CONTEXT_INPUT_FORMAT,
+          designRubric: neutralDesignRubric(),
+          styleMode: active.snapshot.styleMode,
+          capabilities: active.input.capabilities,
+          isStreaming: active.input.isStreaming === true,
+          ...(active.snapshot.styleMode === 'selected' ? { lockedThemeId: active.snapshot.selectedThemeId } : {}),
+          blockLayout: blockDesignContext(active.bundle.blockLayout),
+        }
     const state = cloneJson<JevJson>({
       formatVersion: ADAPTIVE_COMPOSITION_FORMAT_VERSION,
       kind: 'adaptive-ui-composition',
@@ -585,16 +616,7 @@ export class AdaptiveCompositionCoordinator {
         inputVersion: `${ADAPTIVE_COMPOSITION_INPUT_VERSION}:${active.fingerprint}`,
         value: active.input.value,
       },
-      composition: {
-        selectedThemeId: active.snapshot.selectedThemeId,
-        styleMode: active.snapshot.styleMode,
-        capabilities: active.input.capabilities,
-        isStreaming: active.input.isStreaming === true,
-        themes: active.snapshot.themes,
-        // Experimental local failure defaults are not model recommendations.
-        // Keep them in the coordinator, while recording all actual candidates.
-        candidateBundle: modelCandidateBundle(active.bundle),
-      },
+      composition,
     })
     return { state, questions }
   }
