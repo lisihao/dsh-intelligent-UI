@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DIL_PROTOCOL_VERSION,
+  DIL_CURATED_UIVERSE_COMPONENT_IDS,
+  DIL_LIBRARY_COMPONENT_IDS,
   DilProtocolError,
+  MAX_DIL_COMPONENT_INPUT_BYTES,
   MAX_DIL_TREE_BYTES,
   validateCompiledDil,
   validateDilTree,
@@ -79,6 +82,55 @@ describe('DIL snapshot tree boundary', () => {
 
     const referenceFragment = { t: '#frag', c: [{ t: '#text', v: 'Leading reference text' }, { t: 'badge', c: [{ t: '#text', v: 'Ready' }] }] }
     expect(validateDilTree(referenceFragment)).toEqual(referenceFragment)
+  })
+
+  it('accepts source-only markdown nodes and rejects missing, non-string, or child content', () => {
+    const markdown = '# 目录\n\n```ts\nconst total = 3\n```\n\n$E=mc^2$'
+    const source = { t: 'markdown', p: { source: markdown } }
+    expect(validateDilTree(source)).toEqual(source)
+    expect(codeOf(() => validateDilTree({ t: 'markdown' }))).toBe('DIL_TREE_INVALID_PROPS')
+    expect(codeOf(() => validateDilTree({ t: 'markdown', p: { source: 3 } }))).toBe('DIL_TREE_INVALID_PROPS')
+    expect(codeOf(() => validateDilTree({ t: 'markdown', p: { source: markdown }, c: [{ t: '#text', v: 'ignored' }] }))).toBe('DIL_TREE_INVALID_NODE')
+  })
+
+  it('accepts only bounded source JSON for exact host-owned external components', () => {
+    const source = {
+      t: 'component',
+      p: {
+        id: 'tuffui:data-table',
+        input: {
+          title: '实际表格',
+          data: { code: 'const actual = 12', sources: [{ url: 'https://example.test/source', image: { src: 'data:image/png;base64,AA==' } }], rows: [{ label: 'Q1', value: 12, action: 'inspect' }] },
+          binding: { actions: [{ actionId: 'host-table-select' }] },
+        },
+        onChange: { __dilFn: 'updateTable' },
+      },
+    }
+    const safe = validateDilTree(source)
+    expect(safe).toEqual(source)
+    expect(safe).not.toBe(source)
+
+    expect(codeOf(() => validateDilTree({ t: 'component' }))).toBe('DIL_TREE_COMPONENT_INVALID')
+    expect(codeOf(() => validateDilTree({ t: 'component', p: { id: 'dil:component', input: {} } }))).toBe('DIL_TREE_COMPONENT_INVALID')
+    expect(codeOf(() => validateDilTree({ t: 'component', p: { id: 'tuffui:data-table', input: {}, rendererKey: 'untrusted' } }))).toBe('DIL_TREE_COMPONENT_INVALID')
+    const semanticJson = {
+      data: { code: 'const actual = 12', sources: [{ url: 'https://example.test/source', src: 'data:image/png;base64,AA==' }], rows: [{ action: 'inspect' }] },
+      binding: { actions: [{ actionId: 'host-action' }] },
+      rendererKey: 'schema-data-only',
+      eval: 'documented as data',
+      __dilFn: 'documented-example',
+      componentId: 'dil:component',
+      document: { type: 'component', literal: 'dil:component' },
+    }
+    expect(validateDilTree({ t: 'component', p: { id: 'tuffui:code-block', input: semanticJson } })).toMatchObject({ t: 'component' })
+    expect(DIL_CURATED_UIVERSE_COMPONENT_IDS).toHaveLength(15)
+    for (const id of [...DIL_CURATED_UIVERSE_COMPONENT_IDS, ...DIL_LIBRARY_COMPONENT_IDS]) {
+      expect(validateDilTree({ t: 'component', p: { id, input: { source: 'actual' } } })).toMatchObject({ t: 'component' })
+    }
+    expect(codeOf(() => validateDilTree({ t: 'component', p: { id: 'component:not-pinned', input: {} } }))).toBe('DIL_TREE_COMPONENT_INVALID')
+    expect(codeOf(() => validateDilTree({ t: 'component', p: { id: 'tuffui:data-table', input: { value: () => 'not-json' } } }))).toBe('DIL_TREE_COMPONENT_INPUT_INVALID')
+    expect(codeOf(() => validateDilTree({ t: 'component', p: { id: 'canvas:glitch', input: 'x'.repeat(MAX_DIL_COMPONENT_INPUT_BYTES + 1) } }))).toBe('DIL_TREE_COMPONENT_INPUT_LIMIT_EXCEEDED')
+    expect(codeOf(() => validateDilTree({ t: 'component', p: { id: 'canvas:glitch', input: {} }, c: [{ t: '#text', v: 'children forbidden' }] }))).toBe('DIL_TREE_INVALID_NODE')
   })
 
   it('keeps form submission host-owned while applying tag-specific link, image, and event boundaries', () => {

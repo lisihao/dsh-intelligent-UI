@@ -2,9 +2,21 @@
 
 This is an implementation and evidence ledger for the 35 components at Canvas UI commit `a04a99b235299ee79a123a16ccb2e6cf9da74b6b`, not a claim of complete support. Original data and the independent-plugin boundary are mandatory. The upstream MIT + Commons Clause license remains in force.
 
+## Current experimental source boundary — 2026-11-06
+
+All 35 pinned IDs now have the same source-bound executable registry and consumer route: 29 HTML effects and six object effects. This is behind the default-off block-layout experiment; it does not change the earlier installed app. The source binder and DIL bridge share exact `canvas:<slug>` identities. Ordinary text keeps multiple renderer candidates. Magnify still needs explicit text-free decoration; ASCII Sweep needs two actual retained panels; object effects resolve and validate the original asset before creating a local blob. No model-supplied `verified` flag establishes trust.
+
+The 12 newly adapted HTML effects (including the isolated Liquid route) and three additional object effects passed 30 isolated browser views at 1440/390. Evidence includes actual fixed-factory execution, source preservation, update/resize/disposal and composited pixel/source-feature checks. Liquid's initially transparent delayed `readPixels` was traced to its non-preserved WebGL framebuffer; synchronous display readback and pointer-driven composited screenshots establish actual output. The fixed upstream factory/shader was not replaced to make the test pass. This does not establish hardware acceleration, installed Desktop CSP acceptance or full interaction parity.
+
+The production React 18 `CanvasComponentView` separately passed Bubble, isolated Liquid, two-source ASCII Sweep, a validated PNG object and pointer-driven Ripple at 1440/390. The fixed factory loads and source/host geometry were checked; every unmount left zero component frames and canvases. These five consumer cases supplement, rather than replace, the 15 raw-adapter checks.
+
+The production registry/view has separate exact-ID/source-binding tests. Its asynchronous cleanup also covers a factory that calls `onError` before returning an instance and adapters that resolve after unmount. Source data remains available after a failed effect; geometry or capability rejection is not reported as a successful visual render.
+
+## Earlier candidate evidence (retained history)
+
 Official Desktop candidate `52e26952…` rendered source-declared GLB with Ink, ASCII and Glass and a structured JPEG with Ink and its original image. Its Markdown `data:` PNG generated Ink but failed to display the adjacent original; source text remained intact. Candidate `4786545f…` fixed that original and passed Desktop display plus uninstall/reinstall checks on the same PNG; local browser checks covered 1200 and 320 CSS pixels, including reduced motion. Candidates `5a42ff3b…`, `ea5f6723…` and `4cf7ec49…` were installed and passed PNG, existing GLB, original mode and disable/restore checks. The latest also passed a native half-screen check. It contains the experimental HTML adapters described below, but they and no-domain automatic selection still lack a normal Desktop consumer for acceptance. The HTML experiment below ran in isolated Chrome 156 using SwiftShader and an exploratory snapshot shim. It does not prove hardware acceleration, DSH Chromium 152, complex layout, text/data fidelity or interaction parity. No HTML effect is automatically applied to ordinary report data or code.
 
-| Component | Current evidence or remaining condition |
+| Component | Earlier evidence or remaining condition at that candidate |
 |---|---|
 | ASCII Object | GLB automatic path passed earlier Desktop check; tested raster illustrations lacked sufficient structural fidelity, so they use Ink instead. |
 | Dithered Object | WebGL factory and GLB experiment; not automatically selected because tested contrast was insufficient. |

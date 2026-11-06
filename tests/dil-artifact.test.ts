@@ -7,9 +7,11 @@ import { compileDilSource } from '../src/dil/compiler.js'
 import { DIL_REFERENCE_COMMIT, dilPayloadSchema, type DilApi, type ExperienceArtifact, type WidgetStateApi } from '../src/contracts.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-const counters = vi.hoisted(() => ({ mounted: 0 }))
+const counters = vi.hoisted(() => ({ mounted: 0, renderMarkdown: undefined as undefined | ((source: string) => unknown), renderComponent: undefined as undefined | ((id:string,input:import('../src/dil/protocol.js').DilJson)=>unknown) }))
 vi.mock('../src/dil/view.js', () => ({
-  DilProgramView: (props: { initialState?:Record<string,unknown>,onStateChange:(s:Record<string,unknown>)=>void,onSubmit:(action:string,input:{state:Record<string,unknown>,fields:Record<string,unknown>})=>Promise<void> }) => {
+  DilProgramView: (props: { initialState?:Record<string,unknown>,onStateChange:(s:Record<string,unknown>)=>void,onSubmit:(action:string,input:{state:Record<string,unknown>,fields:Record<string,unknown>})=>Promise<void>,renderMarkdown?:(source:string)=>unknown,renderComponent?:(id:string,input:import('../src/dil/protocol.js').DilJson)=>unknown }) => {
+    counters.renderMarkdown = props.renderMarkdown
+    counters.renderComponent = props.renderComponent
     const [value, setValue] = useState(Number(props.initialState?.seats ?? 0))
     useEffect(() => { counters.mounted++; return () => { counters.mounted-- } }, [])
     return h('div', { 'data-mock-dil-view': true },
@@ -18,7 +20,7 @@ vi.mock('../src/dil/view.js', () => ({
   },
 }))
 const mounted: ReturnType<typeof createRoot>[]=[]
-afterEach(async()=>{for(const root of mounted.splice(0))await act(async()=>root.unmount());document.body.replaceChildren();vi.restoreAllMocks()})
+afterEach(async()=>{for(const root of mounted.splice(0))await act(async()=>root.unmount());document.body.replaceChildren();counters.renderMarkdown=undefined;vi.restoreAllMocks()})
 const source='{@body const [seats,setSeats]=DIL.useState(3)}\n<form action="confirm"><slider value={seats} onChange={setSeats}/><button type="submit">提交</button></form>'
 const compiled=compileDilSource(source)
 const payload=dilPayloadSchema.parse({formatVersion:1,source,compiled,referenceCommit:DIL_REFERENCE_COMMIT})
@@ -34,6 +36,8 @@ describe('DIL artifact state and explicit submission bridge',()=>{
   const host=document.createElement('div');document.body.append(host);const root=createRoot(host);mounted.push(root)
   await act(async()=>root.render(h(ArtifactView,{artifact:artifact('stream'),dilEnabled:true,dilApi,stateApi})))
   const input=host.querySelector<HTMLInputElement>('input[aria-label="本地席位"]')!;expect(input).not.toBeNull()
+  expect(counters.renderMarkdown).toBeTypeOf('function')
+  expect(counters.renderComponent).toBeTypeOf('function')
   await act(async()=>edit(input,'7'))
   expect(input.value).toBe('7');expect(stateApi.saveWidgetState).not.toHaveBeenCalled()
   const id='1743cc26-6e21-4d88-a123-b477e207a115'

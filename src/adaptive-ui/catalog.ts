@@ -47,6 +47,7 @@ export interface CompositionCatalog {
   readonly revision: typeof COMPOSITION_CATALOG_REVISION
   readonly entries: readonly CatalogEntry[]
 }
+export interface ExecutableCatalogDescription {readonly id:string,readonly family:string,readonly title:string,readonly suitability:string,readonly rendererKey:string}
 
 export class InvalidCompositionCatalogInputError extends Error {
   readonly code: string
@@ -277,10 +278,11 @@ function normalizedThemes(themes: readonly ThemePackage[]): ThemePackage[] {
 /**
  * Complete discoverability catalog.  It is source-independent and therefore
  * safe for the existing `solar_ui_catalog` development lookup and the
- * composition RPC.  In particular, the 3,802-file Galaxy archive is one
- * development-only entry rather than 3,802 implied executable renderers.
+ * composition RPC. Without a runtime registry, archives stay discovery-only.
+ * Supplying the actual executable definitions exposes their exact IDs and
+ * source-dependent consumers; metadata alone never upgrades availability.
  */
-export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInThemes, options: { experimentalBlocks?: boolean } = {}): CompositionCatalog {
+export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInThemes, options: { experimentalBlocks?: boolean, executables?:readonly ExecutableCatalogDescription[] } = {}): CompositionCatalog {
   const entries = [
     ...sourceSurfaceEntries,
     ...libraryEntries(),
@@ -289,5 +291,15 @@ export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInT
     ...canvasEntries(options.experimentalBlocks === true),
     ...normalizedThemes(themes).map(themeEntry),
   ].sort((left, right) => left.id.localeCompare(right.id))
+  if(options.executables){
+    const mapped=new Map(entries.map(entry=>[entry.id,entry]))
+    for(const executable of options.executables){
+      const previous=mapped.get(executable.id)
+      mapped.set(executable.id,{...previous,id:executable.id,kind:previous?.kind??'library',name:executable.title,availability:'conditional',eligibility:{allOf:['experimental-block-layout','validated-component-input-contract','registered-executable-consumer'],reason:'same-id-executable-registry'},metadata:{...previous?.metadata,family:executable.family,rendererKey:executable.rendererKey,contentFit:executable.suitability}})
+    }
+    const archiveIds=options.executables.filter(entry=>entry.id.startsWith('uiverse:')&&entry.id.includes('/'))
+    if(archiveIds.length===3802)mapped.set(archiveEntry.id,{...archiveEntry,availability:'conditional',eligibility:{allOf:['experimental-block-layout','complete-source-slot-bindings'],reason:'complete-source-bound-archive'},metadata:{...archiveEntry.metadata,executable:true,registeredIds:archiveIds.length}})
+    return {revision:COMPOSITION_CATALOG_REVISION,entries:[...mapped.values()].sort((a,b)=>a.id.localeCompare(b.id))}
+  }
   return { revision: COMPOSITION_CATALOG_REVISION, entries }
 }

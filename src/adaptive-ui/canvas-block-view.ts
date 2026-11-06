@@ -136,6 +136,7 @@ export function CanvasBlockView({ presentation, children, value, isStreaming = f
               content,
               scope: 'visual-only',
               sourceRemainsVisible: true,
+              ...(component === 'ripple' ? { pointer: true } : {}),
               ...(component === 'magnify' ? { contentRole: 'decoration' as const } : {}),
               ...(color ? { effectOptions: { color } } : {}),
               signal: controller.signal,

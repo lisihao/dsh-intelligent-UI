@@ -1,7 +1,7 @@
 import { createElement as h, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { ActionEvent } from '@openuidev/react-lang'
 import { dilPayloadSchema, dilRuntimeInfoSchema, type DilApi, type ExperienceArtifact } from '../contracts.js'
-import { DilProgramView } from './view.js'
+import { DilProgramView, type DilExternalComponentRenderer } from './view.js'
 
 export interface DilArtifactViewProps {
   artifact: ExperienceArtifact
@@ -12,6 +12,7 @@ export interface DilArtifactViewProps {
   onStateChange(state: Record<string, unknown>): void
   onContinue?: (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void>
   renderMarkdown(text: string): ReactNode
+  renderComponent?: DilExternalComponentRenderer
 }
 
 /** The stable identity belongs to a tool call, including its temporary streamed revision. */
@@ -20,7 +21,7 @@ export function dilArtifactIdentity(artifact: ExperienceArtifact): string {
 }
 
 /** Bridge existing revision-checked widget state and explicit conversation continuation. */
-export function DilArtifactView({ artifact, enabled, api, stateReady, initialState, onStateChange, onContinue, renderMarkdown }: DilArtifactViewProps): ReactElement {
+export function DilArtifactView({ artifact, enabled, api, stateReady, initialState, onStateChange, onContinue, renderMarkdown, renderComponent }: DilArtifactViewProps): ReactElement {
   const parsed = useMemo(() => dilPayloadSchema.safeParse(artifact.payload), [artifact.payload])
   const payload = parsed.success ? parsed.data : undefined
   const constantsKey = payload ? JSON.stringify(payload.compiled.constants) : ''
@@ -93,6 +94,7 @@ export function DilArtifactView({ artifact, enabled, api, stateReady, initialSta
           artifactId: artifact.source.callId ?? artifact.id,
           sessionId: artifact.source.sessionId, frameUrl,
           initialState, onStateChange: reportState, onSubmit: submit,
+          renderMarkdown, renderComponent,
           renderFallback: ({ compiled: value, source: original, reason }) => h('div', null,
             reason && h('p', { role: 'alert' }, '交互界面未能运行，下面保留可读内容。'),
             renderMarkdown(value.fallbackMarkdown || original),

@@ -5,8 +5,8 @@ import { BarChart, IconWrapper, LineChart, PieChart } from '@openuidev/react-ui'
 import { MarkdownCodeBlock } from '../markdown-code.js'
 import { ThemeButton, ThemeCard, ThemeInput, ThemeToggle } from '../theme-components.js'
 import type { CompiledDil } from './compiler.js'
-import type { DilIntrinsicTag } from './protocol.js'
-import { validateDilTree } from './protocol.js'
+import type { DilIntrinsicTag, DilJson } from './protocol.js'
+import { validateDilComponentInput, validateDilExternalComponentId, validateDilTree } from './protocol.js'
 import { createDilRunner } from './runtime.js'
 import { DIL_ALLOWED_HANDLERS, DIL_ALLOWED_PROPS, supportedDILTags } from './catalog.js'
 
@@ -26,6 +26,13 @@ export type DilFallbackContext = Readonly<{
   reason?: string
 }>
 
+/**
+ * Host-owned external component bridge. The callback owns exact catalog ID and
+ * input-schema validation; it returns a named unavailable view for an unknown
+ * foreign ID instead of asking DIL to guess a renderer.
+ */
+export type DilExternalComponentRenderer = (id: string, input: DilJson, onEvent?: (event: DilJson) => void) => ReactNode
+
 export type DilProgramViewProps = Readonly<{
   source: string
   compiled: CompiledDil
@@ -36,7 +43,38 @@ export type DilProgramViewProps = Readonly<{
   initialState?: Readonly<Record<string, unknown>>
   onStateChange?: (state: Record<string, unknown>) => void
   onSubmit?: (action: string, input: DilSubmitInput) => void | Promise<void>
+  /** Host-owned Markdown renderer; the native view never imports presentation. */
+  renderMarkdown?: (source: string) => ReactNode
+  /** Host-owned external library bridge; DIL never resolves foreign components itself. */
+  renderComponent?: DilExternalComponentRenderer
   renderFallback?: ReactNode | ((context: DilFallbackContext) => ReactNode)
+}>
+
+/** A direct, already-snapshot DIL handler port. It never reaches a Worker. */
+export type DilNativeTreeHandlerPort = (handlerId: string, args: readonly unknown[]) => void | Promise<void>
+export type DilNativeTreeSubmitInput = Readonly<{ fields: Readonly<Record<string, unknown>> }>
+export type DilNativeTreeSubmitPort = (action: string, input: DilNativeTreeSubmitInput) => void | Promise<void>
+
+/**
+ * Native-tree entry point for trusted internal adapters.
+ *
+ * `tree` still crosses the same JSON/protocol boundary as a Worker snapshot:
+ * it is first cloned by `validateDilTree`, then checked against the actual
+ * native renderer by `assertNativeTree`. No compiler, sandbox, Worker, or
+ * source-string evaluation is involved in this component.
+ */
+export type DilNativeTreeViewProps = Readonly<{
+  tree: unknown
+  artifactId: string
+  sessionId: string
+  ownedHandlerIds: readonly string[]
+  ownedFormActionIds: readonly string[]
+  onHandler?: DilNativeTreeHandlerPort
+  onSubmit?: DilNativeTreeSubmitPort
+  renderMarkdown?: (source: string) => ReactNode
+  renderComponent?: DilExternalComponentRenderer
+  /** Caller-owned readable source retained when the tree or its ports are invalid. */
+  children?: ReactNode
 }>
 
 type DilRunner = ReturnType<typeof createDilRunner>
@@ -163,6 +201,19 @@ function validateProp(tag: string, key: string, value: unknown): void {
   if (tag === 'form' && key === 'action' && (typeof value !== 'string' || !/^[A-Za-z0-9_.:-]{1,200}$/u.test(value))) {
     throw new DilNativeViewError('DIL_ACTION_INVALID', 'form.action 必须是受限的提交标识。')
   }
+  if (tag === 'markdown' && key === 'source' && typeof value !== 'string') {
+    throw new DilNativeViewError('DIL_MARKDOWN_SOURCE_INVALID', 'markdown.source 必须是字符串。')
+  }
+  if (tag === 'component' && key === 'id') {
+    try { validateDilExternalComponentId(value, 'component.id') }
+    catch (error) { throw new DilNativeViewError('DIL_COMPONENT_ID_INVALID', error instanceof Error ? error.message : String(error)) }
+    return
+  }
+  if (tag === 'component' && key === 'input') {
+    try { validateDilComponentInput(value, 'component.input') }
+    catch (error) { throw new DilNativeViewError('DIL_COMPONENT_INPUT_INVALID', error instanceof Error ? error.message : String(error)) }
+    return
+  }
   if (tag === 'button' && key === 'type' && value !== 'button' && value !== 'submit') {
     throw new DilNativeViewError('DIL_PROP_INVALID', 'button.type 仅支持 button 或 submit。')
   }
@@ -203,6 +254,18 @@ function validateElementProps(tag: string, props: Props): void {
   }
   if (tag === 'button' && props.type === 'submit' && props.onClick !== undefined) {
     throw new DilNativeViewError('DIL_SUBMIT_HANDLER_UNSUPPORTED', 'submit 按钮不支持 onClick；提交由 form action 处理。')
+  }
+  if (tag === 'markdown' && typeof props.source !== 'string') {
+    throw new DilNativeViewError('DIL_MARKDOWN_SOURCE_INVALID', 'markdown 必须声明字符串 source。')
+  }
+  if (tag === 'component') {
+    if (typeof props.id !== 'string' || !Object.hasOwn(props, 'input')) throw new DilNativeViewError('DIL_COMPONENT_REQUIRED', 'component 必须声明 id 与 input。')
+    try {
+      validateDilExternalComponentId(props.id, 'component.id')
+      validateDilComponentInput(props.input, 'component.input')
+    } catch (error) {
+      throw new DilNativeViewError('DIL_COMPONENT_INVALID', error instanceof Error ? error.message : String(error))
+    }
   }
 }
 
@@ -275,10 +338,26 @@ function assertNativeTree(value: unknown): DilTreeNode {
     if (!record(props)) throw new DilNativeViewError('DIL_PROPS_INVALID', '组件 “' + node.t + '” 的属性无效。')
     for (const [key, prop] of Object.entries(props)) validateProp(node.t, key, prop)
     validateElementProps(node.t, props)
+    if (node.t === 'markdown' && children.length) throw new DilNativeViewError('DIL_MARKDOWN_CHILDREN_UNSUPPORTED', 'markdown 不能包含子节点。')
+    if (node.t === 'component' && children.length) throw new DilNativeViewError('DIL_COMPONENT_CHILDREN_UNSUPPORTED', 'component 不能包含子节点。')
     if (node.t === 'chart' || node.t === 'pie-chart') validateChartProps(node.t, props)
     return { t: node.t as DilIntrinsicTag, p: { ...props }, c: children.map(child => walk(child, depth + 1)) }
   }
   return walk(value, 0)
+}
+
+function treeUsesMarkdown(node: DilTreeNode | undefined): boolean {
+  if (!node) return false
+  if (node.t === '#text') return false
+  if (node.t === 'markdown') return true
+  return (node.c ?? []).some(child => treeUsesMarkdown(child))
+}
+
+function treeUsesExternalComponent(node: DilTreeNode | undefined): boolean {
+  if (!node) return false
+  if (node.t === '#text') return false
+  if (node.t === 'component') return true
+  return (node.c ?? []).some(child => treeUsesExternalComponent(child))
 }
 
 function childText(nodes: readonly DilTreeNode[] | undefined): string {
@@ -341,6 +420,9 @@ function fallbackView(source: string, compiled: CompiledDil, reason: string | un
 type RenderContext = Readonly<{
   trigger: (handler: unknown, args: readonly unknown[]) => void
   submit: (action: unknown, form: HTMLFormElement) => void
+  reportFailure?: (error: unknown) => void
+  renderMarkdown?: (source: string) => ReactNode
+  renderComponent?: DilExternalComponentRenderer
 }>
 
 function tone(props: Props): string | undefined {
@@ -448,6 +530,42 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
       return h('label', common, ...children)
     case 'code':
       return h('div', { ...common, className: 'iexp-dil-code' }, h(MarkdownCodeBlock, { code: childText(node.c), language: text(props.language) || undefined }))
+    case 'markdown': {
+      const markdownSource = props.source
+      if (typeof markdownSource !== 'string' || !context.renderMarkdown) {
+        return h('section', { ...common, className: 'iexp-dil-fallback' },
+          h('p', { role: 'alert' }, 'DIL Markdown 组件不可用：宿主没有 Markdown 渲染器。'),
+          typeof markdownSource === 'string' && h('pre', null, markdownSource))
+      }
+      return h('section', { ...common, className: 'iexp-dil-markdown' }, context.renderMarkdown(markdownSource))
+    }
+    case 'component': {
+      const renderer = context.renderComponent
+      if (typeof props.id !== 'string' || !Object.hasOwn(props, 'input') || !renderer) {
+        return h('section', { ...common, className: 'iexp-dil-fallback' }, h('p', { role: 'alert' }, 'DIL 外部组件不可用：宿主没有已授权的组件渲染器。'))
+      }
+      let id: string, input: DilJson
+      try {
+        id = validateDilExternalComponentId(props.id, 'component.id')
+        input = validateDilComponentInput(props.input, 'component.input')
+      } catch (error) {
+        return h('section', { ...common, className: 'iexp-dil-fallback' }, h('p', { role: 'alert' }, 'DIL 外部组件不可用：' + (error instanceof Error ? error.message : String(error))))
+      }
+      const onChange = props.onChange
+      const onEvent = onChange === undefined
+        ? undefined
+        : (event: DilJson) => {
+            // Component events can only enter the existing local DIL handler
+            // route. They never invoke a host action or a model directly.
+            try { context.trigger(onChange, [validateDilComponentInput(event, 'component.event')]) }
+            catch (error) { context.reportFailure?.(error) }
+          }
+      try {
+        return h('section', { ...common, className: 'iexp-dil-component' }, renderer(id, input, onEvent))
+      } catch (error) {
+        return h('section', { ...common, className: 'iexp-dil-fallback' }, h('p', { role: 'alert' }, 'DIL 外部组件不可用：' + (error instanceof Error ? error.message : String(error))))
+      }
+    }
     case 'icon': {
       const name = text(props.name)
       return SAFE_ICON_NAMES.has(name)
@@ -560,7 +678,150 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
   }
 }
 
-export function DilProgramView({ source, compiled, enabled, artifactId, sessionId, frameUrl, initialState = {}, onStateChange, onSubmit, renderFallback }: DilProgramViewProps): ReactElement {
+type NativeTreePorts = Readonly<{
+  handlers: ReadonlySet<string>
+  formActions: ReadonlySet<string>
+  requiresHandlerPort: boolean
+  requiresSubmitPort: boolean
+}>
+
+function ownedIds(value: unknown, label: string, pattern: RegExp): ReadonlySet<string> {
+  if (!Array.isArray(value) || value.length > 128) throw new DilNativeViewError('DIL_NATIVE_TREE_PORTS_INVALID', `${label} 必须是有限数组。`)
+  const ids = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string' || !pattern.test(item) || ids.has(item)) {
+      throw new DilNativeViewError('DIL_NATIVE_TREE_PORTS_INVALID', `${label} 包含无效或重复标识。`)
+    }
+    ids.add(item)
+  }
+  return ids
+}
+
+function nativeTreePorts(tree: DilTreeNode, ownedHandlerIds: unknown, ownedFormActionIds: unknown, onHandler: unknown, onSubmit: unknown): NativeTreePorts {
+  const handlers = ownedIds(ownedHandlerIds, 'ownedHandlerIds', /^[A-Za-z][A-Za-z0-9_-]{0,127}$/u)
+  const formActions = ownedIds(ownedFormActionIds, 'ownedFormActionIds', /^[A-Za-z0-9_.:-]{1,200}$/u)
+  let requiresHandlerPort = false
+  let requiresSubmitPort = false
+  const visit = (node: DilTreeNode): void => {
+    if (node.t === '#text') return
+    if (node.t !== '#frag') {
+      const props = node.p ?? {}
+      for (const [key, value] of Object.entries(props)) {
+        if (!key.startsWith('on')) continue
+        const id = handlerId(value)
+        if (!id || !handlers.has(id)) throw new DilNativeViewError('DIL_NATIVE_TREE_HANDLER_NOT_OWNED', `DIL 处理器 “${id ?? 'unknown'}” 未被当前视图授权。`)
+        requiresHandlerPort = true
+      }
+      if (node.t === 'form') {
+        const action = text(props.action)
+        if (!action || !formActions.has(action)) throw new DilNativeViewError('DIL_NATIVE_TREE_ACTION_NOT_OWNED', `form.action “${action || 'unknown'}” 未被当前视图授权。`)
+        requiresSubmitPort = true
+      }
+    }
+    for (const child of node.c ?? []) visit(child)
+  }
+  visit(tree)
+  if (requiresHandlerPort && typeof onHandler !== 'function') throw new DilNativeViewError('DIL_NATIVE_TREE_HANDLER_PORT_UNAVAILABLE', 'DIL 树包含事件处理器，但当前没有已授权的 onHandler 端口。')
+  if (requiresSubmitPort && typeof onSubmit !== 'function') throw new DilNativeViewError('DIL_NATIVE_TREE_SUBMIT_PORT_UNAVAILABLE', 'DIL 树包含 form 提交，但当前没有已授权的 onSubmit 端口。')
+  return { handlers, formActions, requiresHandlerPort, requiresSubmitPort }
+}
+
+function nativeTreeFallback(children: ReactNode, reason: string): ReactElement {
+  return h('div', { className: 'iexp-dil-fallback', 'data-dil-fallback': true },
+    h('p', { role: 'alert' }, 'DIL 原生树不可用：' + reason),
+    children === undefined ? h('p', null, '原始内容不可用。') : children,
+  )
+}
+
+/**
+ * Render a source-bound native DIL tree without running a DIL program.
+ *
+ * A tree update is validated in the local React render path and immediately
+ * replaces the prior tree. All ports are checked before the tree mounts, and
+ * neither handler nor form port is invoked until a DOM event actually occurs.
+ */
+export function DilNativeTreeView({ tree: rawTree, artifactId, sessionId, ownedHandlerIds, ownedFormActionIds, onHandler, onSubmit, renderMarkdown, renderComponent, children }: DilNativeTreeViewProps): ReactElement {
+  const [eventFailure, setEventFailure] = useState<Readonly<{ tree: unknown, message: string }>>()
+  const submitting = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+
+  let tree: DilTreeNode | undefined
+  let ports: NativeTreePorts | undefined
+  let validationFailure: string | undefined
+  try {
+    const protocolTree = validateDilTree(rawTree) as DilTreeNode
+    const nativeTree = assertNativeTree(protocolTree)
+    if (treeUsesMarkdown(nativeTree) && !renderMarkdown) throw new DilNativeViewError('DIL_MARKDOWN_RENDERER_UNAVAILABLE', 'DIL Markdown 组件需要宿主 Markdown 渲染器。')
+    if (treeUsesExternalComponent(nativeTree) && !renderComponent) throw new DilNativeViewError('DIL_COMPONENT_RENDERER_UNAVAILABLE', 'DIL 外部组件需要宿主组件渲染器。')
+    ports = nativeTreePorts(nativeTree, ownedHandlerIds, ownedFormActionIds, onHandler, onSubmit)
+    tree = nativeTree
+  } catch (error) {
+    validationFailure = error instanceof Error ? error.message : String(error)
+  }
+  const runtimeFailure = eventFailure !== undefined && eventFailure.tree === rawTree ? eventFailure.message : undefined
+  const failure = validationFailure ?? runtimeFailure
+  const failForCurrentTree = (error: unknown): void => {
+    if (mounted.current) setEventFailure({ tree: rawTree, message: error instanceof Error ? error.message : String(error) })
+  }
+  const context: RenderContext = {
+    renderMarkdown,
+    renderComponent,
+    reportFailure: failForCurrentTree,
+    trigger(handler, args) {
+      // Native renderers attach DOM listeners for supported event slots even
+      // when a particular source tree omits that optional handler. Omission is
+      // inert; an explicit but unowned handler is a visible failure.
+      if (handler === undefined) return
+      const id = handlerId(handler)
+      if (!id || !ports?.handlers.has(id)) {
+        failForCurrentTree(new DilNativeViewError('DIL_NATIVE_TREE_HANDLER_NOT_OWNED', 'DIL 处理器未被当前视图授权。'))
+        return
+      }
+      const port = onHandler
+      if (!port) {
+        failForCurrentTree(new DilNativeViewError('DIL_NATIVE_TREE_HANDLER_PORT_UNAVAILABLE', '当前没有已授权的 onHandler 端口。'))
+        return
+      }
+      try {
+        void Promise.resolve(port(id, [...args])).catch(failForCurrentTree)
+      } catch (error) { failForCurrentTree(error) }
+    },
+    submit(actionValue, form) {
+      const action = text(actionValue)
+      if (!action || !ports?.formActions.has(action)) {
+        failForCurrentTree(new DilNativeViewError('DIL_NATIVE_TREE_ACTION_NOT_OWNED', 'form.action 未被当前视图授权。'))
+        return
+      }
+      const port = onSubmit
+      if (!port) {
+        failForCurrentTree(new DilNativeViewError('DIL_NATIVE_TREE_SUBMIT_PORT_UNAVAILABLE', '当前没有已授权的 onSubmit 端口。'))
+        return
+      }
+      if (submitting.current) return
+      submitting.current = true
+      try {
+        const fields = fieldsFrom(form)
+        void Promise.resolve(port(action, { fields })).catch(failForCurrentTree).finally(() => { submitting.current = false })
+      } catch (error) {
+        submitting.current = false
+        failForCurrentTree(error)
+      }
+    },
+  }
+
+  return h('section', { className: 'dsh-experience iexp-dil', 'data-dil-enabled': 'true', 'data-dil-artifact-id': artifactId, 'data-dil-session-id': sessionId },
+    failure
+      ? nativeTreeFallback(children, failure)
+      : tree
+        ? h('div', { className: 'iexp-dil-native-tree', 'data-dil-native-tree': true }, renderNode(tree, context, 'root'))
+        : nativeTreeFallback(children, '没有可用的 DIL 原生树。'))
+}
+
+export function DilProgramView({ source, compiled, enabled, artifactId, sessionId, frameUrl, initialState = {}, onStateChange, onSubmit, renderMarkdown, renderComponent, renderFallback }: DilProgramViewProps): ReactElement {
   const sandboxHost = useRef<HTMLDivElement>(null)
   const runner = useRef<DilRunner>()
   const runnerReady = useRef<DilRunner>()
@@ -569,9 +830,13 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
   const stateRef = useRef<Record<string, unknown>>({ ...initialState })
   const onStateChangeRef = useRef(onStateChange)
   const onSubmitRef = useRef(onSubmit)
+  const renderMarkdownRef = useRef(renderMarkdown)
+  const renderComponentRef = useRef(renderComponent)
   const submitInFlight = useRef(false)
   onStateChangeRef.current = onStateChange
   onSubmitRef.current = onSubmit
+  renderMarkdownRef.current = renderMarkdown
+  renderComponentRef.current = renderComponent
   latestCompiled.current = compiled
 
   const [tree, setTree] = useState<DilTreeNode>()
@@ -629,7 +894,14 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
         if (!active) return
         try {
           const validated = validateDilTree(snapshot) as DilTreeNode
-          setTree(assertNativeTree(validated))
+          const nativeTree = assertNativeTree(validated)
+          if (treeUsesMarkdown(nativeTree) && !renderMarkdownRef.current) {
+            throw new DilNativeViewError('DIL_MARKDOWN_RENDERER_UNAVAILABLE', 'DIL Markdown 组件需要宿主 Markdown 渲染器。')
+          }
+          if (treeUsesExternalComponent(nativeTree) && !renderComponentRef.current) {
+            throw new DilNativeViewError('DIL_COMPONENT_RENDERER_UNAVAILABLE', 'DIL 外部组件需要宿主组件渲染器。')
+          }
+          setTree(nativeTree)
           setFailure(undefined)
         } catch (error) {
           setTree(undefined)
@@ -688,6 +960,9 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
   }, [compiled, enabled])
 
   const context: RenderContext = {
+    renderMarkdown: renderMarkdownRef.current,
+    renderComponent: renderComponentRef.current,
+    reportFailure(error) { setFailure(error instanceof Error ? error.message : String(error)) },
     trigger(handler, args) {
       const id = handlerId(handler)
       if (!id) return
@@ -736,11 +1011,13 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
 
   const compilationFailure = compiled.ok ? undefined : 'DIL 编译未通过，未执行界面程序。' + (compiled.diagnosticSummary ? ' ' + compiled.diagnosticSummary : '')
   const diagnostics = compiled.ok ? compilerDiagnosticText(compiled) : undefined
-  const fallback = !enabled || compilationFailure !== undefined || failure !== undefined
+  const markdownFailure = treeUsesMarkdown(tree) && !renderMarkdown ? 'DIL Markdown 组件需要宿主 Markdown 渲染器。' : undefined
+  const componentFailure = treeUsesExternalComponent(tree) && !renderComponent ? 'DIL 外部组件需要宿主组件渲染器。' : undefined
+  const fallback = !enabled || compilationFailure !== undefined || markdownFailure !== undefined || componentFailure !== undefined || failure !== undefined
   return h('section', { className: 'dsh-experience iexp-dil', 'data-dil-enabled': String(enabled), 'data-dil-artifact-id': artifactId, 'data-dil-session-id': sessionId },
     h('div', { ref: sandboxHost, className: 'iexp-dil-runner-host', 'aria-hidden': true }),
     fallback
-      ? fallbackView(source, compiled, failure ?? compilationFailure, renderFallback)
+      ? fallbackView(source, compiled, failure ?? componentFailure ?? markdownFailure ?? compilationFailure, renderFallback)
       : tree
         ? h('div', { className: 'iexp-dil-native-tree', 'data-dil-native-tree': true }, renderNode(tree, context, 'root'))
         : h('p', { className: 'iexp-dil-pending', role: 'status' }, '正在准备本地 DIL 视图…'),

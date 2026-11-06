@@ -16,6 +16,24 @@ const mounted: ReturnType<typeof createRoot>[] = []
 afterEach(async () => { for (const root of mounted.splice(0)) await act(async () => root.unmount()); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('rich Markdown is a baseline beneath presentation choices', () => {
+  it('renders embedded Markdown without a page surface while retaining math, code and directory targets', async () => {
+    const host=document.createElement('div');document.body.append(host);const root=createRoot(host);mounted.push(root)
+    await act(async()=>root.render(h(ContentView,{value:source,embedded:true})))
+    expect(host.querySelectorAll('.iexp-embedded-markdown')).toHaveLength(1)
+    expect(host.querySelector('.iexp-reply-surface')).toBeNull()
+    expect(host.querySelector('.katex-display math')).not.toBeNull()
+    expect(host.querySelector('.iexp-markdown-code code .token')).not.toBeNull()
+    const links=host.querySelectorAll<HTMLAnchorElement>('nav[aria-label="原文目录"] a')
+    expect(links).toHaveLength(3)
+    for(const link of links)expect(document.getElementById(link.hash.slice(1))).not.toBeNull()
+  })
+  it('does not replace a selected Markdown node with a legacy inferred flow',async()=>{
+    const host=document.createElement('div');document.body.append(host);const root=createRoot(host);mounted.push(root)
+    const original='准备 → 核验 → 保存'
+    await act(async()=>root.render(h(ContentView,{value:original,embedded:true})))
+    expect(host.textContent).toContain(original)
+    expect(host.querySelector('.react-flow')).toBeNull()
+  })
   it.each([false, true])('preserves code, math and TOC with block experiment=%s and no live model', async experiment => {
     vi.stubGlobal('IntersectionObserver', undefined)
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))

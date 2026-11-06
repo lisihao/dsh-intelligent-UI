@@ -30,6 +30,12 @@ interface ThemeGuidance {
 }
 
 const knownThemeGuidance: Readonly<Record<string, ThemeGuidance>> = {
+  rune: {
+    visualCharacteristics:'Original Rune Rust/WASM draws opaque dark material surfaces, physical spring responses and actual liquid-metal fills; native DOM remains above it for accessible content.',
+    contentFit:'Fits spatially grouped explanation, compact status/control regions and interactive comparisons whose grouping benefits from material and state feedback. Long reading, code and formulas retain semantic native text.',
+    benefits:'Uses the actual Rust GPU implementation without converting shaders or springs to JavaScript. Reduce Motion is handled by the Rust renderer.',
+    limitations:'Requires WebGPU and built local WASM assets. Owns an opaque content region rather than the host backdrop; FlutedGlass samples the Rune-owned offscreen scene through the original Rust effect; DOM content above it is not sampled. Its role radii and native chart colors are adapter mappings, not a claim that every Rune scene was ported.',
+  },
   empryo: {
     visualCharacteristics: 'Dark translucent surfaces, rounded panels, soft shadows, and compact recursive typography create a layered reading frame.',
     contentFit: 'Fits explanatory documents with a moderate number of distinct sections, notes, or evidence callouts that benefit from gentle grouping.',

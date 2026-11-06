@@ -1,4 +1,5 @@
 import { DilArtifactView, dilArtifactIdentity } from './dil/artifact.js'
+import { createDilLibraryRenderer } from './dil/library-view.js'
 import type { DilApi } from './contracts.js'
 import {normalizeCompositionSource} from './adaptive-ui/source-contracts.js'
 import { AdaptiveCompositionView, CompositionRuntimeContext } from './adaptive-ui/view.js'
@@ -44,6 +45,10 @@ import { analyzeTableCharts, parseMarkdownTables, rowsFromRecords, selectIcon, t
 import { blockIdFromMarkdownProps, blockPresentationPlugin, continuousBlockSectionsPlugin, resolvedBlockPresentation, sourceOrganizationPlugin, type ResolvedBlockPresentation } from './adaptive-ui/block-presentations.js'
 import { BLOCK_PRESENTATION_LABELS, type BlockPresentationId } from './adaptive-ui/presentation-recipes.js'
 import { CanvasBlockView } from './adaptive-ui/canvas-block-view.js'
+import { ExecutableBlockView } from './adaptive-ui/executable-block-view.js'
+import { SOURCE_PRESENTATION_RENDERER_KEY } from './adaptive-ui/source-block-components.js'
+import { SOURCE_LIBRARY_RENDERER_KEY } from './adaptive-ui/library-component-bindings.js'
+import { RunePresentation } from './rune-presentation.js'
 
 /** Host theme stays read-only; content contrast follows the user-selected surface color. */
 export class ExperienceTheme {
@@ -295,6 +300,7 @@ function readableChoice(selection: BlockSelection, presentation: ResolvedBlockPr
   return parts.join('；')
 }
 function readablePresentation(block: BlockComposition): string {
+  if(block.componentName)return block.componentName
   const presentation = blockPresentation(block)
   if (presentation === 'fallback') return '兼容旧版布局选择'
   return BLOCK_PRESENTATION_LABELS[presentation as BlockPresentationId] ?? `Canvas ${presentation.replace(/^canvas-/, '')} 视觉副本`
@@ -312,6 +318,7 @@ function BlockLayoutBasis({ program, path }: { program: CompositionSelection | u
       return h('li', { key: block.id },
         h('strong', null, `${blockKindLabels[block.kind] ?? '内容块'}：${readablePresentation(block)}；${readableChoice(block.selection, blockPresentation(block))}`),
         h('div', null, `来源位置：${readableSourceScope(block, path)}`),
+        block.componentFit&&h('p',null,`组件适配说明：${block.componentFit}`),
         evidenceList,
       )
     })),
@@ -332,7 +339,7 @@ function BlockThemeScope({ selection, children }: { selection?: BlockSelection, 
     className: 'iexp-block-theme',
     'data-iexp-block-theme': theme.id,
     style: variables as CSSProperties,
-  }, children))
+  }, h(RunePresentation,null,children)))
 }
 
 type BlockShellAttributes = {
@@ -359,7 +366,9 @@ function BlockPresentationView({ block, id, value, isStreaming = false, children
   const source = children
   const genericCard = (className: string, content: ReactNode) => h(ThemeCard, { as: 'article', renderRole: 'content', className, ...attrs }, content)
   let view: ReactElement
-  if (presentation === 'cards') {
+  if(block?.component&&block.component.rendererKey!==SOURCE_PRESENTATION_RENDERER_KEY&&block.component.rendererKey!==SOURCE_LIBRARY_RENDERER_KEY){
+    view=h(ExecutableBlockView,{selection:block.component,value,isStreaming,renderMarkdown:markdown=>typeof value==='string'&&markdown===value?source:h(ContentView,{value:markdown,decide:false,embedded:true})},source)
+  } else if (presentation === 'cards') {
     view = genericCard('iexp-block iexp-block-card', source)
   } else if (presentation === 'disclosure') {
     view = h('details', { open: true, className: 'iexp-block iexp-block-disclosure', ...attrs },
@@ -459,7 +468,8 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
       : sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : []
     const blockRenderer = ({ children, ...props }: { children?: ReactNode, [key: string]: unknown }) => {
       const id = blockIdFromMarkdownProps(props)
-      return h(BlockPresentationView, { block: id === undefined ? undefined : blockById.get(id), id, isStreaming }, children)
+      const block=id === undefined ? undefined : blockById.get(id)
+      return h(BlockPresentationView, { block, id, isStreaming, value:block?.start!==undefined&&block.end!==undefined?text.slice(block.start,block.end):undefined }, children)
     }
     return { remarkPlugins: [remarkGfm, remarkMath, preserveCurrencyAmounts(text), navigation.remarkPlugin, ...astPlugins], rehypePlugins: [[rehypeKatex, { trust: false, maxExpand: 1000, maxSize: 100, strict: 'ignore' }]], components: {
       ...headings,
@@ -628,10 +638,12 @@ function StructuredContent({ value, isStreaming, dark, presentation = 'fallback'
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH, program }: { value: unknown, isStreaming?: boolean, path?: readonly number[], program?: CompositionSelection }): ReactElement {
+function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH, program, embedded = false }: { value: unknown, isStreaming?: boolean, path?: readonly number[], program?: CompositionSelection, embedded?: boolean }): ReactElement {
   const theme = useExperienceTheme()
+  const presentationTheme = useSelectedTheme()
   const contextualProgram = useCompositionSelection() as CompositionSelection | undefined
-  const rootProgram = program ?? contextualProgram
+  // A model-selected Markdown node keeps Markdown semantics; it does not start another legacy layout decision.
+  const rootProgram:CompositionSelection|undefined = embedded ? {themeId:presentationTheme.id,surface:'semantic',chart:'auto',componentSet:'native',objectEffect:'none',layout:'document'} : program ?? contextualProgram
   const normalized = normalizeCompositionSource(value)
   const childCount = normalized.kind === 'blocks' ? normalized.values.length : 0
   const childPaths = useMemo(() => Array.from({ length: childCount }, (_part, index) => [...path, index]), [path, childCount])
@@ -640,17 +652,20 @@ function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH
   const structuredValue = normalized.kind === 'structured' || normalized.kind === 'scalar' ? normalized.value : value
   const structuredContent = h(StructuredContent, { value: structuredValue, isStreaming, dark: theme === 'dark', presentation: blockPresentation(block) })
   const content:ReactNode=normalized.kind==='blocks'
-    ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram}))
+    ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram,embedded}))
     :normalized.kind==='markdown'
       ?h(MarkdownContent,{text:normalized.markdown,isStreaming,path,program:rootProgram})
       :block ? h(BlockPresentationView, { block, value: structuredValue, isStreaming }, structuredContent) : structuredContent
   const basis = structured ? h(BlockLayoutBasis, { program: rootProgram, path }) : undefined
-  return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, basis, content)))
+  const body=h('div', { className: `dsh-experience iexp-content ${embedded?'iexp-embedded-markdown':'iexp-reply-surface'}`, 'data-experience-theme': theme }, basis, content)
+  return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, embedded?body:h(RunePresentation,null,body)))
 }
 
 /** One composition boundary per actual source output; nested renderers share its decision. */
-export function ContentView({value,isStreaming=false,documentId,sessionId,decide=true}:{value:unknown,isStreaming?:boolean,documentId?:string,sessionId?:string,decide?:boolean}):ReactElement {
-  return h(AdaptiveCompositionView,{value,isStreaming,documentId,sessionId,decide},h(ContentBody,{value,isStreaming}))
+export function ContentView({value,isStreaming=false,documentId,sessionId,decide=true,embedded=false}:{value:unknown,isStreaming?:boolean,documentId?:string,sessionId?:string,decide?:boolean,embedded?:boolean}):ReactElement {
+  const body=h(ContentBody,{value,isStreaming,embedded})
+  if(embedded)return h(CompositionSelectionContext.Provider,{value:undefined},body)
+  return h(AdaptiveCompositionView,{value,isStreaming,documentId,sessionId,decide},body)
 }
 
 export interface McpUiApi {
@@ -758,7 +773,7 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     control.timer = setTimeout(() => { void flush() }, 300)
   }
   const visual = artifact.protocol === 'dil'
-    ? h(DilArtifactView, { key: dilArtifactIdentity(artifact), artifact, enabled: dilEnabled, api: dilApi, stateReady: stateReady && stateOwner === currentStateOwner, initialState: state, onStateChange: updateState, onContinue, renderMarkdown: (text: string) => h(ContentView, { value: text, decide: false }) })
+    ? h(DilArtifactView, { key: dilArtifactIdentity(artifact), artifact, enabled: dilEnabled, api: dilApi, stateReady: stateReady && stateOwner === currentStateOwner, initialState: state, onStateChange: updateState, onContinue, renderMarkdown: renderEmbeddedMarkdown, renderComponent: renderDilLibraryComponent })
     : artifact.protocol === 'openui' && openuiEnabled && typeof artifact.payload === 'string'
     ? h('div', null, stateReady ? h(Renderer, { response: artifact.payload, library, isStreaming, initialState: state, onStateUpdate: updateState, onAction: (event) => { if (event.type !== 'continue_conversation' || !onContinue) { setActionError('此交互类型没有可用的会话执行路径，未执行任何操作。'); return }; const controller = new AbortController(); pending.add(controller); setActionError(''); void onContinue(event, state, controller.signal).catch(error => { if (!controller.signal.aborted) setActionError(`提交失败：${error instanceof Error ? error.message : String(error)}`) }).finally(() => pending.delete(controller)) }, onError: (items) => setErrors(items.map(item => item.message)) }) : h('p', { role: 'status' }, '正在恢复组件状态…'), errors.length > 0 && h('p', { role: 'alert' }, `OpenUI 渲染错误：${errors.join('; ')}`), actionError && h('p', { role: 'alert' }, actionError))
     : artifact.protocol === 'openui' && !openuiEnabled
@@ -766,5 +781,8 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     : artifact.protocol === 'mcp-app'
       ? h(McpContent, { artifact, api: mcpApi })
       : artifact.source.kind==='assistant'?h(AssistantArtifactContent,{artifact,isStreaming}):h(ContentView, { value: artifact.payload, isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}` })
-  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : artifact.protocol === 'openui' ? h(AdaptiveCompositionView,{value:{type:'openui',source:artifact.payload},isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}`},h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)) : h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)), stateError && (artifact.protocol === 'dil' || artifact.protocol === 'openui') && h('p', { role: 'alert' }, stateError)))
+  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : artifact.protocol === 'openui' ? h(AdaptiveCompositionView,{value:{type:'openui',source:artifact.payload},isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}`},h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)) : h(RunePresentation, null, h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual))), stateError && (artifact.protocol === 'dil' || artifact.protocol === 'openui') && h('p', { role: 'alert' }, stateError)))
 }
+
+const renderEmbeddedMarkdown = (text: string): ReactNode => h(ContentView, { value: text, decide: false, embedded: true })
+const renderDilLibraryComponent = createDilLibraryRenderer(renderEmbeddedMarkdown)

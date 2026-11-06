@@ -106,6 +106,7 @@ describe('CanvasBlockView', () => {
       } else {
         const options = record.scope.createCanvasHtmlEffect.mock.calls[0]![0] as Record<string, unknown>
         expect(options).toMatchObject({ component: presentation.slice('canvas-'.length), scope: 'visual-only', sourceRemainsVisible: true })
+        if (presentation === 'canvas-ripple') expect(options.pointer).toBe(true)
         expect(options.host).not.toBe(options.content)
         expect((options.host as HTMLElement).contains(options.content as Node)).toBe(false)
         expect((options.content as HTMLElement).contains(options.host as Node)).toBe(false)

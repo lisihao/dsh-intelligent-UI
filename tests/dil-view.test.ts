@@ -146,6 +146,14 @@ describe('DilProgramView', () => {
     expect(guide.code).not.toContain('submitQuote')
   })
 
+  it('compiles an explicit lowercase markdown intrinsic with bound original source', () => {
+    const original = '## 目录\n\n```ts\nconst total = 3\n```\n\n$E=mc^2$'
+    const compiledMarkdown = compileDilSource(`{@body const original = ${JSON.stringify(original)}}\n<markdown source={original}/>`)
+    expect(compiledMarkdown.ok).toBe(true)
+    expect(compiledMarkdown.diagnostics).toEqual([])
+    expect(compiledMarkdown.code).toContain('markdown')
+  })
+
   it('renders a snapshot shaped like the catalog guide, including title size and wrapped label control', async () => {
     let callbacks: Callbacks | undefined
     const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
@@ -167,6 +175,83 @@ describe('DilProgramView', () => {
     expect(view.host.textContent).toContain('报价条件')
     expect(view.host.textContent).toContain('当前月度费用：¥600')
     expect(view.host.querySelector('label input[name="seats"]')).not.toBeNull()
+  })
+
+  it('delegates an explicit markdown source unchanged to the host Markdown renderer', async () => {
+    let callbacks: Callbacks | undefined
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const renderMarkdown = vi.fn((value: string) => h('article', { 'data-host-markdown': true }, value))
+    const source = '## 目录\n\n- [公式](#formula)\n\n```ts\nconst total = 3\n```\n\n$E=mc^2$'
+    const view = await mount({ renderMarkdown })
+    await act(async () => callbacks!.onSnapshot({ t: 'markdown', p: { source } }))
+    expect(renderMarkdown).toHaveBeenCalledWith(source)
+    expect(view.host.querySelector('[data-host-markdown]')?.textContent).toBe(source)
+    expect(view.host.querySelector('[data-dil-fallback]')).toBeNull()
+  })
+
+  it('shows a visible source fallback when an explicit markdown node has no host renderer', async () => {
+    let callbacks: Callbacks | undefined
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const view = await mount({ source: '<markdown source={original}/>' })
+    await act(async () => callbacks!.onSnapshot({ t: 'markdown', p: { source: '# 原文' } }))
+    expect(view.host.querySelector('[role="alert"]')?.textContent).toContain('宿主 Markdown 渲染器')
+    expect(view.host.textContent).toContain('<markdown source={original}/>')
+    expect(view.host.querySelector('[data-dil-fallback]')).not.toBeNull()
+  })
+
+  it('delegates an exact external component id and JSON input to the host only after the snapshot arrives', async () => {
+    let callbacks: Callbacks | undefined
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const renderComponent = vi.fn((id: string, input: unknown, onEvent?: (event: { kind: string, value: number }) => void) => h('button', { type: 'button', 'data-external-component': id, onClick: () => onEvent?.({ kind: 'source-change', value: 2 }) }, JSON.stringify(input)))
+    const view = await mount({ renderComponent })
+    await act(async () => callbacks!.onSnapshot({
+      t: 'component', p: { id: 'tuffui:data-table', input: { title: 'Actual source table', rows: [{ label: 'A', value: 1 }] }, onChange: { __dilFn: 'setExternal' } },
+    }))
+    expect(renderComponent).toHaveBeenCalledWith('tuffui:data-table', { title: 'Actual source table', rows: [{ label: 'A', value: 1 }] }, expect.any(Function))
+    expect(runner.trigger).not.toHaveBeenCalled()
+    const control = view.host.querySelector<HTMLButtonElement>('[data-external-component="tuffui:data-table"]')!
+    await act(async () => control.click())
+    expect(runner.trigger).toHaveBeenCalledWith('setExternal', [{ kind: 'source-change', value: 2 }])
+  })
+
+  it('keeps the original source fallback when an external component snapshot has no host renderer', async () => {
+    let callbacks: Callbacks | undefined
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const view = await mount({ source: '<component id="tuffui:data-table" input={input}/>' })
+    await act(async () => callbacks!.onSnapshot({ t: 'component', p: { id: 'tuffui:data-table', input: { title: 'Actual source table' } } }))
+    expect(view.host.querySelector('[role="alert"]')?.textContent).toContain('宿主组件渲染器')
+    expect(view.host.textContent).toContain('<component id="tuffui:data-table" input={input}/>')
+    expect(view.host.querySelector('[data-dil-native-tree]')).toBeNull()
+  })
+
+  it('allows the host renderer to return a named unavailable view for an unknown exact foreign id', async () => {
+    let callbacks: Callbacks | undefined
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const renderComponent = vi.fn((id: string) => h('p', { role: 'status', 'data-host-component-failure': true }, `COMPONENT_UNKNOWN:${id}`))
+    const view = await mount({ renderComponent })
+    await act(async () => callbacks!.onSnapshot({ t: 'component', p: { id: 'tuffui:not-in-host-catalog', input: { title: 'actual' } } }))
+    expect(view.host.querySelector('[data-host-component-failure]')?.textContent).toBe('COMPONENT_UNKNOWN:tuffui:not-in-host-catalog')
+    expect(runner.trigger).not.toHaveBeenCalled()
   })
 
   it('projects a single chart dataKey so extra numeric fields are not passed to OpenUI', async () => {

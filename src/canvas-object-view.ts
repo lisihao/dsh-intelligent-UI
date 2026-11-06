@@ -7,13 +7,10 @@ import { acquireCanvasSlot, type CanvasEffectInstance } from './canvas-runtime-c
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
 import { planCanvasEffect, type EffectDomain } from './effect-planner.js'
 import { classifyCanvasAutoDomain } from './canvas-auto-plan-domain.js'
+import { glbSource, type CanvasImageSource as ImageSource, type CanvasObjectSource as ObjectSource } from './canvas-object-source.js'
 import { ThemeButton } from './theme-components.js'
-import { isEvidenceVisualLabel } from './visual-semantics.js'
+export { glbSource } from './canvas-object-source.js'
 
-interface GlbSource { field: string, reference: string, kind?: undefined }
-interface ImageSource { field: string, reference: string, kind: 'image', mime: 'image/png' | 'image/jpeg' }
-type ObjectSource = GlbSource | ImageSource
-const glbTypes = new Set(['glb', 'model/gltf-binary'])
 const MAX_GLB_BYTES = 64 * 1024 * 1024
 // GLTFLoader can allocate accessors even when their bytes are absent from the file.
 const MAX_GLB_ACCESSOR_BYTES = 128 * 1024 * 1024
@@ -40,24 +37,6 @@ function objectEffectAppearance(component: string, dark: boolean, isImage = fals
   if (component === 'ink-object') return { inkColor: color, ...(isImage ? { threshold: 0.15, contrast: 4, lineSpacing: 6, scale: 4.2 } : {}) }
   if (component === 'ascii-object') return { colored: false, color, cellSize: 9, exposure: 2, ...(gpuTheme && !isImage ? {fov:45, scale:3.2} : {}) }
   return {}
-}
-
-/** Legacy name retained for the normal content path. Ordinary photos, charts and screenshots stay unchanged. */
-export function glbSource(value: unknown): ObjectSource | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  const record = value as Record<string, unknown>
-  const field = ['url', 'src', 'uri', 'href'].find(key => typeof record[key] === 'string' && (record[key] as string).trim())
-  if (!field) return undefined
-  const types = [record.mimeType, record.mediaType, record.format, record.type]
-    .filter((item): item is string => typeof item === 'string').map(item => item.trim().toLowerCase())
-  if (types.some(type => glbTypes.has(type))) return { field, reference: record[field] as string }
-  const role = typeof record.role === 'string' ? record.role.trim().toLowerCase() : ''
-  if (!['illustration', 'decorative'].includes(role)) return undefined
-  const conflictingRole = [record.type, record.kind, record.category, record.purpose, record.alt, record.caption]
-    .some(item => typeof item === 'string' && isEvidenceVisualLabel(item))
-  if (conflictingRole) return undefined
-  const mime = types.find(type => type === 'image/png' || type === 'image/jpeg') as ImageSource['mime'] | undefined
-  return mime ? { field, reference: record[field] as string, kind: 'image', mime } : undefined
 }
 
 /** Limit browser decoding and reject animated PNGs before passing bytes to upstream. */
@@ -300,7 +279,8 @@ export async function readGlbResponse(response: Response, limit = MAX_GLB_BYTES)
   return bytes
 }
 
-function safeAssetUrl(reference: string, mime?: ImageSource['mime']): string {
+/** Resolve a declared object/illustration reference before the consumer fetches it. */
+export function safeAssetUrl(reference: string, mime?: ImageSource['mime']): string {
   const url = new URL(reference, window.location.href)
   const location = window.location
   const local = url.protocol === location.protocol && url.host === location.host

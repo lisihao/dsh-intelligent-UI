@@ -6,6 +6,7 @@ import plain from './themes/plain.dsh-theme.json' with { type: 'json' }
 import relief from './themes/uiverse-soft-relief.dsh-theme.json' with { type: 'json' }
 import glass from './themes/uiverse-clear-glass.dsh-theme.json' with { type: 'json' }
 import outline from './themes/uiverse-mechanical-outline.dsh-theme.json' with { type: 'json' }
+import rune from './themes/rune.dsh-theme.json' with { type: 'json' }
 
 export const MAX_THEME_BYTES = 32 * 1024
 export const MAX_IMPORTED_THEMES = 32
@@ -52,10 +53,12 @@ export function isAsciiTheme(theme: ThemePackage): boolean {
 export function isGpuAsciiTheme(theme: ThemePackage): boolean {
   return isAsciiTheme(theme) && theme.formatVersion === 3 && theme.asciiRenderer === 'gpu'
 }
+export function isRuneTheme(theme:ThemePackage):boolean{return theme.id==='rune'}
 
 export const builtInThemes: readonly ThemePackage[] = Object.freeze([
   themePackageSchema.parse(empryo), themePackageSchema.parse(ascii), themePackageSchema.parse(asciiGpu), themePackageSchema.parse(plain),
   themePackageSchema.parse(relief), themePackageSchema.parse(glass), themePackageSchema.parse(outline),
+  themePackageSchema.parse(rune),
 ])
 
 export const themePreferenceSchema = z.strictObject({

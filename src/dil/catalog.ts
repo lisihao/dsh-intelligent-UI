@@ -34,6 +34,8 @@ export const DIL_COMPONENT_CATALOG: readonly DilCatalogEntry[] = [
   entry('bold', ['hidden']),
   entry('label', ['hidden']),
   entry('code', ['language', 'hidden'], undefined, 'Renders through the host MarkdownCodeBlock adapter.'),
+  entry('markdown', ['source', 'hidden'], undefined, 'Renders this explicit source string through the host renderMarkdown adapter. It has no children, events, DOM, style, or URL props; unavailable host rendering shows a visible source fallback.'),
+  entry('component', ['id', 'input', 'hidden'], ['onChange'], 'Renders one exact host-owned external component. id is a fixed library-qualified component ID and input is bounded JSON already bound to source data. The host validates the exact catalog ID and input contract. JSON fields such as source code, URLs, image src values, actions, and protocol examples stay data; DIL never evaluates or interprets them. Do not pass demo data. onChange only updates local DIL state through an owned handler.'),
   entry('icon', ['name', 'label', 'size', 'tone', 'hidden'], undefined, 'size is a bounded number.'),
   entry('badge', ['tone', 'hidden']),
   entry('button', ['label', 'disabled', 'variant', 'type', 'hidden'], ['onClick']),
@@ -80,14 +82,25 @@ export const DIL_AUTHORING_EXAMPLE = `{@body const [seats,setSeats] = DIL.useSta
   </card>
 </form>`
 
+/** DIL repetition has its own grammar; JSX inside a JavaScript map is not supported. */
+export const DIL_REPETITION_EXAMPLE = `{@body const data = DIL.useAppData(a => a.opGenui.modelDataBindings)}
+{@body const table = data.tables[0]}
+<table>
+  <table-row>{#each table.header as cell}<table-cell header={true}>{cell}</table-cell>{/each}</table-row>
+  {#each table.rows as row}<table-row>{#each row as cell}<table-cell><markdown source={cell}/></table-cell>{/each}</table-row>{/each}
+</table>`
+
 export const dilAuthoringGuide = JSON.stringify({
   protocolVersion: DIL_PROTOCOL_VERSION,
   handlerReference: DIL_HANDLER_REFERENCE,
   components: DIL_COMPONENT_CATALOG,
   example: DIL_AUTHORING_EXAMPLE,
+  repetitionExample: DIL_REPETITION_EXAMPLE,
   boundaries: [
     'Use only listed lowercase tags and listed props.',
+    'DIL is not JSX. Repeat markup with {#each array as item}...{/each}; nest each blocks for table rows and cells. Never put markup inside a JavaScript .map() expression. JavaScript map/filter without markup may compute data in an @body statement.',
     'Event props compile to handler references; never send JavaScript or HTML as a prop.',
+    'component has no children. Supply one exact library-qualified id and its source-bound JSON input from the solar_ui_catalog componentId contract. The host, not DIL, validates the exact external ID and input schema. JSON documents may contain code, URLs, image src values, actions, handler-looking examples, or component-shaped data when the fixed schema accepts them; DIL never evaluates or interprets input. Only id, input, hidden, and onChange are component props. onChange is only a local DIL handler.',
     'form requires action and never accepts onSubmit. Submission occurs only after an explicit DOM submit; finish local calculations through preceding control updates, never at submit time.',
     'Unknown tags, props, unsafe URLs, and invalid chart data render a visible fallback.',
   ],

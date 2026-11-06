@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BLOCK_PRESENTATION_IDS } from './presentation-recipes.js'
+import type { ExecutableComponentRegistry } from './executable-registry.js'
 import { componentSetSchema, type ComponentSet, type ThemePackage, type ThemePreference } from '../theme-contracts.js'
 
 /** The only Jev feature this consumer ever registers or evaluates. */
@@ -10,6 +11,7 @@ export const ADAPTIVE_COMPOSITION_INPUT_VERSION = 'adaptive-ui-composition@1'
 export const compositionStyleModeSchema = z.enum(['selected', 'automatic'])
 export const compositionCapabilitiesSchema = z.strictObject({
   webgl: z.boolean(),
+  webgpu: z.boolean().optional(),
   reducedMotion: z.boolean(),
 })
 
@@ -40,6 +42,13 @@ export const baseCompositionSelectionSchema = z.strictObject({
   textMotion: z.enum(['torph', 'none']).optional(),
   live: z.enum(['liveline', 'native']).optional(),
 })
+export const executableComponentSelectionSchema = z.strictObject({
+  id: z.string().min(1).max(160),
+  family: z.string().min(1).max(160),
+  rendererKey: z.string().min(1).max(160),
+  input: z.json(),
+  actionIds: z.array(z.string().min(1).max(160)).max(128),
+})
 /** Experimental plans bind each choice to compiler-owned source ranges/paths. */
 export const blockCompositionSchema = z.strictObject({
   id: z.string().min(1).max(160),
@@ -50,6 +59,10 @@ export const blockCompositionSchema = z.strictObject({
   selection: baseCompositionSelectionSchema,
   /** Explicit source-bound renderer recipe; absent reads earlier experimental results. */
   presentation: z.enum(BLOCK_PRESENTATION_IDS).optional(),
+  /** Revalidated by the exact executable adapter before the native mount. */
+  component: executableComponentSelectionSchema.optional(),
+  componentName: z.string().min(1).max(200).optional(),
+  componentFit: z.string().min(1).max(2000).optional(),
   evidence: z.array(z.string().min(1).max(500)).max(32),
 }).superRefine((block, ctx) => {
   if ((block.start === undefined) !== (block.end === undefined) || block.start !== undefined && block.end! <= block.start) {
@@ -192,6 +205,8 @@ export interface AdaptiveCompositionCoordinatorOptions {
   getJev?: () => JevCompositionPort | undefined
   /** Optional catalog provider; absent means built-ins plus the saved imported themes. */
   getThemes?: (settings: AdaptiveCompositionSettings) => readonly ThemePackage[] | Promise<readonly ThemePackage[]>
+  /** Actual production adapters, never the discovery-only visual catalog. */
+  getExecutableComponents?: () => ExecutableComponentRegistry | Promise<ExecutableComponentRegistry>
   maxSourceBytes?: number
   maxCacheEntries?: number
   now?: () => Date

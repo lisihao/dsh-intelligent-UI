@@ -17,18 +17,41 @@ import { CallToolResultSchema } from '@modelcontextprotocol/core'
 import { readInsightPreview } from './insight-preview-source.js'
 import type { InsightPreviewPorts } from './insight-preview-contracts.js'
 import type { DilHost } from './dil/host.js'
+import type { ComponentRuntimeHost } from './component-runtime-host.js'
+import { componentRuntimeInputSchema, componentRuntimeInfoSchema, componentCatalogResultSchema, uiverseRuntimeComponentInputSchema, uiverseRuntimeComponentResultSchema } from './component-runtime-contracts.js'
+import type { UiverseRuntimeHost } from './uiverse/runtime-host.js'
 
 export class ExperienceControl extends TypertRemoteService implements ExperienceApi, DilApi, WidgetStateApi, ThemeApi {
   readonly registry = new ExperienceRegistry()
   private mcpError: string | undefined
-  constructor(ctx: Context, readonly store: ExperienceStore, readonly mcp: McpHost, readonly adaptive?: AdaptiveCompositionCoordinator, readonly dil?: DilHost) { super(ctx, SERVICE) }
+  constructor(ctx: Context, readonly store: ExperienceStore, readonly mcp: McpHost, readonly adaptive?: AdaptiveCompositionCoordinator, readonly dil?: DilHost, readonly components?: ComponentRuntimeHost, readonly uiverseRuntime?: UiverseRuntimeHost) { super(ctx, SERVICE) }
+  @Remote
+  async uiverseRuntimeComponent(input:unknown) {
+    this.owner();const parsed=uiverseRuntimeComponentInputSchema.parse(input)
+    if(!this.uiverseRuntime)throw Error('UIVERSE_RUNTIME_UNAVAILABLE')
+    return uiverseRuntimeComponentResultSchema.parse(await this.uiverseRuntime.component(parsed.componentId,parsed.includeSharedCss===true))
+  }
+  @Remote
+  async componentRuntimeInfo(input:unknown) {
+    this.owner();const parsed=componentRuntimeInputSchema.parse(input)
+    if(!this.components)throw Error('COMPONENT_RUNTIME_UNAVAILABLE')
+    return componentRuntimeInfoSchema.parse(await this.components.getInfo(parsed.library))
+  }
+  @Remote
+  async componentCatalog(input:unknown) {
+    this.owner();const parsed=componentRuntimeInputSchema.parse(input)
+    if(!this.components)throw Error('COMPONENT_RUNTIME_UNAVAILABLE')
+    if(parsed.library!=='tuffui')throw Error('COMPONENT_CATALOG_NOT_SUPPORTED')
+    const [catalog,typeSchemas]=await Promise.all([this.components.getCatalog('tuffui'),this.components.getTypeSchemas('tuffui')])
+    return componentCatalogResultSchema.parse({library:'tuffui',catalog,typeSchemas})
+  }
   private owner(): void {
     if (this.ctx.invocation && this.ctx.invocation.peer.principal.kind !== 'owner') throw new Error('EXPERIENCE_OWNER_REQUIRED: 此操作仅允许本机所有者使用。')
   }
   @Remote
   async compositionStatus() { this.owner(); if (!this.adaptive) throw new Error('COMPOSITION_UNAVAILABLE'); return this.adaptive.status() }
   @Remote
-  async compositionCatalog() { this.owner(); const settings=await this.store.settings(); return getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])]) }
+  async compositionCatalog() { this.owner(); const settings=await this.store.settings(); return getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])],{executables:await this.adaptive?.executableCatalog()}) }
   @Remote
   async composition(input:ComposeInput) { this.owner(); if (!this.adaptive) throw new Error('COMPOSITION_UNAVAILABLE'); return this.adaptive.compose(composeInputSchema.parse(input)) }
   @Remote

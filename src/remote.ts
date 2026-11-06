@@ -5,6 +5,7 @@ import { PACKAGE, SERVICE, artifactSchema, settingsSchema, saveSettingsSchema, p
 import { themeCatalogResultSchema, downloadThemeSchema } from './theme-source.js'
 import { installThemeSchema, removeThemeSchema } from './theme-contracts.js'
 import { insightPreviewSnapshotSchema } from './insight-preview-contracts.js'
+import { componentRuntimeInputSchema, componentRuntimeInfoSchema, componentCatalogResultSchema, uiverseRuntimeComponentInputSchema, uiverseRuntimeComponentResultSchema } from './component-runtime-contracts.js'
 
 export const sessionInputSchema = z.strictObject({ sessionId: z.string().min(1).max(200) })
 const codec = (name: string, schema: z.ZodType) => ({
@@ -28,6 +29,9 @@ const specs = [
   ['insightPreview', sessionInputSchema, insightPreviewSnapshotSchema],
   ['publish', publishSchema, artifactSchema],
   ['dilRuntimeInfo', dilRuntimeInfoInputSchema, dilRuntimeInfoSchema],
+  ['componentRuntimeInfo', componentRuntimeInputSchema, componentRuntimeInfoSchema],
+  ['componentCatalog', componentRuntimeInputSchema, componentCatalogResultSchema],
+  ['uiverseRuntimeComponent', uiverseRuntimeComponentInputSchema, uiverseRuntimeComponentResultSchema],
   ['dilCompilePreview', dilCompilePreviewInputSchema, dilCompilePreviewResultSchema],
   ['widgetState', widgetInputSchema, widgetStateSchema],
   ['saveWidgetState', saveWidgetStateSchema, widgetStateSchema],

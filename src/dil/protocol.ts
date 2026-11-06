@@ -3,6 +3,8 @@ export const DIL_PROTOCOL_VERSION = 1 as const
 export const MAX_DIL_TREE_DEPTH = 32
 export const MAX_DIL_TREE_NODES = 2_000
 export const MAX_DIL_TREE_BYTES = 1024 * 1024
+/** The generic external-component bridge has a smaller data boundary than a complete DIL tree. */
+export const MAX_DIL_COMPONENT_INPUT_BYTES = 128 * 1024
 
 export type DilJson = null | boolean | number | string | readonly DilJson[] | { readonly [key: string]: DilJson }
 export type DilJsonRecord = { readonly [key: string]: DilJson }
@@ -31,7 +33,8 @@ export interface CompiledDil {
 
 export const DIL_INTRINSIC_TAGS = [
   'box', 'row', 'column', 'grid', 'grid-item', 'card', 'divider', 'spacer',
-  'text', 'title', 'caption', 'bold', 'label', 'code', 'icon', 'badge',
+  'text', 'title', 'caption', 'bold', 'label', 'code', 'markdown', 'icon', 'badge',
+  'component',
   'button', 'input', 'textarea', 'checkbox', 'radio', 'radio-group', 'select',
   'slider', 'segmented-control', 'table', 'table-row', 'table-cell', 'list',
   'list-item', 'progress', 'chart', 'pie-chart', 'image', 'link', 'form',
@@ -53,6 +56,7 @@ export type DilProtocolErrorCode =
   | 'DIL_TREE_UNSAFE_TAG' | 'DIL_TREE_UNSUPPORTED_TAG' | 'DIL_TREE_INVALID_NODE'
   | 'DIL_TREE_INVALID_PROPS' | 'DIL_TREE_UNSAFE_PROP' | 'DIL_TREE_UNSAFE_STYLE'
   | 'DIL_TREE_UNSAFE_URL' | 'DIL_TREE_INVALID_HANDLER'
+  | 'DIL_TREE_COMPONENT_INVALID' | 'DIL_TREE_COMPONENT_INPUT_INVALID' | 'DIL_TREE_COMPONENT_INPUT_LIMIT_EXCEEDED'
 
 export class DilProtocolError extends Error {
   readonly code: DilProtocolErrorCode
@@ -66,6 +70,13 @@ const eventProps = new Set(['onClick', 'onChange', 'onInput', 'onBlur', 'onFocus
 const MAX_DIL_LINK_URL_LENGTH = 2_048
 const MAX_DIL_IMAGE_DATA_URL_LENGTH = 512 * 1024
 const encoder = new TextEncoder()
+const componentProps = new Set(['id', 'input', 'onChange', 'hidden'])
+export const DIL_CURATED_UIVERSE_COMPONENT_IDS = Object.freeze([
+  ...['soft-relief', 'clear-glass', 'mechanical-outline'].flatMap(set => ['button', 'input', 'toggle', 'card', 'loader'].map(role => `uiverse:${set}:${role}`)),
+])
+export const DIL_LIBRARY_COMPONENT_IDS = Object.freeze(['component:skullet', 'component:torph', 'component:liveline', 'component:visx-historical'])
+const curatedUiverseComponentIds = new Set(DIL_CURATED_UIVERSE_COMPONENT_IDS)
+const libraryComponentIds = new Set(DIL_LIBRARY_COMPONENT_IDS)
 
 function fail(code: DilProtocolErrorCode, message: string): never { throw new DilProtocolError(code, message) }
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -165,9 +176,48 @@ function validateFormAction(value: unknown, path: string): void {
     fail('DIL_TREE_INVALID_PROPS', `${path} must be a bounded submit action identifier.`)
   }
 }
+/**
+ * The generic bridge recognizes only opaque, fixed library namespaces. Exact
+ * catalog membership and per-component input schemas are deliberately owned
+ * by the host renderer, not by DIL.
+ */
+export function validateDilExternalComponentId(value: unknown, path = 'component.id'): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 180) fail('DIL_TREE_COMPONENT_INVALID', `${path} must be a bounded external component id.`)
+  const separator = value.indexOf(':')
+  const namespace = separator > 0 ? value.slice(0, separator) : ''
+  const local = separator > 0 ? value.slice(separator + 1) : ''
+  const valid = libraryComponentIds.has(value)
+    || curatedUiverseComponentIds.has(value)
+    || (namespace === 'tuffui'
+      ? /^[a-z][a-z0-9-]{0,95}$/u.test(local)
+      : namespace === 'canvas'
+        ? /^[a-z][a-z0-9-]{0,95}$/u.test(local)
+        : namespace === 'uiverse'
+          ? /^[A-Za-z][A-Za-z0-9_.\/-]{0,159}$/u.test(local) && !local.includes('..') && !local.startsWith('/') && !local.endsWith('/')
+          : false)
+  if (!valid || value === 'dil:component') fail('DIL_TREE_COMPONENT_INVALID', `${path} must use a fixed supported library namespace.`)
+  return value
+}
+
+/**
+ * Clone source-bound component data while keeping it inert JSON. The generic
+ * bridge does not interpret JSON names or values: code, URLs, image src values,
+ * action labels, handler-looking examples, and component-shaped documents may
+ * all be legitimate data for a fixed host schema. Functions, non-finite values,
+ * cyclic/non-plain objects, depth, and byte size are rejected by cloneJson.
+ */
+export function validateDilComponentInput(value: unknown, path = 'component.input'): DilJson {
+  const input = cloneJson(value, 'DIL_TREE_COMPONENT_INPUT_INVALID')
+  if (encoder.encode(JSON.stringify(input)).byteLength > MAX_DIL_COMPONENT_INPUT_BYTES) {
+    fail('DIL_TREE_COMPONENT_INPUT_LIMIT_EXCEEDED', `${path} exceeds ${String(MAX_DIL_COMPONENT_INPUT_BYTES)} bytes.`)
+  }
+  return input
+}
 function validateProps(value: unknown, tag: DilIntrinsicTag, path: string, ancestors: WeakSet<object>): DilSafeProps | undefined {
   if (value === undefined) {
     if (tag === 'form') fail('DIL_TREE_INVALID_PROPS', `${path}.action is required for a host-owned form submit.`)
+    if (tag === 'markdown') fail('DIL_TREE_INVALID_PROPS', `${path}.source must be a string.`)
+    if (tag === 'component') fail('DIL_TREE_COMPONENT_INVALID', `${path}.id and ${path}.input are required.`)
     return undefined
   }
   if (!isRecord(value)) fail('DIL_TREE_INVALID_PROPS', `${path} must be an object.`)
@@ -177,9 +227,12 @@ function validateProps(value: unknown, tag: DilIntrinsicTag, path: string, ances
     const output: Record<string, DilSafeProp> = {}
     for (const [key, raw] of Object.entries(value)) {
       if (unsafeProps.has(key)) fail('DIL_TREE_UNSAFE_PROP', `${path}.${key} is not allowed.`)
+      if (tag === 'component' && !componentProps.has(key)) fail('DIL_TREE_COMPONENT_INVALID', `${path}.${key} is not supported by component.`)
       if (key.startsWith('on')) { if (!eventProps.has(key)) fail('DIL_TREE_UNSAFE_PROP', `${path}.${key} is not supported.`); output[key] = handler(raw, `${path}.${key}`); continue }
       if (isHandler(raw)) fail('DIL_TREE_INVALID_HANDLER', `${path}.${key} may not carry a handler.`)
-      const cloned = cloneJson(raw, 'DIL_TREE_INVALID_PROPS', ancestors)
+      const cloned = tag === 'component' && key === 'input'
+        ? validateDilComponentInput(raw, `${path}.${key}`)
+        : cloneJson(raw, 'DIL_TREE_INVALID_PROPS', ancestors)
       if (key === 'style' && (typeof raw === 'string' || styleHasUrl(cloned))) fail('DIL_TREE_UNSAFE_STYLE', `${path}.style may not contain CSS strings or URLs.`)
       if (tag === 'link' && key === 'href') validateLinkHref(raw, `${path}.${key}`)
       if (tag === 'image' && key === 'src') validateImageSource(raw, `${path}.${key}`)
@@ -192,6 +245,13 @@ function validateProps(value: unknown, tag: DilIntrinsicTag, path: string, ances
     }
     if (tag === 'button' && output.type === 'submit' && Object.hasOwn(output, 'onClick')) {
       fail('DIL_TREE_UNSAFE_PROP', `${path}.onClick is not supported on submit buttons.`)
+    }
+    if (tag === 'markdown' && typeof output.source !== 'string') fail('DIL_TREE_INVALID_PROPS', `${path}.source must be a string.`)
+    if (tag === 'component') {
+      if (!Object.hasOwn(output, 'id') || !Object.hasOwn(output, 'input')) fail('DIL_TREE_COMPONENT_INVALID', `${path}.id and ${path}.input are required.`)
+      validateDilExternalComponentId(output.id, `${path}.id`)
+      validateDilComponentInput(output.input, `${path}.input`)
+      if (Object.hasOwn(output, 'onChange') && !isHandler(output.onChange)) fail('DIL_TREE_INVALID_HANDLER', `${path}.onChange must be a handler reference.`)
     }
     return output
   } finally { ancestors.delete(value) }
@@ -221,6 +281,7 @@ export function validateDilTree(value: unknown): DilNode {
       }
       if (typeof node.t !== 'string') fail('DIL_TREE_INVALID_NODE', `${path}.t must be a string.`)
       if (node.v !== undefined) fail('DIL_TREE_INVALID_NODE', `${path} element has v.`)
+      if ((node.t === 'markdown' || node.t === 'component') && children?.length) fail('DIL_TREE_INVALID_NODE', `${path} ${node.t} may not have children.`)
       if (unsafeTags.has(node.t.toLowerCase())) fail('DIL_TREE_UNSAFE_TAG', `${path}.t "${node.t}" is forbidden.`)
       if (!tags.has(node.t)) fail('DIL_TREE_UNSUPPORTED_TAG', `${path}.t "${node.t}" is not implemented.`)
       const safeProps = validateProps(node.p, node.t as DilIntrinsicTag, `${path}.p`, ancestors)

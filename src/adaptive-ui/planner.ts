@@ -20,7 +20,7 @@ import { analyzeExecutionFlow } from '../execution-flow.js'
 import { markdownIllustrations } from '../markdown-illustrations.js'
 import { analyzeResearchDocument } from '../research-content.js'
 import { hasSourceGapBetween } from '../chart-scaling.js'
-import { isAsciiTheme, isGpuAsciiTheme, type ComponentSet, type ThemePackage } from '../theme-contracts.js'
+import { isAsciiTheme, isGpuAsciiTheme, isRuneTheme, type ComponentSet, type ThemePackage } from '../theme-contracts.js'
 import { isEvidenceVisualLabel } from '../visual-semantics.js'
 import { liveSeriesInputSchema, normalizeCompositionSource, recognizeLiveSeries, type LiveSeriesInput, type NormalizedCompositionSource } from './source-contracts.js'
 import {
@@ -42,6 +42,7 @@ import {
 } from './presentation-recipes.js'
 import { canvasBlockCandidates } from './canvas-block-recipes.js'
 import { sourceOrganizationCandidates } from './source-organization.js'
+import type { ExecutableComponentDispatch } from './executable-registry.js'
 import {
   componentSetCandidateGuidance,
   presentationGuidance,
@@ -67,7 +68,7 @@ export interface CompositionInput {
   readonly themes: readonly ThemePackage[]
   readonly selectedThemeId: string
   readonly styleMode: 'selected' | 'automatic'
-  readonly capabilities: { readonly webgl: boolean, readonly reducedMotion: boolean }
+  readonly capabilities: { readonly webgl: boolean, readonly webgpu?: boolean, readonly reducedMotion: boolean }
   readonly isStreaming?: boolean
   /** Opt-in experimental source-bound compiler. Absent preserves the legacy planner exactly. */
   readonly blockLayout?: boolean
@@ -114,7 +115,7 @@ export interface CandidateIdentity {
   readonly selectedThemeId: string
   readonly themes: readonly { readonly id: string, readonly version: string, readonly formatVersion: number }[]
   readonly asciiThemeIds: readonly string[]
-  readonly capabilities: { readonly webgl: boolean, readonly reducedMotion: boolean }
+  readonly capabilities: { readonly webgl: boolean, readonly webgpu?: boolean, readonly reducedMotion: boolean }
   readonly isStreaming: boolean
   readonly sourceKind: SemanticEvidence['sourceKind']
   readonly candidates: readonly { readonly id: string, readonly eligible: boolean }[]
@@ -149,6 +150,9 @@ export interface BlockComposition extends BlockSourceReference {
   readonly selection: BaseCompositionSelection
   /** Renderer-owned executable recipe selected for this exact source block. */
   readonly presentation?: string
+  readonly component?: ExecutableComponentDispatch
+  readonly componentName?: string
+  readonly componentFit?: string
 }
 
 export interface BlockLayoutSelection {
@@ -514,7 +518,7 @@ function buildWholeCompositionCandidates(input: CompositionInput): CandidateBund
   const isStreaming = input.isStreaming === true
   const source = inspectSource(input.value, isStreaming)
   const gpuPresentationAvailable = input.capabilities.webgl && !input.capabilities.reducedMotion
-  const automaticThemes = themes.filter(theme => !isGpuAsciiTheme(theme) || gpuPresentationAvailable)
+  const automaticThemes = themes.filter(theme => (!isGpuAsciiTheme(theme) || gpuPresentationAvailable)&&(!isRuneTheme(theme)||input.capabilities.webgpu===true))
   const forcedSelectedFallback = input.styleMode === 'automatic' && automaticThemes.length === 0
   const availableThemes = input.styleMode === 'selected'
     ? [selectedTheme]
@@ -524,11 +528,12 @@ function buildWholeCompositionCandidates(input: CompositionInput): CandidateBund
 
   for (const theme of themes) {
     const selected = theme.id === selectedTheme.id
-    const gpuFallback = isGpuAsciiTheme(theme) && !gpuPresentationAvailable
+    const gpuFallback = isGpuAsciiTheme(theme) && !gpuPresentationAvailable || isRuneTheme(theme) && input.capabilities.webgpu!==true
     const eligible = input.styleMode === 'selected' ? selected : !gpuFallback || forcedSelectedFallback && selected
     setCandidate(candidates, `theme:${theme.id}`, eligible,
       input.styleMode === 'selected' && !selected ? 'selected-theme-locked'
         : gpuFallback && selected && forcedSelectedFallback ? 'no-alternative-theme-native-fallback'
+          : gpuFallback && isRuneTheme(theme) ? 'webgpu-api-unavailable'
           : gpuFallback && selected ? 'selected-theme-gpu-native-fallback'
           : gpuFallback && input.capabilities.reducedMotion ? 'reduced-motion-native-gpu-fallback'
             : gpuFallback ? 'webgl-unavailable-native-gpu-fallback'

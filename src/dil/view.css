@@ -47,7 +47,8 @@
 
 .dsh-experience .iexp-dil-grid-item,
 .dsh-experience .iexp-dil-card,
-.dsh-experience .iexp-dil-tab-panel {
+.dsh-experience .iexp-dil-tab-panel,
+.dsh-experience .iexp-dil-markdown {
   min-width: 0;
 }
 
@@ -425,5 +426,24 @@
   inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
+  margin: 0;
+}
+
+/* Embedded Markdown keeps semantic styles, without another full-page surface in every cell. */
+.dsh-experience.iexp-content.iexp-embedded-markdown {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  background-clip: border-box;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.dsh-experience.iexp-embedded-markdown .openui-markdown-renderer > p:only-child {
   margin: 0;
 }

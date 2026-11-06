@@ -5,6 +5,7 @@ import {
   DilProtocolError,
   validateCompiledDil,
   type CompiledDil,
+  type DilJson,
 } from './protocol.js'
 
 export { DIL_PROTOCOL_VERSION, type CompiledDil } from './protocol.js'
@@ -34,14 +35,14 @@ const encoder = new TextEncoder()
  * Compile an explicitly supplied DIL source in the Host RPC path. The result
  * remains inert data; this module never evaluates the generated JavaScript.
  */
-export function compileDilSource(source: string): CompiledDil {
+export function compileDilSource(source: string, modelDataBindings?: Readonly<Record<string, DilJson>>): CompiledDil {
   if (typeof source !== 'string') throw new DilCompileError('DIL_SOURCE_INVALID', 'DIL source must be a string.')
   const bytes = encoder.encode(source).byteLength
   if (bytes > MAX_DIL_SOURCE_BYTES) {
     throw new DilCompileError('DIL_SOURCE_TOO_LARGE', `DIL source is ${String(bytes)} bytes; the limit is ${String(MAX_DIL_SOURCE_BYTES)} bytes.`)
   }
   try {
-    const compiled = validateCompiledDil(referenceCompileDil(source))
+    const compiled = validateCompiledDil(referenceCompileDil(source, { modelDataBindings }))
     if (compiled.source !== source) {
       throw new DilCompileError('DIL_COMPILED_OUTPUT_INVALID', 'DIL compiler result source does not match the submitted source.')
     }

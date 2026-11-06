@@ -24,6 +24,17 @@ import { LOCAL_IMPORT_PROVIDER } from './file-library-contracts.js'
 import { McpHost } from './mcp-host.js'
 import { dilAuthoringGuide } from './dil/catalog.js'
 import { installDilAuthoringPrompt, installDilHost } from './dil/host.js'
+import { createSourceBlockComponentRegistry } from './adaptive-ui/source-block-components.js'
+import { ComponentRuntimeHost } from './component-runtime-host.js'
+import { UiverseRuntimeHost } from './uiverse/runtime-host.js'
+import { registerUiverseRuntimeComponents } from './uiverse/runtime-executable.js'
+import { createTuffUiCatalog } from './tuffui/catalog.js'
+import { validateTuffUiTypeSchemaManifest } from './tuffui/type-schema.js'
+import { registerTuffUiComponents } from './tuffui/executable-components.js'
+import { executableComponentContract } from './adaptive-ui/component-catalog.js'
+import { getDilLibraryComponentInputSchema } from './dil/library-contracts.js'
+import { registerCanvasComponents, getCanvasComponentInputContract } from './adaptive-ui/canvas-component-bindings.js'
+import { installCanvasExtendedLiquidFrameHost } from './canvas-extended-liquid-host.js'
 
 export { UiComponentsControl } from './uiverse/host.js'
 export { ResearchControl } from './research-host.js'
@@ -44,7 +55,7 @@ const presentationInput = schema.union([
   schema.strictObject({ protocol: schema.literal('openui'), label: schema.string().min(1).max(300), payload: schema.json() }),
   schema.strictObject({ protocol: schema.literal(DIL_PROTOCOL), label: schema.string().min(1).max(300), payload: dilSourceSchema }),
 ])
-const catalogInput = schema.strictObject({ format: schema.enum(['openui', DIL_PROTOCOL]).optional() })
+const catalogInput = schema.strictObject({ format: schema.enum(['openui', DIL_PROTOCOL]).optional(), componentId: schema.string().min(1).max(160).optional() })
 
 function renderedToolText(content: readonly unknown[]): string {
   return content.flatMap(block => {
@@ -83,18 +94,29 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   installCanvasDevelopment(ctx)
   // The connection service is optional in non-Web Hosts; let Cordis own this
   // route only while the service and this plugin are both present.
-  ctx.inject(['connection'], connectionContext => { installCanvasRuntimeHost(connectionContext) })
+  ctx.inject(['connection'], connectionContext => { installCanvasRuntimeHost(connectionContext); connectionContext.effect(()=>installCanvasExtendedLiquidFrameHost(connectionContext),'intelligent-experience: isolated Liquid frame') })
   const root = join(resolveDshHome(), 'solar', 'intelligent-experience-platform')
   installResearch(ctx, root)
   const store = new ExperienceStore(root, config)
   let current = await store.settings()
   const mcp = new McpHost(ctx, {endpoint: config.mcpEndpoint, root, settings: () => current})
-  const adaptive = new AdaptiveCompositionCoordinator({getSettings:()=>store.settings(),maxSourceBytes:config.maxArtifactBytes})
+  const componentAssets = fileURLToPath(new URL(import.meta.url.endsWith('.ts')?'../resources/components/':'./components/',import.meta.url))
+  const components = new ComponentRuntimeHost({assetRoots:{rune:join(componentAssets,'rune'),tuffui:join(componentAssets,'tuffui')}})
+  ctx.effect(()=>()=>components.close(),'intelligent-experience: fixed component assets')
+  const executableComponents = createSourceBlockComponentRegistry()
+  ctx.effect(()=>registerCanvasComponents(executableComponents),'intelligent-experience: source-bound Canvas components')
+  const uiverseAssets=fileURLToPath(new URL(import.meta.url.endsWith('.ts')?'../resources/uiverse/':'./uiverse/assets/',import.meta.url))
+  const uiverseRuntime=await UiverseRuntimeHost.open(uiverseAssets)
+  ctx.effect(()=>registerUiverseRuntimeComponents(executableComponents,uiverseRuntime.registry),'intelligent-experience: source-bound Uiverse components')
+  const [tuffSource,tuffTypes]=await Promise.all([components.getCatalog('tuffui'),components.getTypeSchemas('tuffui')])
+  const tuffCatalog=createTuffUiCatalog(tuffSource),tuffTypeSchemas=validateTuffUiTypeSchemaManifest(tuffTypes)
+  ctx.effect(()=>registerTuffUiComponents(executableComponents,tuffCatalog,{typeSchemas:tuffTypeSchemas}),'intelligent-experience: source-bound TuffUI components')
+  const adaptive = new AdaptiveCompositionCoordinator({getSettings:()=>store.settings(),maxSourceBytes:config.maxArtifactBytes,getExecutableComponents:()=>executableComponents})
   ctx.effect(()=>()=>adaptive.dispose(), 'intelligent-experience: adaptive decisions')
   // Jev is an optional peer; no UI dependency starts or enables its other consumers.
   ctx.inject(['jev' as never], child => child.effect(()=>adaptive.attachJev(child.get('jev' as never) as unknown as JevCompositionPort),'intelligent-experience: Jev composition consumer'))
   const dil = installDilHost(ctx, { store, maxArtifactBytes: config.maxArtifactBytes, settings: () => store.settings() })
-  const control = new ExperienceControl(ctx, store, mcp, adaptive, dil)
+  const control = new ExperienceControl(ctx, store, mcp, adaptive, dil, components, uiverseRuntime)
   if (current.takeover && current.mcpApps && config.mcpEndpoint) void control.activateMcp()
   ctx.effect(() => store.subscribe(settings => { current = settings; if (!settings.takeover || !settings.mcpApps) void mcp.closeAll().catch(error => ctx.logger('solar-experience').warn('%s', error)) }))
   ctx.effect(() => () => mcp.dispose())
@@ -110,7 +132,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     pending.add(task)
   }
   ctx.on('tools/result', (exec, result) => {
-    if (!exec.agent || exec.name === 'solar_present' || exec.name === RESEARCH_TOOL || exec.name === CANVAS_DEVELOPMENT_TOOL || (UI_TOOL_NAMES as readonly string[]).includes(exec.name)) return
+    if (!exec.agent || exec.name === 'solar_present' || exec.name === 'solar_ui_catalog' || exec.name === RESEARCH_TOOL || exec.name === CANVAS_DEVELOPMENT_TOOL || (UI_TOOL_NAMES as readonly string[]).includes(exec.name)) return
     const meta = result.meta && typeof result.meta === 'object' && !Array.isArray(result.meta) ? result.meta : undefined
     const app = meta?.type === 'solar-experience' && meta.protocol === 'mcp-app'
     capture(() => store.publish({
@@ -144,15 +166,16 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       return store.publish({ source, protocol: value.protocol, raw: value.payload, payload: value.payload, providerId: value.protocol === 'openui' ? 'openui' : 'content' })
     },
   })
-  ctx.tools.register({ name: 'solar_ui_catalog', description: '读取智能 UI 的完整能力目录。默认返回 OpenUI 语法；format=dil 返回本地实际支持的 DIL 编写指南。开发归档与尚不可自动使用的目录项会明确标记。', parameters: JSON.parse(JSON.stringify(schema.toJSONSchema(catalogInput))),
+  ctx.tools.register({ name: 'solar_ui_catalog', description: '读取智能 UI 的完整能力目录。默认返回 OpenUI 语法；format=dil 返回 DIL 指南和全部已注册可执行组件。componentId 返回该组件的精确参数、来源要求和本地事件约定；先查契约再绑定真实内容。', parameters: JSON.parse(JSON.stringify(schema.toJSONSchema(catalogInput))),
     output: {schema: {type: 'object', properties: {prompt: {type: 'string'},capabilities:{type:'object',additionalProperties:true}}, required: ['prompt','capabilities']}, render: (_args, value) => [{type: 'text', text: (value as {prompt: string}).prompt+'\n\nAvailable intelligent UI capabilities (availability is explicit):\n'+JSON.stringify((value as {capabilities:unknown}).capabilities)}]},
     async execute(args, exec) {
       exec.signal.throwIfAborted()
       const input = catalogInput.parse(args === undefined ? {} : args)
-      if (input.format === DIL_PROTOCOL) return { prompt: dilAuthoringGuide, capabilities: { protocol: DIL_PROTOCOL, guide: JSON.parse(dilAuthoringGuide) } }
+      if (input.componentId) return { prompt: 'Use this exact registered component ID and its source-bound input contract. Do not invent demo content or Host action authority.', capabilities: { component: executableComponentContract(input.componentId,{registry:executableComponents,tuffui:tuffCatalog,tuffuiTypes:tuffTypeSchemas,uiverse:uiverseRuntime.registry,libraryContract:getDilLibraryComponentInputSchema,canvasContract:getCanvasComponentInputContract}) } }
+      if (input.format === DIL_PROTOCOL) return { prompt: dilAuthoringGuide, capabilities: { protocol: DIL_PROTOCOL, guide: JSON.parse(dilAuthoringGuide), themes: getCompositionCatalog([...builtInThemes,...(current.theme?.installed??[])]).entries.filter(entry=>entry.kind==='theme'), executables: await adaptive.executableCatalog(), contractLookup: 'Call solar_ui_catalog with componentId to inspect exact input and event contracts. External library tags use <component id={exactId} input={sourceBoundJson} onChange={localHandler} />. No author demos or invented facts.' } }
       const {openuiLibrary, openuiPromptOptions} = await import('@openuidev/react-ui/genui-lib')
       const settings=await store.settings()
-      return {prompt: openuiLibrary.prompt(openuiPromptOptions),capabilities:getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])])}
+      return {prompt: openuiLibrary.prompt(openuiPromptOptions),capabilities:getCompositionCatalog([...builtInThemes,...(settings.theme?.installed??[])],{executables:await adaptive.executableCatalog()})}
     },
   })
 }
