@@ -53,3 +53,14 @@ findings are explicitly bounded:
 
 These waivers are a component-design decision, not a claim of certification.
 Synthetic renderer/geometry evidence remains separate from native acceptance.
+
+
+## Browser fixture prerequisites
+
+Run `node tools/collaboration-browser/check.mjs` after the plugin build. The
+fixture requires an existing `playwright-core` installation and an installed
+Chrome browser; it never downloads a browser. Node resolves `playwright-core`
+from the test environment by default. For an isolated test-tool installation,
+set `COLLABORATION_BROWSER_PLAYWRIGHT_MODULE` to its absolute module entry path.
+`COLLABORATION_BROWSER_CHROME` overrides the macOS Chrome executable. These are
+test-only inputs, not plugin/profile configuration or runtime dependencies.

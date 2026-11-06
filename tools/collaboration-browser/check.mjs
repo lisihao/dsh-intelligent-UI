@@ -9,8 +9,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const fixture = join(root, 'tools', 'collaboration-browser')
 const client = process.env.COLLABORATION_BROWSER_CLIENT ?? join(root, 'lib', 'client.cjs')
 const output = '/private/tmp/dsh-collaboration-browser'
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const playwrightCore = '/private/tmp/dsh-pstack-ui-tools-6789f692/node_modules/playwright-core/index.mjs'
+const chrome = process.env.COLLABORATION_BROWSER_CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const playwrightCore = process.env.COLLABORATION_BROWSER_PLAYWRIGHT_MODULE
 const viewportHeight = 768
 
 const assert = (value, message) => {
@@ -44,10 +44,10 @@ await copyFile(join(fixture, 'index.html'), join(output, 'index.html'))
 
 let chromium
 try {
-  ({ chromium } = await import(pathToFileURL(playwrightCore).href))
+  ({ chromium } = await import(playwrightCore ? pathToFileURL(resolve(playwrightCore)).href : 'playwright-core'))
 } catch (error) {
   const detail = error instanceof Error ? error.message : String(error)
-  throw new Error(`The approved local Playwright core was unavailable at ${playwrightCore}; no browser download was attempted. (${detail})`)
+  throw new Error(`Playwright core was unavailable. Install it in the test environment or set COLLABORATION_BROWSER_PLAYWRIGHT_MODULE to its absolute entry path; no browser download was attempted. (${detail})`)
 }
 
 const browser = await chromium.launch({ executablePath: chrome, headless: true })
