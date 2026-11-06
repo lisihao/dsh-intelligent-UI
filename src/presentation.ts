@@ -26,6 +26,11 @@ import { PresentationThemeContext, themePreferences, themeStyleTokens, usePresen
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import { mathMarkdownSource, preserveCurrencyAmounts } from './markdown-math.js'
+import { markdownCodeBlocks, MarkdownCodeBlock } from './markdown-code.js'
+import { markdownNavigation } from './markdown-navigation.js'
 import { planContentSections } from './content-sections.js'
 import { continuousSectionsPlugin, planReadingTable } from './continuous-view.js'
 import { PaperChartDeck } from './paper-chart-deck.js'
@@ -435,6 +440,9 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
   const sections = useMemo(() => !isStreaming && (rootLayout === 'continuous' || semanticFallback && selectedTheme.tokens.composition === 'continuous') ? planContentSections(text, experimentalProgram ? { allowTextOnly: true } : undefined) : undefined, [text, isStreaming, selectedTheme.tokens.composition, rootLayout, semanticFallback, experimentalProgram])
   const markdownBlocks = useMemo(() => blocksAtPath(program, path), [program, path])
   const prefix = useId().replaceAll(':', '')
+  const renderText = useMemo(() => mathMarkdownSource(text), [text])
+  const sourceCode = useMemo(() => markdownCodeBlocks(text), [text])
+  const navigation = useMemo(() => markdownNavigation(text, start => `#${headingAnchor(prefix, start)}`), [text, prefix])
   // Stable renderer types retain native disclosures and nested layout state during polling.
   const markdownOptions = useMemo<ComponentProps<typeof MarkDownRenderer>['options']>(() => {
     const blockById = new Map(markdownBlocks.map(block => [block.id, block] as const))
@@ -451,8 +459,19 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
       const id = blockIdFromMarkdownProps(props)
       return h(BlockPresentationView, { block: id === undefined ? undefined : blockById.get(id), id, isStreaming }, children)
     }
-    return { remarkPlugins: [remarkGfm, ...astPlugins], components: {
+    return { remarkPlugins: [remarkGfm, remarkMath, preserveCurrencyAmounts(text), navigation.remarkPlugin, ...astPlugins], rehypePlugins: [[rehypeKatex, { trust: false, maxExpand: 1000, maxSize: 100, strict: 'ignore' }]], components: {
       ...headings,
+      pre: ({ children, node }) => {
+        const start = node?.position?.start.offset
+        const block = sourceCode.find(candidate => candidate.start === start)
+        return block ? h(MarkdownCodeBlock, { code: block.value, language: block.language, start: block.start, end: block.end }) : h('pre', null, children)
+      },
+      code: ({ children, className }) => h('code', { className: ['openui-markdown-renderer-code', className].filter(Boolean).join(' ') }, children),
+      'iexp-source-toc': ({ children, ...props }: { children?: ReactNode, [key: string]: unknown }) => {
+        const unmatched = Number(props['data-iexp-toc-unmatched'] ?? 0)
+        return h('nav', { className: 'iexp-source-toc', 'aria-label': '原文目录', 'data-iexp-toc-unmatched': unmatched },
+          children, unmatched > 0 && h('p', { className: 'iexp-source-toc-note' }, `${unmatched} 项目录文字未匹配章节，保留原文。`))
+      },
       'iexp-block': blockRenderer,
       'iexp-source-list-grid': SourceListGrid,
       'iexp-source-label-table': SourceLabelTable,
@@ -476,7 +495,7 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
         }
         return scopedSelection(block?.selection, h('p', { 'data-iexp-source-start': start, 'data-iexp-source-end': end }, children))
       },
-      a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
+      a: ({ children, node, href, ...props }) => h('a', { ...props, href: navigation.resolveHref(href ?? '') ?? href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
       td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       th: ({ children, node, align }) => h(TableHead, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       ol: ({ children, node, start }) => {
@@ -501,8 +520,8 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
         return scopedSelection(selection, h('div', { className: 'iexp-table-group', 'data-iexp-source-start': sourceStart, 'data-iexp-source-end': sourceEnd }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections && !explicit ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail || plans.length > 0 }, children)))
       },
     } }
-  }, [layout, prefix, tables, sections, illustrations, colorScheme, composition, program, path, rootLayout, globalReadingAids, headingIndexEligible, experimentalProgram, markdownBlocks, isStreaming])
-  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, h(BlockLayoutBasis, { program, path }), sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
+  }, [layout, prefix, tables, sections, illustrations, colorScheme, composition, program, path, rootLayout, globalReadingAids, headingIndexEligible, experimentalProgram, markdownBlocks, isStreaming, sourceCode, navigation, text])
+  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, h(BlockLayoutBasis, { program, path }), sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: renderText, options: markdownOptions }))
 }
 function StructuredSource({ value, label = '完整原始记录' }: { value: unknown, label?: string }): ReactElement {
   return h('details', { className: 'iexp-disclosure' }, h('summary', null, label), h('pre', { style: styles.raw }, rawText(value)))

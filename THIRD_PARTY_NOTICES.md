@@ -3422,3 +3422,8 @@ SOFTWARE.
 The browser bundle includes unmodified public React/primitives entries from Skullet 0.0.3 (Lochie Axon, MIT), Torph 0.1.3 (Lochie Axon, MIT), Liveline 0.0.7 (Benji Taylor, MIT), and @visx/shape plus @visx/scale 4.0.0 (Airbnb, MIT). Full notices ship respectively as `lib/Skullet-MIT.txt`, `lib/Torph-MIT.txt`, `lib/Liveline-MIT.txt` and `lib/visx-MIT.txt`; source copies are in `assets/`. Pins and exact source/archive provenance are recorded in `src/adaptive-ui/component-provenance.ts` and `pnpm-lock.yaml`. Their demo sites and non-React framework builds are not copied into the source tree.
 
 The optional Jev service is an external installed peer, not redistributed by this UI package. Existing Canvas UI licensing and redistribution restrictions remain unchanged.
+
+
+## Markdown semantic rendering
+
+The pinned, unmodified dependencies are KaTeX 0.16.47 (MIT), remark-math 6.0.0 (MIT, copyright Junyoung Choi), rehype-katex 7.0.1 (MIT, copyright Junyoung Choi), refractor 5.0.0 (MIT) and github-slugger 2.0.0 (ISC). KaTeX's WOFF2 fonts are embedded from that distribution for offline rendering. The exact shipped KaTeX, refractor and github-slugger license texts are included as `lib/KaTeX-MIT.txt`, `lib/refractor-MIT.txt` and `lib/github-slugger-ISC.txt`; the math parser/render bridge retain their distributed README license notices in their installed packages. Their source and licenses remain at https://github.com/remarkjs/remark-math, https://github.com/KaTeX/KaTeX, https://github.com/wooorm/refractor and https://github.com/Flet/github-slugger.

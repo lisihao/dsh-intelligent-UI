@@ -12,6 +12,9 @@ import { settingsCss } from './settings-style.js'
 import { continuousCss } from './continuous-view.js'
 import { surfaceCss } from './surface-style.js'
 import blockPresentationsCss from './block-presentations.css'
+import katexCss from 'katex/dist/katex.min.css'
+import markdownMathCss from './markdown-math.css'
+import markdownCodeCss from './markdown-code.css'
 import { themeStyleTokens } from './theme-runtime.js'
 import { appearanceTokens } from './appearance.js'
 import { resolveTheme } from './theme-contracts.js'
@@ -133,7 +136,7 @@ export function installExperienceStyles(): () => void {
 .iexp-content .iexp-markdown-illustration-original { display:flex; align-items:center; justify-content:center; width:100%; height:auto; max-height:260px; min-height:0; }
 .iexp-content .iexp-markdown-illustration-original img { display:block; max-width:100%; max-height:260px; width:auto; height:auto; object-fit:contain; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss + executionFlowCss + blockPresentationsCss
+` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss + executionFlowCss + blockPresentationsCss + katexCss + markdownMathCss + markdownCodeCss
   document.head.append(element)
   return () => element.remove()
 }

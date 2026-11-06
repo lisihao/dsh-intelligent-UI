@@ -154,3 +154,10 @@ Run `pnpm check` once at the stable delivery boundary and `node tools/test-adapt
 ## Experimental block recipe consumers (2026-11-05)
 
 `src/adaptive-ui/presentation-recipes.ts` names executable source-bound recipes. `block-presentations.ts` groups existing Markdown AST nodes without reparsing slices. `canvas-block-recipes.ts` checks source/browser eligibility and `canvas-block-view.ts` consumes the existing scoped Canvas HTML, isolated and scroll interfaces with a separate visible source. These are local adapters, with no upstream patch or changed dependency pin. Upgrades must preserve exact source/footnote bindings, explicit choice dispatch, reduced-motion behavior, source visibility, cancellation and effect disposal. Verify the conditional adapters separately from a five-document run that has no eligible GPU surface.
+
+
+## Semantic Markdown adapters (2026-11-06)
+
+Pins are in `package.json` and the lockfile. `src/presentation.ts` composes remark-math/rehype-katex beneath layout decisions; `markdown-math.ts` adapts supported TeX delimiters without changing UTF-16 offsets and preserves currency pairs. `markdown-code.ts` uses refractor text/span tokens with an exact-source guard, and `markdown-navigation.ts` uses github-slugger to bind existing source headings. `build-css.mjs` scopes the unmodified KaTeX stylesheet and embeds its WOFF2 resources; no upstream source patch is carried.
+
+An upgrade must preserve source positions, whitespace, inline-code literals, code-copy content, formula failure visibility, currency text, exact directory matching, and no outbound font request. Run the Markdown semantic tests and affected block/layout render tests, build and typecheck, then inspect real browser math/code/navigation at default and narrow widths. Raw/comparison output must remain the original source.

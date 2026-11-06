@@ -38,6 +38,10 @@ Experimental prose also offers source-item grids and label/detail tables when th
 
 The configurable shortcut defaults to **⌥⌘I** (`Alt+Meta+KeyI`); clear its binding to disable it. The shortcut and Settings toggle update the same revision-checked preference. Existing takeover, adaptive and Jev feature prerequisites remain required; the shortcut does not silently enable them. Enabling the experiment can incur auxiliary API charges through the saved Jev connection. The block explanation shows source eligibility and selected adapters, not textual model reasoning. See the [compiler contract and boundaries](docs/design/experimental-block-layout.md) and [source/browser acceptance](docs/acceptance/2026-11-05-experimental-block-layout.md). Source, synthetic browser/Host, real-model and installed-app evidence are reported separately; this section does not imply installation.
 
+## Semantic Markdown rendering
+
+Rendered Markdown retains code indentation and blank lines, declared language highlighting and exact-source copying. Inline/display mathematics supports dollar and supported TeX delimiters with offline KaTeX fonts; unsupported formulas remain visible. Explicit source directories link only entries that match real headings; unmatched entries retain their original text. These are baseline rendering capabilities beneath the experimental layout/material choice, and raw/comparison views retain the original source.
+
 ## Built-in component intelligence
 
 Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.

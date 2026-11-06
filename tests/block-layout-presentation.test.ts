@@ -313,7 +313,7 @@ export const answer = 42
     expect(codeCard.matches('[data-iexp-component-set="mechanical-outline"].iexp-uiv-card')).toBe(true)
     expect(codeCard.textContent).toContain('export const answer = 42')
     expect(codeCard.querySelector('code[class*="language-ts"]')).not.toBeNull()
-    const copy = codeCard.querySelector<HTMLButtonElement>('[aria-label="Copy code"]')!
+    const copy = codeCard.querySelector<HTMLButtonElement>('[aria-label="复制原始代码"]')!
     expect(copy).not.toBeNull()
     await act(async () => copy.click())
     expect(clipboard.writeText).toHaveBeenCalledWith('export const answer = 42')

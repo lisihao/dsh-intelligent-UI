@@ -8,7 +8,7 @@ export const asciiThemeCss = `
 }
 /* Owned text roles include OpenUI labels and top-layer native popovers.
    Do not force the host shell, icon fonts, SVG paths or third-party frames. */
-.dsh-experience :is(h1,h2,h3,h4,h5,h6,p,span,strong,em,b,i,small,label,summary,button,input,select,option,textarea,output,pre,code,kbd,samp,th,td,dt,dd,li,a,text,tspan) {
+.dsh-experience :is(h1,h2,h3,h4,h5,h6,p,span,strong,em,b,i,small,label,summary,button,input,select,option,textarea,output,pre,code,kbd,samp,th,td,dt,dd,li,a,text,tspan):not(.katex, .katex *) {
  font-family:var(--iexp-font)!important;
  font-variant-ligatures:none; font-kerning:none; letter-spacing:0;
 }

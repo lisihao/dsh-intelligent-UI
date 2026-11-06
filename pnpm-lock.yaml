@@ -47,6 +47,12 @@ importers:
       esbuild-wasm:
         specifier: 0.25.0
         version: 0.25.0
+      github-slugger:
+        specifier: 2.0.0
+        version: 2.0.0
+      katex:
+        specifier: 0.16.47
+        version: 0.16.47
       liveline:
         specifier: 0.0.7
         version: 0.0.7(react@18.3.1)
@@ -56,9 +62,18 @@ importers:
       parse5:
         specifier: 7.3.0
         version: 7.3.0
+      refractor:
+        specifier: 5.0.0
+        version: 5.0.0
+      rehype-katex:
+        specifier: 7.0.1
+        version: 7.0.1
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1
+      remark-math:
+        specifier: 6.0.0
+        version: 6.0.0
       remark-parse:
         specifier: 11.0.0
         version: 11.0.0
@@ -5120,6 +5135,9 @@ packages:
   get-stream@9.0.1:
     resolution: {integrity: sha512-kVCxPF3vQM/N0B1PmoqVUqgHP+EeVjmZSQn+1oCRPxd2P21P2F19lIgbR3HBosbB1PUhOAoctJnfEn2GbN2eZA==}
     engines: {node: '>=18'}
+
+  github-slugger@2.0.0:
+    resolution: {integrity: sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw==}
 
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
@@ -12174,6 +12192,8 @@ snapshots:
     dependencies:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
+
+  github-slugger@2.0.0: {}
 
   glob-parent@5.1.2:
     dependencies:
