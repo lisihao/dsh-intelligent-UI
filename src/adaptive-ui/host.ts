@@ -39,7 +39,7 @@ import {
 
 const DEFAULT_MAX_SOURCE_BYTES = 1024 * 1024
 const DEFAULT_MAX_CACHE_ENTRIES = 32
-const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@5'
+const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@6'
 const COMPONENT_CONTEXT_INPUT_FORMAT = 'source-block-component-context@1'
 
 type CandidateBundle = ReturnType<typeof buildCompositionCandidates>
@@ -708,10 +708,9 @@ export class AdaptiveCompositionCoordinator {
           capabilities: active.input.capabilities,
           isStreaming: active.input.isStreaming === true,
           ...(active.snapshot.styleMode === 'selected' ? { lockedThemeId: active.snapshot.selectedThemeId } : {}),
-          blockLayout: {
-            ...blockDesignContext(bundle.blockLayout, this.options.getExecutableComponents ? new Set(questions.map(question=>question.id)) : undefined),
-            outline: outlineBlockLayout(active.input.value, compileBlockLayout(active.input.value)),
-          },
+          // The outline goes only to the component requests: in the frame request it
+          // shifted live material choices on md-1 (see the block-outline record).
+          blockLayout: blockDesignContext(bundle.blockLayout, this.options.getExecutableComponents ? new Set(questions.map(question=>question.id)) : undefined),
         }
     const state = cloneJson<JevJson>({
       formatVersion: ADAPTIVE_COMPOSITION_FORMAT_VERSION,

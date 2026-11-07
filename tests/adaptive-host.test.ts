@@ -138,7 +138,7 @@ describe('AdaptiveCompositionCoordinator', () => {
     expect(state.source.value).toBe(source)
     expect(countExactString(request.state, source)).toBe(1)
     expect(state.composition).toMatchObject({
-      inputFormat: 'block-design-context@5',
+      inputFormat: 'block-design-context@6',
       styleMode: 'automatic',
       capabilities: { webgl: true, reducedMotion: false },
       isStreaming: false,
@@ -162,7 +162,7 @@ describe('AdaptiveCompositionCoordinator', () => {
       questionIds: binding.questionIds,
       fieldBindings: fieldBindingsFor(binding.reference.id, binding.questionIds),
     })))
-    expect((state.composition.blockLayout as unknown as { outline: unknown }).outline).toEqual(outlineBlockLayout(source, compileBlockLayout(source)))
+    expect(state.composition.blockLayout).not.toHaveProperty('outline')
     expect(request.questions).toEqual(built.questions.filter(question => question.options.length >= 2))
     expect(state.composition).not.toHaveProperty('sharedOptionGuidance')
     coordinator.dispose()
@@ -176,7 +176,7 @@ describe('AdaptiveCompositionCoordinator', () => {
     const result = await coordinator.compose(input({value:'| Item | Value (USD) |\n| --- | ---: |\n| A | 4 |\n| B | 6 |'}))
     expect(result.status).toBe('selected')
     const state = port.requests[0]!.state as {composition:Record<string,unknown>}
-    expect(state.composition).toMatchObject({inputFormat:'block-design-context@5',styleMode:'selected',lockedThemeId:'auto'})
+    expect(state.composition).toMatchObject({inputFormat:'block-design-context@6',styleMode:'selected',lockedThemeId:'auto'})
     expect(state.composition).not.toHaveProperty('selectedThemeId')
     expect(state.composition).not.toHaveProperty('themes')
     expect(state.composition).not.toHaveProperty('candidateBundle')
@@ -184,7 +184,7 @@ describe('AdaptiveCompositionCoordinator', () => {
     coordinator.dispose()
   })
 
-  it('sends every frame option with its complete description, and the outline in all three requests', async () => {
+  it('sends every frame option with its complete description, and the outline only in the component requests', async () => {
     const source = '# A\n\nFirst prose.\n\n| Day | Calls |\n| --- | ---: |\n| Mon | 2 |\n| Tue | 3 |\n\n## B\n\nSecond prose.'
     for (const styleMode of ['automatic', 'selected'] as const) {
       const saved = {...settings(styleMode), adaptive:{enabled:true,styleMode,blockLayout:true}}
@@ -201,7 +201,7 @@ describe('AdaptiveCompositionCoordinator', () => {
       expect(materials.length).toBe(styleMode === 'automatic' ? 3 : 0)
       for (const later of [frame, ...port.requests.slice(1)]) expect(JSON.stringify(later)).not.toMatch(/sharedOptionGuidance|guidanceRef/)
       const expectedOutline = outlineBlockLayout(source, compileBlockLayout(source))
-      expect((frame.state as {composition:{blockLayout:{outline:unknown}}}).composition.blockLayout.outline).toEqual(expectedOutline)
+      expect((frame.state as {composition:{blockLayout:Record<string,unknown>}}).composition.blockLayout).not.toHaveProperty('outline')
       expect(expectedOutline.sections.map(section => section.title)).toEqual(['A', 'B'])
       for (const later of port.requests.slice(1)) {
         expect((later.state as {input:{inputFormat:string,outline:unknown}}).input).toMatchObject({inputFormat:'source-block-component-context@1',outline:expectedOutline})
