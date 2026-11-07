@@ -490,6 +490,46 @@ describe('DilProgramView', () => {
     })
   })
 
+  it('submits fields from a snapshot whose commit is still pending when captureState resolves', async () => {
+    // Browser order: the Worker's tree snapshot message, then its state reply.
+    // React gives a tree set during a window message event default priority,
+    // so its commit can still be pending when the state reply resolves.
+    // Without a stub, jsdom committed this update within a microtask after the
+    // dispatched submit (cause not determined), which hid the defect, so the
+    // test pins window.event to the message being delivered.
+    let callbacks: Callbacks | undefined
+    let resolveCapture: ((state: Record<string, unknown>) => void) | undefined
+    const captureState = vi.fn(() => new Promise<Record<string, unknown>>(resolve => { resolveCapture = resolve }))
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState, dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const onSubmit = vi.fn()
+    const view = await mount({ onSubmit })
+    await act(async () => callbacks!.onSnapshot(tree))
+    const form = view.host.querySelector('form')!
+    await act(async () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    const actEnvironment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    actEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+    const duringMessage = (action: () => void): void => {
+      const windowEvent = vi.spyOn(window, 'event', 'get').mockReturnValue(new MessageEvent('message'))
+      try { action() } finally { windowEvent.mockRestore() }
+    }
+    try {
+      duringMessage(() => callbacks!.onSnapshot(updatedTree))
+      duringMessage(() => resolveCapture?.({ fresh: true }))
+      for (let turn = 0; turn < 5; turn += 1) await Promise.resolve()
+      expect(onSubmit).toHaveBeenCalledWith('save', {
+        state: { fresh: true },
+        fields: { name: 'local value', enabled: true, count: '7', mode: '2' },
+      })
+    } finally {
+      await new Promise(resolve => setTimeout(resolve, 0))
+      actEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    }
+  })
+
   it('does not create a runner when disabled, and disposes the one runner on disable or unmount', async () => {
     let callbacks: Callbacks | undefined
     const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }

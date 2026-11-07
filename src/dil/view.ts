@@ -947,7 +947,12 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
     try { return cachedSnapshot(snapshotKey(sessionId, artifactId, compiled, stateRecord(initialState))) } catch { return undefined }
   })
   const treeIdentity = useRef(initialSnapshot ? identity : undefined)
-  const [tree, setTree] = useState<DilTreeNode | undefined>(initialSnapshot)
+  const [tree, setRenderedTree] = useState<DilTreeNode | undefined>(initialSnapshot)
+  const latestTree = useRef<DilTreeNode | undefined>(initialSnapshot)
+  const setTree = (next: DilTreeNode | undefined): void => {
+    latestTree.current = next
+    setRenderedTree(next)
+  }
   const [treeCompiled, setTreeCompiled] = useState<CompiledDil | undefined>(initialSnapshot ? compiled : undefined)
   const [state, setState] = useState<Record<string, unknown>>({ ...initialState })
   const [failure, setFailure] = useState<string>()
@@ -1204,9 +1209,14 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
         try {
           const next = stateRecord(await instance.captureState())
           stateRef.current = next
-          // Flush runner snapshots that arrived while captureState was in flight
-          // before reading controlled DOM fields for the host action.
-          flushSync(() => setState(next))
+          // A snapshot received during a message event is a default-priority
+          // update, and flushSync commits only sync work. Re-apply the latest
+          // received tree at sync priority so the controlled DOM fields read
+          // below match it.
+          flushSync(() => {
+            setRenderedTree(latestTree.current)
+            setState(next)
+          })
           onStateChangeRef.current?.(next)
           const fields = fieldsFrom(form)
           await submit(action, { state: { ...next }, fields })
