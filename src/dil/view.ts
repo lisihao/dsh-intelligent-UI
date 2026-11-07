@@ -11,6 +11,7 @@ import type { DilIntrinsicTag, DilJson } from './protocol.js'
 import { validateDilComponentInput, validateDilExternalComponentId, validateDilTree } from './protocol.js'
 import { createDilRunner } from './runtime.js'
 import { DIL_ALLOWED_HANDLERS, DIL_ALLOWED_PROPS, supportedDILTags } from './catalog.js'
+import { createSlotPool } from '../slot-pool.js'
 
 export type DilTextNode = Readonly<{ t: '#text', v: string }>
 export type DilFragmentNode = Readonly<{ t: '#frag', c: readonly DilTreeNode[] }>
@@ -54,6 +55,8 @@ export type DilProgramViewProps = Readonly<{
   /** Host-owned external library bridge; DIL never resolves foreign components itself. */
   renderComponent?: DilExternalComponentRenderer
   renderFallback?: ReactNode | ((context: DilFallbackContext) => ReactNode)
+  /** Shared sandbox budget; defaults to the page-wide DIL runner pools. */
+  runnerSlots?: DilRunnerSlots
 }>
 
 /** A direct, already-snapshot DIL handler port. It never reaches a Worker. */
@@ -94,6 +97,81 @@ const MAX_NATIVE_DEPTH = 48
 const MAX_NATIVE_NODES = 512
 const MAX_TEXT_LENGTH = 20_000
 const MAX_IMAGE_DATA_URL_LENGTH = 512 * 1024
+
+/**
+ * A DIL runner is one sandbox iframe plus its Worker. Views on screen share
+ * DIL_RUNNER_SLOTS while they start or settle a read-only tree; views off screen
+ * warm up through DIL_BACKGROUND_RUNNER_SLOTS, so they never delay what is visible.
+ * An interactive view that is, or until it is parked was, on screen keeps its own
+ * runner outside both pools, so a form on screen never waits and leaving the
+ * screen never cuts a pending submit.
+ */
+export const DIL_RUNNER_SLOTS = 3
+export const DIL_BACKGROUND_RUNNER_SLOTS = 1
+export type DilRunnerSlotPool = (activate: () => void) => () => void
+export type DilRunnerSlots = Readonly<{ onScreen: DilRunnerSlotPool, background: DilRunnerSlotPool }>
+type DilRunnerLane = keyof DilRunnerSlots
+const defaultRunnerSlots: DilRunnerSlots = { onScreen: createSlotPool(DIL_RUNNER_SLOTS), background: createSlotPool(DIL_BACKGROUND_RUNNER_SLOTS) }
+/** An on-screen read-only tree with no new revision, or a form that left the screen, keeps its runner this long. */
+const RELEASE_DELAY_MS = 1000
+const SNAPSHOT_CACHE_LIMIT = 64
+const settledSnapshots = new Map<string, DilTreeNode>()
+
+function hash53(text: string): string {
+  let a = 0xdeadbeef ^ text.length, b = 0x41c6ce57 ^ text.length
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index)
+    a = Math.imul(a ^ code, 2654435761); b = Math.imul(b ^ code, 1597334677)
+  }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909)
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909)
+  return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36)
+}
+
+function snapshotKey(sessionId: string, artifactId: string, compiled: CompiledDil, state: Readonly<Record<string, unknown>>): string {
+  return `${sessionId}\u0000${artifactId}\u0000${hash53(JSON.stringify([compiled.code, compiled.constants, compiled.appData, state]))}`
+}
+
+function cachedSnapshot(key: string): DilTreeNode | undefined {
+  const tree = settledSnapshots.get(key)
+  if (tree) { settledSnapshots.delete(key); settledSnapshots.set(key, tree) }
+  return tree
+}
+
+/** Drops every reusable settled snapshot (tests, or a host-wide reset). */
+export function clearDilSnapshotCache(): void { settledSnapshots.clear() }
+
+function rememberSnapshot(key: string, tree: DilTreeNode): void {
+  settledSnapshots.delete(key)
+  settledSnapshots.set(key, tree)
+  while (settledSnapshots.size > SNAPSHOT_CACHE_LIMIT) settledSnapshots.delete(settledSnapshots.keys().next().value as string)
+}
+
+/**
+ * A program that schedules effects or timers can re-render with no user event, so
+ * it needs a live runner like a form does, whatever its current tree looks like.
+ */
+function programUpdatesItself(compiled: CompiledDil): boolean {
+  return compiled.ok && /\b(?:useEffect|setTimeout|setInterval|requestAnimationFrame)\b/u.test(compiled.code)
+}
+
+/**
+ * A restarted runner gets back only keyed state; positional `useState` slots and
+ * refs start over. A program holding either never parks once it has been on screen.
+ */
+function programHasUnkeyedState(compiled: CompiledDil): boolean {
+  if (!compiled.ok) return false
+  const stateCalls = compiled.code.match(/\buseState\s*\(/gu)?.length ?? 0
+  return stateCalls > (compiled.stateKeys?.length ?? 0) || /\buseRef\s*\(/u.test(compiled.code)
+}
+
+/** Handlers or a form need a live runner; any other tree is final once rendered. */
+function treeIsInteractive(tree: DilTreeNode): boolean {
+  if (tree.t === '#text') return false
+  if (tree.t === 'form') return true
+  const props = 'p' in tree ? tree.p ?? {} : {}
+  return Object.entries(props).some(([key, value]) => key.startsWith('on') && value !== undefined) || (tree.c ?? []).some(treeIsInteractive)
+}
 const SAFE_TONES = new Set(['default', 'muted', 'accent', 'success', 'warning', 'danger'])
 const SAFE_ICON_NAMES = new Set(['alert-triangle', 'arrow-right', 'check', 'chevron-down', 'copy', 'database', 'file-text', 'info', 'link', 'minus', 'plus', 'search', 'settings', 'x'])
 const NUMERIC_PROPS = new Set(['columns', 'span', 'rows', 'min', 'max', 'step', 'height', 'width', 'padding', 'gap'])
@@ -833,7 +911,7 @@ export function DilNativeTreeView({ tree: rawTree, artifactId, sessionId, ownedH
         : nativeTreeFallback(children, '没有可用的 DIL 原生树。'))
 }
 
-export function DilProgramView({ source, compiled, enabled, artifactId, sessionId, frameUrl, initialState = {}, onStateChange, onSubmit, onSnapshot, onRuntimeFailure, renderMarkdown, renderComponent, renderFallback }: DilProgramViewProps): ReactElement {
+export function DilProgramView({ source, compiled, enabled, artifactId, sessionId, frameUrl, initialState = {}, onStateChange, onSubmit, onSnapshot, onRuntimeFailure, renderMarkdown, renderComponent, renderFallback, runnerSlots }: DilProgramViewProps): ReactElement {
   const composition = useCompositionSelection()
   const theme = usePresentationTheme()
   const componentSet = composition?.componentSet ?? themeComponentSet(theme)
@@ -859,9 +937,86 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
   renderComponentRef.current = renderComponent
   latestCompiled.current = compiled
 
-  const [tree, setTree] = useState<DilTreeNode>()
+  const identity = `${sessionId}\u0000${artifactId}`
+  const rootRef = useRef<HTMLElement>(null)
+  const runningCompiled = useRef<CompiledDil>()
+  // The identity whose latest local state a restarted runner resumes from.
+  const resumeIdentity = useRef<string>()
+  const [initialSnapshot] = useState(() => {
+    if (!enabled || !compiled.ok || programUpdatesItself(compiled)) return undefined
+    try { return cachedSnapshot(snapshotKey(sessionId, artifactId, compiled, stateRecord(initialState))) } catch { return undefined }
+  })
+  const treeIdentity = useRef(initialSnapshot ? identity : undefined)
+  const [tree, setTree] = useState<DilTreeNode | undefined>(initialSnapshot)
+  const [treeCompiled, setTreeCompiled] = useState<CompiledDil | undefined>(initialSnapshot ? compiled : undefined)
   const [state, setState] = useState<Record<string, unknown>>({ ...initialState })
   const [failure, setFailure] = useState<string>()
+  const [runnerFailed, setRunnerFailed] = useState(false)
+  // Unknown until the first intersection report; never scheduled as on screen before it.
+  const [visible, setVisible] = useState<boolean | undefined>(() => typeof IntersectionObserver === 'undefined' ? true : undefined)
+  const [parked, setParked] = useState(false)
+  const [hasSlot, setHasSlot] = useState(false)
+  const [heldLane, setHeldLane] = useState<DilRunnerLane>()
+  const [submitting, setSubmitting] = useState(false)
+  const [readOnlyIdle, setReadOnlyIdle] = useState(!!initialSnapshot)
+  // A form that has been on screen keeps its runner outside the pool until it is parked.
+  const [holding, setHolding] = useState(false)
+
+  const configuredFrameUrl = typeof frameUrl === 'string' && frameUrl.trim() ? frameUrl : undefined
+  const interactive = tree !== undefined && (programUpdatesItself(compiled) || treeIsInteractive(tree))
+  const onScreen = visible === true
+  // The program this view mounted with; a later revision means a stream is in progress.
+  const mountedCompiled = useRef(compiled)
+  // A read-only tree from the current program is final once no new revision arrives
+  // for a moment (streamed revisions keep updating the same live runner), or as soon
+  // as it renders off screen if the program has never been revised.
+  const current = tree !== undefined && !interactive && treeCompiled === compiled
+  const settled = current && (readOnlyIdle || (!onScreen && compiled === mountedCompiled.current))
+  const wantsRunner = enabled && compiled.ok && !!configuredFrameUrl && !runnerFailed && !settled && !parked
+  const exempt = interactive && (onScreen || holding)
+  // A waiting view queues by where it is now; a running one keeps the lane it got.
+  const lane: DilRunnerLane = hasSlot && heldLane ? heldLane : onScreen ? 'onScreen' : 'background'
+
+  useEffect(() => {
+    if (interactive && onScreen) setHolding(true)
+    else if (!interactive || parked) setHolding(false)
+  }, [interactive, onScreen, parked])
+
+  useEffect(() => {
+    if (!current) { setReadOnlyIdle(false); return }
+    const timer = setTimeout(() => setReadOnlyIdle(true), RELEASE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [current, compiled])
+
+  useEffect(() => {
+    const target = rootRef.current
+    if (!target || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(entries => {
+      const entry = entries[entries.length - 1]
+      if (entry) setVisible(entry.isIntersecting)
+    }, { rootMargin: '200px 0px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (visible !== false || !interactive || submitting || (holding && programHasUnkeyedState(compiled))) { setParked(false); return }
+    // A form that was never on screen has no scroll to wait out.
+    const timer = setTimeout(() => setParked(true), holding ? RELEASE_DELAY_MS : 0)
+    return () => clearTimeout(timer)
+  }, [visible, interactive, submitting, holding, compiled])
+
+  // A new program revision or artifact may succeed where the previous runner failed.
+  useEffect(() => { setRunnerFailed(false) }, [compiled, identity])
+
+  useEffect(() => {
+    if (!wantsRunner) return
+    if (exempt) { setHasSlot(true); return () => setHasSlot(false) }
+    let live = true
+    const release = (runnerSlots ?? defaultRunnerSlots)[lane](() => { if (live) { setHeldLane(lane); setHasSlot(true) } })
+    return () => { live = false; setHasSlot(false); setHeldLane(undefined); release() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsRunner, exempt ? 'exempt' : lane, runnerSlots])
 
   const compilationFailure = compiled.ok ? undefined : 'DIL 编译未通过，未执行界面程序。' + (compiled.diagnosticSummary ? ' ' + compiled.diagnosticSummary : '')
   const markdownFailure = treeUsesMarkdown(tree) && !renderMarkdown ? 'DIL Markdown 组件需要宿主 Markdown 渲染器。' : undefined
@@ -895,32 +1050,41 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
       runner.current = undefined
       runnerReady.current = undefined
       startedWith.current = undefined
+      resumeIdentity.current = undefined
+      treeIdentity.current = undefined
       setTree(undefined)
+      setTreeCompiled(undefined)
       setFailure(undefined)
       return
     }
     if (!compiled.ok) {
       runnerReady.current = undefined
       startedWith.current = undefined
+      treeIdentity.current = undefined
       setTree(undefined)
+      setTreeCompiled(undefined)
       setFailure(undefined)
       return
     }
-    const configuredFrameUrl = typeof frameUrl === 'string' && frameUrl.trim() ? frameUrl : undefined
     if (!configuredFrameUrl) {
+      treeIdentity.current = undefined
       setTree(undefined)
       setFailure('DIL 运行器地址不可用。')
       return
     }
     const container = sandboxHost.current
-    if (!container) return
+    if (!container || !hasSlot) return
     let active = true
-    const initial = stateRecord(initialState)
+    // The same artifact restarts from its latest local state and keeps its last tree on screen.
+    const resumed = resumeIdentity.current === identity
+    const initial = resumed ? stateRef.current : stateRecord(initialState)
+    resumeIdentity.current = identity
     stateRef.current = initial
     setState(initial)
-    onStateChangeRef.current?.(initial)
-    setTree(undefined)
+    if (!resumed) onStateChangeRef.current?.(initial)
+    if (treeIdentity.current !== identity) { setTree(undefined); setTreeCompiled(undefined) }
     setFailure(undefined)
+    runningCompiled.current = compiled
     const instance = createDilRunner({
       container,
       frameUrl: configuredFrameUrl,
@@ -937,8 +1101,12 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
             throw new DilNativeViewError('DIL_COMPONENT_RENDERER_UNAVAILABLE', 'DIL 外部组件需要宿主组件渲染器。')
           }
           onSnapshotRef.current?.(nativeTree)
+          const producedBy = runningCompiled.current
+          treeIdentity.current = identity
           setTree(nativeTree)
+          setTreeCompiled(producedBy)
           setFailure(undefined)
+          if (producedBy?.ok && !programUpdatesItself(producedBy) && !treeIsInteractive(nativeTree)) rememberSnapshot(snapshotKey(sessionId, artifactId, producedBy, stateRef.current), nativeTree)
         } catch (error) {
           setTree(undefined)
           setFailure(error instanceof Error ? error.message : String(error))
@@ -948,7 +1116,9 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
         if (active) receiveState(next)
       },
       onFailure: (error: unknown) => {
-        if (active) setFailure(error instanceof Error ? error.message : String(error))
+        if (!active) return
+        setFailure(error instanceof Error ? error.message : String(error))
+        setRunnerFailed(true)
       },
     })
     runner.current = instance
@@ -960,7 +1130,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
       const latest = latestCompiled.current
       if (!latest.ok) return
       try {
-        if (latest !== compiled) instance.update(latest)
+        if (latest !== compiled) { instance.update(latest); runningCompiled.current = latest }
         startedWith.current = latest
       } catch (error) {
         if (active && runner.current === instance) setFailure(error instanceof Error ? error.message : String(error))
@@ -969,6 +1139,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
       if (active && runner.current === instance) {
         runnerReady.current = undefined
         setFailure(error instanceof Error ? error.message : String(error))
+        setRunnerFailed(true)
       }
     })
     return () => {
@@ -982,7 +1153,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
     }
   // A compatible compiled value updates through the separate effect below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, artifactId, sessionId, frameUrl, compiled.ok])
+  }, [enabled, artifactId, sessionId, frameUrl, compiled.ok, hasSlot])
 
   useEffect(() => {
     const instance = runner.current
@@ -990,6 +1161,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
     try {
       instance.update(compiled)
       startedWith.current = compiled
+      runningCompiled.current = compiled
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error))
     }
@@ -1027,6 +1199,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
         return
       }
       submitInFlight.current = true
+      setSubmitting(true)
       void (async () => {
         try {
           const next = stateRecord(await instance.captureState())
@@ -1041,6 +1214,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
           setFailure(error instanceof Error ? error.message : String(error))
         } finally {
           submitInFlight.current = false
+          setSubmitting(false)
         }
       })()
     },
@@ -1048,13 +1222,20 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
 
   const diagnostics = compiled.ok ? compilerDiagnosticText(compiled) : undefined
   const fallback = !enabled || compilationFailure !== undefined || markdownFailure !== undefined || componentFailure !== undefined || failure !== undefined
-  return h('section', { className: 'dsh-experience iexp-dil', 'data-dil-enabled': String(enabled), 'data-dil-artifact-id': artifactId, 'data-dil-session-id': sessionId },
+  const queuedText = compiled.ok ? fallbackMarkdown(compiled, '') : ''
+  return h('section', { ref: rootRef, className: 'dsh-experience iexp-dil', 'data-dil-enabled': String(enabled), 'data-dil-artifact-id': artifactId, 'data-dil-session-id': sessionId, 'data-dil-runner': !hasSlot ? 'none' : exempt ? 'visible' : 'pool' },
     h('div', { ref: sandboxHost, className: 'iexp-dil-runner-host', 'aria-hidden': true }),
     fallback
       ? fallbackView(source, compiled, failure ?? componentFailure ?? markdownFailure ?? compilationFailure, renderFallback)
       : tree
-        ? h('div', { className: 'iexp-dil-native-tree', 'data-dil-native-tree': true }, renderNode(tree, context, 'root'))
-        : h('p', { className: 'iexp-dil-pending', role: 'status' }, '正在准备本地 DIL 视图…'),
+        ? h(Fragment, null,
+          interactive && !hasSlot && h('p', { className: 'iexp-dil-pending', role: 'status', 'data-dil-resuming': true }, '正在恢复交互…'),
+          h('div', { className: 'iexp-dil-native-tree', 'data-dil-native-tree': true }, renderNode(tree, context, 'root')))
+        : wantsRunner && !hasSlot
+          ? h('div', { className: 'iexp-dil-pending', 'data-dil-queued': true },
+            h('p', { role: 'status' }, '本地界面排队运行中，先显示可读内容。'),
+            queuedText && (renderMarkdownRef.current ? renderMarkdownRef.current(queuedText) : h('pre', null, queuedText)))
+          : h('p', { className: 'iexp-dil-pending', role: 'status' }, '正在准备本地 DIL 视图…'),
     diagnostics && h('details', { className: 'iexp-dil-diagnostics' }, h('summary', null, '界面程序诊断'), h('pre', null, diagnostics)),
     state && h('output', { className: 'iexp-dil-state-marker', 'aria-hidden': true }, ''),
   )

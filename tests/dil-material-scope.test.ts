@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CompositionSelectionContext } from '../src/adaptive-ui/scope.js'
 import type { CompositionSelection } from '../src/adaptive-ui/planner.js'
-import { DilNativeTreeView, DilProgramView } from '../src/dil/view.js'
+import { DilNativeTreeView, DilProgramView, clearDilSnapshotCache } from '../src/dil/view.js'
 import type { CompiledDil } from '../src/dil/compiler.js'
 import { PresentationThemeContext } from '../src/theme-runtime.js'
 import { builtInThemes, themePackageSchema, type ThemePackage } from '../src/theme-contracts.js'
@@ -138,6 +138,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   for (const item of mounted.splice(0)) await act(async () => item.root.unmount())
+  clearDilSnapshotCache()
   document.body.replaceChildren()
   callbacks = undefined
   vi.clearAllMocks()
