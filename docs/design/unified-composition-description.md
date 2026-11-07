@@ -1,6 +1,6 @@
 # Unified composition description (proposal, 2026-11-07)
 
-Status: proposal. Step 1 is implemented ([record](../acceptance/2026-11-07-shared-option-guidance.md)); steps 2–4 are not. The measurements below ran locally and called no model.
+Status: proposal. Steps 1 and 2 are implemented ([step 1 record](../acceptance/2026-11-07-shared-option-guidance.md), [step 2 record](../acceptance/2026-11-07-block-outline.md)); steps 3 and 4 are not. The measurements below ran locally and called no model.
 
 ## Owner's question
 
@@ -20,7 +20,7 @@ Observed gaps:
 
 - **Calls 2 and 3 do not see the result of call 1.** `runComponentDecision` builds their state from `blocks` and `designRubric` only. The chosen theme and layout are merged by the Host afterwards.
 - **The stages can override each other.** When call 3 picks a curated component, `runComponentDecision` replaces the block's call-1 material with the curated component's own `componentSet`.
-- **No content outline exists.** `compileBlockLayout` returns a flat block list. It has no heading tree, no section membership, and no block-to-block relations.
+- **No content outline exists** (step 2 adds one). `compileBlockLayout` returns a flat block list. It has no heading tree, no section membership, and no block-to-block relations.
 - **Text is repeated.** Call 1 sends the complete source. Calls 2 and 3 each send every block's value again. In the five documents below, the JSON size of the block values is 100.6%–101.9% of the source size.
 - **Documentation mismatch.** `docs/design/experimental-block-layout.md` says the pipeline sends "one scoped Jev Decisions request" and that "the authoritative question list is sent once". With executable components, which production always supplies, it makes three requests.
 
@@ -83,11 +83,11 @@ Two consumers read it:
 ### Steps
 
 1. **Share call-1 option text (implemented).** Option-description fields that are identical in every block question of a field go once into the call-1 state; each option keeps a reference and its block-specific fields. Prompts, including their constraints, stay in every question, because Jev sends state through the same input channel as the untrusted source text. This changes the request layout: the model receives the shared guidance once instead of once per block. Whether its choices change is unverified. Measured on the five documents: the call-1 request is 38–49% smaller and the three-call total 16–25% smaller.
-2. **Add the content layer.** Extend `compileBlockLayout` output with the heading tree, section membership and evidenced relations. Version the new fields. This is local and testable without a model.
+2. **Add the content layer (implemented in part).** A versioned `block-outline@1` outline, built from the compiler's own source paths, describes the top-level Markdown heading tree and each block's innermost section. All three requests carry it, so it is sent three times (2–36 KB per document in the five measured). Not done: relations between blocks; documents that mark sections with bold paragraphs instead of headings (md-3's outline is empty); and the DIL generation path, which does not read the outline yet.
 3. **One call when every block fits.** When each block's complete legal list fits within the option limit, send one request: document questions, one material question per block, and one flat component question per block. The two-stage family/component path stays for any block whose list does not fit. The existing rule stays: no legal component is dropped to a top-K list.
 4. **Compare quality (needs approval).** Run the same documents through the three-call and one-call paths with a real model, and compare the choices. This costs paid model calls and needs the owner's approval first.
 
-Rough size for step 3, md-2 (estimate, not measured): 105 blocks × 13.5 legal options on average = 1,413 options. Call 3 used about 513 question bytes per option, but only for curated-card members, because the probe always took the first family. That figure also spreads each question's prompt over only 3 options; with about 13.5 options per question the prompt share per option is smaller, while other families' metadata may be larger or smaller. The direction of the error is unknown. That gives about 725 KB of component questions. Add one block-value state of about 240 KB (call 2's state, which already includes the shared catalog), the shared material questions, and the document questions. The total is about 1.0–1.1 MB, against 1.55 MB today. The estimate assumes the complete source is not sent a second time beside the block values.
+Rough size for step 3, md-2 (estimate, not measured): 105 blocks × 13.5 legal options on average = 1,413 options. Call 3 used about 513 question bytes per option, but only for curated-card members, because the probe always took the first family. That figure also spreads each question's prompt over only 3 options; with about 13.5 options per question the prompt share per option is smaller, while other families' metadata may be larger or smaller. The direction of the error is unknown. That gives about 725 KB of component questions. Add one block-value state of about 240 KB (call 2's state, which already includes the shared catalog), the shared material questions, and the document questions. The total is about 1.0–1.1 MB, against 1.55 MB before step 1. This estimate predates steps 1 and 2; with both, md-2's three-call total is 1.25 MB, including the outline. The estimate assumes the complete source is not sent a second time beside the block values.
 
 ## Constraints kept
 

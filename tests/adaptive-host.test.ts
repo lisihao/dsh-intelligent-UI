@@ -13,6 +13,8 @@ import { AdaptiveCompositionCoordinator } from '../src/adaptive-ui/host.js'
 import { buildCompositionCandidates } from '../src/adaptive-ui/planner.js'
 import { expandRequestQuestions } from './shared-option-guidance.js'
 import { createSourceBlockComponentRegistry } from '../src/adaptive-ui/source-block-components.js'
+import { compileBlockLayout } from '../src/adaptive-ui/block-compiler.js'
+import { outlineBlockLayout } from '../src/adaptive-ui/block-outline.js'
 
 type Deferred<T> = { promise: Promise<T>, resolve: (value: T) => void }
 function deferred<T = void>(): Deferred<T> {
@@ -137,7 +139,7 @@ describe('AdaptiveCompositionCoordinator', () => {
     expect(state.source.value).toBe(source)
     expect(countExactString(request.state, source)).toBe(1)
     expect(state.composition).toMatchObject({
-      inputFormat: 'block-design-context@3',
+      inputFormat: 'block-design-context@4',
       styleMode: 'automatic',
       capabilities: { webgl: true, reducedMotion: false },
       isStreaming: false,
@@ -161,6 +163,7 @@ describe('AdaptiveCompositionCoordinator', () => {
       questionIds: binding.questionIds,
       fieldBindings: fieldBindingsFor(binding.reference.id, binding.questionIds),
     })))
+    expect((state.composition.blockLayout as unknown as { outline: unknown }).outline).toEqual(outlineBlockLayout(source, compileBlockLayout(source)))
     const sent = built.questions.filter(question => question.options.length >= 2)
     expect(expandRequestQuestions(request)).toEqual(sent)
     const shared = (state.composition as { sharedOptionGuidance?: { format: string, options: Record<string, Record<string, unknown>> } }).sharedOptionGuidance
@@ -182,7 +185,7 @@ describe('AdaptiveCompositionCoordinator', () => {
     const result = await coordinator.compose(input({value:'| Item | Value (USD) |\n| --- | ---: |\n| A | 4 |\n| B | 6 |'}))
     expect(result.status).toBe('selected')
     const state = port.requests[0]!.state as {composition:Record<string,unknown>}
-    expect(state.composition).toMatchObject({inputFormat:'block-design-context@3',styleMode:'selected',lockedThemeId:'auto'})
+    expect(state.composition).toMatchObject({inputFormat:'block-design-context@4',styleMode:'selected',lockedThemeId:'auto'})
     expect(state.composition).not.toHaveProperty('selectedThemeId')
     expect(state.composition).not.toHaveProperty('themes')
     expect(state.composition).not.toHaveProperty('candidateBundle')
@@ -214,6 +217,12 @@ describe('AdaptiveCompositionCoordinator', () => {
         expect(shared).toBeUndefined()
       }
       for (const later of port.requests.slice(1)) expect(JSON.stringify(later)).not.toContain('sharedOptionGuidance')
+      const expectedOutline = outlineBlockLayout(source, compileBlockLayout(source))
+      expect((frame.state as {composition:{blockLayout:{outline:unknown}}}).composition.blockLayout.outline).toEqual(expectedOutline)
+      expect(expectedOutline.sections.map(section => section.title)).toEqual(['A', 'B'])
+      for (const later of port.requests.slice(1)) {
+        expect((later.state as {input:{inputFormat:string,outline:unknown}}).input).toMatchObject({inputFormat:'source-block-component-context@1',outline:expectedOutline})
+      }
       coordinator.dispose()
     }
   })
