@@ -1,6 +1,6 @@
 # Unified composition description (proposal, 2026-11-07)
 
-Status: proposal. Nothing here is implemented. The measurements below ran locally and called no model.
+Status: proposal. Step 1 is implemented ([record](../acceptance/2026-11-07-shared-option-guidance.md)); steps 2–4 are not. The measurements below ran locally and called no model.
 
 ## Owner's question
 
@@ -82,7 +82,7 @@ Two consumers read it:
 
 ### Steps
 
-1. **Share call-1 option text.** Move the repeated material prompt and option descriptions into one shared section of the call-1 state, and keep only the block-specific part in each question. This changes the request layout: the model receives the shared text once instead of once per block. Whether its choices change is unverified. Expected size effect, from the numbers above: most of the 218–619 KB of material questions per document. Not measured until implemented.
+1. **Share call-1 option text (implemented).** Option-description fields that are identical in every block question of a field go once into the call-1 state; each option keeps a reference and its block-specific fields. Prompts, including their constraints, stay in every question, because Jev sends state through the same input channel as the untrusted source text. This changes the request layout: the model receives the shared guidance once instead of once per block. Whether its choices change is unverified. Measured on the five documents: the call-1 request is 38–49% smaller and the three-call total 16–25% smaller.
 2. **Add the content layer.** Extend `compileBlockLayout` output with the heading tree, section membership and evidenced relations. Version the new fields. This is local and testable without a model.
 3. **One call when every block fits.** When each block's complete legal list fits within the option limit, send one request: document questions, one material question per block, and one flat component question per block. The two-stage family/component path stays for any block whose list does not fit. The existing rule stays: no legal component is dropped to a top-K list.
 4. **Compare quality (needs approval).** Run the same documents through the three-call and one-call paths with a real model, and compare the choices. This costs paid model calls and needs the owner's approval first.
