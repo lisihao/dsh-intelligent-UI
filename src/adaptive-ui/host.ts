@@ -5,7 +5,6 @@ import { neutralDesignRubric } from './design-guidance.js'
 import { compileBlockLayout } from './block-compiler.js'
 import { outlineBlockLayout } from './block-outline.js'
 import { decideExecutableComponentsBatch } from './component-decision.js'
-import { shareBlockOptionGuidance } from './question-sharing.js'
 import { SOURCE_PRESENTATION_RENDERER_KEY, validateSourcePresentationInput } from './source-block-components.js'
 import { SOURCE_LIBRARY_RENDERER_KEY, CURATED_UI_RENDERER_KEY, validateSourceLibraryInput, validateCuratedUiInput } from './library-component-bindings.js'
 import {
@@ -40,7 +39,7 @@ import {
 
 const DEFAULT_MAX_SOURCE_BYTES = 1024 * 1024
 const DEFAULT_MAX_CACHE_ENTRIES = 32
-const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@4'
+const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@5'
 const COMPONENT_CONTEXT_INPUT_FORMAT = 'source-block-component-context@1'
 
 type CandidateBundle = ReturnType<typeof buildCompositionCandidates>
@@ -684,11 +683,11 @@ export class AdaptiveCompositionCoordinator {
   }
 
   private jevRequest(active: ActiveRequest, bundle = active.bundle): { state: JevJson, questions: readonly JevQuestion[] } {
-    const candidates = cloneJson<readonly JevQuestion[]>(bundle.questions)
+    // Every option keeps its complete description: on the Decisions wire each
+    // choice description travels apart from state, and moving shared guidance
+    // into state shifted live material choices (see the shared-guidance record).
+    const questions = cloneJson<readonly JevQuestion[]>(bundle.questions)
       .filter(question => question.options.length >= 2)
-    // Only the block-layout request shares option guidance; the legacy request is a durable contract.
-    const sharing = bundle.blockLayout === undefined ? { questions: candidates } : shareBlockOptionGuidance(candidates)
-    const questions = sharing.questions
     const composition = bundle.blockLayout === undefined
       ? {
           // The pre-experiment request is a durable legacy contract.
@@ -713,7 +712,6 @@ export class AdaptiveCompositionCoordinator {
             ...blockDesignContext(bundle.blockLayout, this.options.getExecutableComponents ? new Set(questions.map(question=>question.id)) : undefined),
             outline: outlineBlockLayout(active.input.value, compileBlockLayout(active.input.value)),
           },
-          ...(sharing.shared === undefined ? {} : { sharedOptionGuidance: sharing.shared }),
         }
     const state = cloneJson<JevJson>({
       formatVersion: ADAPTIVE_COMPOSITION_FORMAT_VERSION,

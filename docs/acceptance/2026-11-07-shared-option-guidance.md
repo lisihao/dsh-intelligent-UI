@@ -59,3 +59,44 @@ All checks ran on this MacBook. No model was called.
   - The installed Desktop.
 
 Probe receipts are under `.acceptance/claude-unified-description-20261107/` (not in Git).
+
+## Reverted after live runs (2026-11-07)
+
+The verification above did not run a model. Afterwards, live runs used the saved Jev route: `luna-openai`, returned model `gpt-6-luna`, `https://api.openai.com/v1/decisions`.
+
+- **Setup.** md-1 and md-3, 3 repeats per layout, automatic style, built-in themes, `webgl: true`.
+- **Layouts.**
+  - base: `c2e8f4a`, before this change;
+  - step 1 alone: `1003f66`;
+  - current: `666a044`, step 1 plus the outline;
+  - a variant (not merged) that kept `material` and `visualCharacteristics` beside each option.
+- **Result.** Every run ended `selected`.
+
+| Layout | soft-relief block choices, md-1 | soft-relief block choices, md-3 |
+|---|---|---|
+| base, first session | 22 of 111 | 21 of 93 |
+| step 1 alone | 1 of 111 | 5 of 93 |
+| current | 0 of 111 | 0 of 93 |
+| base, interleaved session | 25 of 111 | 15 of 62 (2 repeats; one request returned HTTP 503) |
+| per-option variant, interleaved session | 0 of 111 | 0 of 93 |
+
+- **Where the shift came from.** It appeared with step 1 alone, and the per-option variant did not bring it back.
+- **Wire format.** On this route, `state` is sent as one `input` text and each choice's description as separate text. So after step 1, each choice carried only its reference and its block evidence. Whether the service follows the reference is unknown.
+- **Component choices.** They differed between runs. Calls 2 and 3 were byte-identical between the current and per-option layouts, so those differences are run-to-run variation, not an effect of this change.
+- **Not measured.** Whether the shift is better or worse as a design is a judgment, and it was not assessed.
+- **Tokens.** Step 1 made the frame call about 36% (md-1) and 29% (md-3) smaller in input tokens. A whole three-call composition was 8–13% smaller.
+
+The sharing is reverted on `claude/revert-shared-guidance-20261107`, which leaves every option with its complete description. The outline (`block-outline@2`) stays. The frame request's input format is now `block-design-context@5`.
+
+### Revert check (live, interleaved)
+
+- **Run.** Base (`c2e8f4a`) against the revert (this branch: base plus the outline), interleaved in one session. md-1 and md-3, 3 repeats each, 36 requests, all HTTP 200, 1,754,105 input tokens. Every run ended `selected`.
+- **Pass rule, fixed before the run.** For each document, the revert's soft-relief share must be at least half of base's share in the same session, and above 5%.
+
+| Document | soft-relief, base | soft-relief, revert | Rule |
+|---|---|---|---|
+| md-1 | 25 of 111 (22.5%) | 7 of 111 (6.3%) | failed (needs ≥ 11.3%) |
+| md-3 | 28 of 93 (30.1%) | 25 of 93 (26.9%) | passed |
+
+- **md-1.** The rule failed, so the outline alone also moves md-1's material choices away from soft-relief, though less than the sharing did. On md-1, sharing alone gave 1 of 111 and sharing plus the outline gave 0.
+- **Tokens.** The revert's frame call carries the full option descriptions plus the outline. It used about 59,030 input tokens on md-1 and 61,840 on md-3, against base's 56,580 and 60,070.
