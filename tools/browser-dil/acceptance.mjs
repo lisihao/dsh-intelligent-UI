@@ -230,6 +230,93 @@ async function exerciseWatchdog(browser, origin, sleep) {
   } finally { await page.close() }
 }
 
+async function crowdSnapshot(page) {
+  return page.eval(() => ({
+    frames: document.querySelectorAll('iframe').length,
+    peakFrames: window.__dilBrowser?.peakFrames ?? -1,
+    peakPooledFrames: window.__dilBrowser?.peakPooledFrames ?? -1,
+    visibleFrames: document.querySelectorAll('[data-dil-runner="visible"] iframe').length,
+    sections: [...document.querySelectorAll('[data-crowd-index]')].map(section => ({
+      program: section.getAttribute('data-crowd-program'),
+      native: !!section.querySelector('[data-dil-native-tree]'),
+      fallback: !!section.querySelector('[data-dil-fallback]'),
+      seats: section.querySelector('input[name="seats"]')?.value,
+    })),
+  }))
+}
+
+async function exerciseCrowd(browser, origin, sleep) {
+  const limit = 3
+  const page = await browser.newPage({ width: 1440, height: 900 })
+  try {
+    await page.goto(`${origin}/?crowd=1`)
+    const settled = await waitFor('crowd: every read-only block and the first form render', async () => {
+      const current = await crowdSnapshot(page)
+      return current.sections.filter(section => section.program === 'static').every(section => section.native) && current.sections[0]?.native ? current : undefined
+    }, sleep, 20_000)
+    assert.ok(settled.sections.every(section => !section.fallback), `crowd fell back: ${JSON.stringify(settled.sections)}`)
+    await setRangeByPointer(page, '[data-crowd-index="0"] input[name="seats"]', 7)
+    const moved = await waitFor('crowd: first form reports moved slider', async () => {
+      const current = await crowdSnapshot(page)
+      const seats = Number(current.sections[0]?.seats)
+      return seats !== 3 && Number.isInteger(seats) ? { current, seats } : undefined
+    }, sleep)
+    await page.eval(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    const bottom = await waitFor('crowd: last form renders after scrolling down', async () => {
+      const current = await crowdSnapshot(page)
+      return current.sections[7]?.native ? current : undefined
+    }, sleep, 20_000)
+    await sleep(1_600)
+    const parked = await crowdSnapshot(page)
+    await page.eval(() => window.scrollTo(0, 0))
+    const resumed = await waitFor('crowd: first form resumes with its moved slider', async () => {
+      const current = await crowdSnapshot(page)
+      return current.sections[0]?.native && current.sections[0]?.seats === String(moved.seats) ? current : undefined
+    }, sleep, 20_000)
+    const final = await crowdSnapshot(page)
+    // Visible forms run outside the pool; everything else shares its limit.
+    assert.ok(final.peakPooledFrames >= 1 && final.peakPooledFrames <= limit, `crowd pooled sandbox peak ${String(final.peakPooledFrames)} exceeds ${String(limit)}`)
+    assert.ok(parked.frames - parked.visibleFrames <= limit, `crowd pooled sandboxes after parking: ${JSON.stringify(parked)}`)
+    assert.deepEqual(page.consoleErrors, [], `crowd page exceptions: ${JSON.stringify(page.consoleErrors)}`)
+    return { limit, peakPooledFrames: final.peakPooledFrames, peakFrames: final.peakFrames, settledFrames: settled.frames, bottomFrames: bottom.frames, parkedFrames: parked.frames, resumedFrames: resumed.frames, resumedSeats: moved.seats }
+  } finally { await page.close() }
+}
+
+/** A program that updates itself must keep its runner past the read-only idle window. */
+async function exerciseTicker(browser, origin, sleep) {
+  const page = await browser.newPage({ width: 1440, height: 900 })
+  const tick = () => page.eval(() => Number(/计时 (\d+)/u.exec(document.querySelector('[data-dil-native-tree]')?.textContent ?? '')?.[1] ?? -1))
+  try {
+    await page.goto(`${origin}/?ticker=1`)
+    const first = await waitFor('ticker renders', async () => { const value = await tick(); return value >= 0 ? value + 1 : undefined }, sleep) - 1
+    await sleep(3_000)
+    const later = await tick()
+    const frames = await page.eval(() => document.querySelectorAll('iframe').length)
+    assert.ok(later >= first + 6, `self-updating program stopped: ${String(first)} -> ${String(later)}`)
+    assert.equal(frames, 1, 'self-updating program lost its runner')
+    assert.deepEqual(page.consoleErrors, [], `ticker page exceptions: ${JSON.stringify(page.consoleErrors)}`)
+    return { first, later, frames }
+  } finally { await page.close() }
+}
+
+/** Opens the crowd at its end, like a chat at its latest messages; records how long the last block takes. */
+async function exerciseCrowdBottom(browser, origin, sleep) {
+  const page = await browser.newPage({ width: 1440, height: 900 })
+  try {
+    const started = Date.now()
+    await page.goto(`${origin}/?crowd=1&bottom=1`)
+    const ready = await waitFor('crowd bottom: last block renders when the page opens at its end', async () => {
+      const current = await crowdSnapshot(page)
+      return current.sections[7]?.native ? current : undefined
+    }, sleep, 20_000)
+    assert.ok(!ready.sections[7].fallback, 'crowd bottom block fell back')
+    const scrollY = await page.eval(() => window.scrollY)
+    assert.ok(scrollY > 0, 'crowd bottom page did not open at its end')
+    assert.deepEqual(page.consoleErrors, [], `crowd bottom page exceptions: ${JSON.stringify(page.consoleErrors)}`)
+    return { lastBlockMs: Date.now() - started, scrollY, frames: ready.frames }
+  } finally { await page.close() }
+}
+
 /** Runs the isolated browser acceptance; source is fixed local fixture data only. */
 export async function runDilBrowserAcceptance({ evidenceDirectory = defaultEvidenceDirectory } = {}) {
   if (!existsSync(cdpModule)) throw new Error(`DIL_BROWSER_CDP_MISSING: set DIL_BROWSER_CDP to the design-taste CDP helper (checked ${cdpModule}).`)
@@ -250,6 +337,8 @@ export async function runDilBrowserAcceptance({ evidenceDirectory = defaultEvide
 
     await mkdir(evidenceDirectory, { recursive: true })
     browser = await Browser.launch({ width: 1440, height: 900 })
+    // Runs first so the bounded-sandbox check is reached even if a later step fails.
+    const crowd = { ...await exerciseCrowd(browser, preview.origin, sleep), bottom: await exerciseCrowdBottom(browser, preview.origin, sleep), ticker: await exerciseTicker(browser, preview.origin, sleep) }
     const viewports = []
     for (const width of [1440, 390, 320]) {
       const page = await browser.newPage({ width, height: width === 1440 ? 900 : 844, mobile: width <= 390 })
@@ -284,6 +373,7 @@ export async function runDilBrowserAcceptance({ evidenceDirectory = defaultEvide
       screenshots: ['dil-1440.png', 'dil-390.png'],
       viewports,
       watchdog,
+      crowd,
       limitations: ['This checks a loopback browser fixture, not a real model authoring turn or installed Desktop runtime.'],
     }
     await writeFile(join(evidenceDirectory, 'receipt.json'), JSON.stringify(receipt, null, 2) + '\n', 'utf8')
@@ -297,5 +387,5 @@ export async function runDilBrowserAcceptance({ evidenceDirectory = defaultEvide
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : undefined
 if (invokedPath && pathToFileURL(invokedPath).href === import.meta.url) {
   const receipt = await runDilBrowserAcceptance()
-  process.stdout.write(`DIL_BROWSER_RECEIPT=${JSON.stringify({ viewports: receipt.viewports.length, modelCalls: receipt.modelCalls, screenshots: receipt.screenshots })}\n`)
+  process.stdout.write(`DIL_BROWSER_RECEIPT=${JSON.stringify({ viewports: receipt.viewports.length, modelCalls: receipt.modelCalls, screenshots: receipt.screenshots, crowd: receipt.crowd })}\n`)
 }

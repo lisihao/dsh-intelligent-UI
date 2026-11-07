@@ -49,6 +49,8 @@ const updatedSource = initialSource
 
 const invalidSource = '<not-supported>这个错误源必须保留为可读回退。</not-supported>'
 const timeoutSource = '{@body while(true){}}\n<text>这个文本不应从无限循环 Worker 返回。</text>'
+const tickerSource = '{@body const [tick,setTick] = DIL.useState(0)}\n{@body DIL.useEffect(() => { setInterval(() => setTick(value => value + 1), 250) }, [])}\n<text>计时 {tick}</text>'
+const staticSource = '<card gap={3}><title>只读区块</title><text>这个区块没有交互，渲染后不再占用运行器。</text></card>'
 
 function record(value) { return typeof value === 'object' && value !== null && !Array.isArray(value) }
 
@@ -125,6 +127,8 @@ export async function startDilBrowserPreview() {
       updated: compileProgram(host.compileDilSource, '保持键控状态的更新程序', updatedSource),
       invalid: compileProgram(host.compileDilSource, '错误源回退程序', invalidSource),
       timeout: compileProgram(host.compileDilSource, 'Worker watchdog 边界程序', timeoutSource),
+      ticker: compileProgram(host.compileDilSource, '自行更新程序', tickerSource),
+      static: compileProgram(host.compileDilSource, '只读程序', staticSource),
     }
     frameServer = await host.startDilFrameServer()
     const browserScript = await buildBrowserFixture(runtimeDirectory)

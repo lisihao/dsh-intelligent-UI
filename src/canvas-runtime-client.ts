@@ -1,4 +1,5 @@
 import { CANVAS_UI_COMMIT, canvasFactoryContract, canvasFactoryName, findCanvasComponent } from './canvas-catalog.js'
+import { createSlotPool } from './slot-pool.js'
 
 export interface CanvasEffectInstance { destroy(): void; resize?(): void; setOptions?(options: Record<string, unknown>): void }
 export type CanvasEffectFactory = (elements: Record<string, unknown>, options?: Record<string, unknown>) => CanvasEffectInstance | null
@@ -38,27 +39,5 @@ export function createCanvasEffectLoader(importer: EffectImporter = url => impor
 export const loadCanvasEffect = createCanvasEffectLoader()
 
 /** Small shared GPU budget; queued surfaces start after a visible effect releases its slot. */
-export function createCanvasSlotPool(limit: number): (activate: () => void) => () => void {
-  if (!Number.isSafeInteger(limit) || limit < 1) throw new Error('CANVAS_SLOT_LIMIT_INVALID')
-  type Entry = { active: boolean, activate: () => void }
-  const entries: Entry[] = []
-  const pump = () => {
-    let active = entries.filter(entry => entry.active).length
-    for (const entry of entries) {
-      if (active >= limit) break
-      if (entry.active) continue
-      entry.active = true; active += 1
-      entry.activate()
-    }
-  }
-  return activate => {
-    const entry = { active: false, activate }
-    entries.push(entry); pump()
-    return () => {
-      const index = entries.indexOf(entry)
-      if (index < 0) return
-      entries.splice(index, 1); pump()
-    }
-  }
-}
+export const createCanvasSlotPool = createSlotPool
 export const acquireCanvasSlot = createCanvasSlotPool(2)
