@@ -3440,3 +3440,29 @@ Selected unmodified source from [yunyv/dsh-intelligent-ui](https://github.com/yu
 Rune/rune-fx are consumed unmodified from https://github.com/anomalyco/rune at `4ca683561a100e16b1ce32f3576f4ade61bd2924` under MIT, behind `native/rune-theme`. Its original Rust code is compiled to the bundled Wasm material runtime; no JavaScript shader replacement is represented as Rune. The original MIT notice, the resolved wasm32 dependency-license closure and font-feature provenance accompany `resources/components/rune` and built `lib/components/rune`.
 
 TuffUI is from https://github.com/yurigdesigner/tuffui at `378f3eaac693c693d2ec845baf38bf6c0488cb37`, MIT. A fixed immutable production source closure is compiled in an isolated React 19 realm. `resources/components/tuffui/THIRD_PARTY_LICENSES.txt` includes its original notice and all 83 resolved runtime dependency notices; `bundle-provenance.json` records hashes and the separately retrieved upstream license text for the MIT-declared package whose npm archive omits that file. Generated public assets contain no private owner documents, credentials or account configuration.
+
+
+## remark-breaks 4.0.0
+
+(The MIT License)
+
+Copyright (c) 2017 Titus Wormer <tituswormer@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

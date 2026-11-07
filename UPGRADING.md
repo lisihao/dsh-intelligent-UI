@@ -177,3 +177,46 @@ On upgrade inspect the new source and both licenses before running it, update th
 2. **TuffUI isolated source closure.** The pin is `378f3eaac693c693d2ec845baf38bf6c0488cb37` in `src/tuffui/contracts.ts` and the generated source/prop manifests. `native/tuffui` and `tools/tuffui` build the fixed React 19/Tailwind 4 closure without changing DSH's React 18 peer. The registry metadata's invalid inferred agent-question dependency is not executed. Public production exports receive actual props; demo mock-run hooks are not substituted as real agent state. The immutable output and all 83 dependency license records are in `resources/components/tuffui`; the package uses one combined license text. `react-remove-scroll-bar@2.3.8` declares MIT but omits its license file from the archive; the original upstream LICENSE at fixed commit `8ca9ba5ea52de03308fe8ced94f7b159a44d28ff` is carried with that provenance stated explicitly. Rebuild and hash both catalog and recursive prop schemas, check all 76 registered IDs, required nested fields, real callbacks, opaque cross-origin MessageChannel behavior and narrow/source fidelity. Unknown or unsupported props fail instead of being accepted as untyped objects.
 3. **Complete Uiverse source bindings.** The existing Galaxy pin remains `adbd2adde0a299a3956ea288fb444ec01891ca41`. `src/uiverse/runtime-*` derive immutable target paths from its 3,802 source entries. HTML/SVG text, fields, images, CSS `content` and supported `attr(data-*)` declarations require complete source bindings before mount. PostCSS 8.5.6 is a runtime dependency; the Node binder and browser renderer share sanitized stylesheet text and checked fixed ranges. A source update needs the full inventory/hash/slot audit and affected browser samples; never retain old target paths after source bytes change.
 4. **Shared dispatch and DIL bridge.** `src/adaptive-ui/executable-registry.ts` is the source of exact IDs used by candidates, catalog lookup and consumers. `component-decision.ts` shares complete metadata and member groups; stable partitions preserve all legal leaves. `src/dil/library-contracts.ts` is a data-only Node-safe discovery surface; `library-view.ts` owns browser-local event ports. Preserve exact-ID validation, source freshness, no hidden top-K, local-only editing and explicit conversation submission. Recheck production `ArtifactView`, streamed previews and native source-block consumers rather than only testing an isolated catalog.
+
+
+### Model center (development candidate)
+
+`src/model-center*.ts` consumes public rc.2 `remote.session.modelCatalog`, `remote.llm.listProviders/listConfigurableProviders`, `remote.credentials.describe` (configured metadata only), and shared `ConfigForms.describe/get` + `SettingsSchemaService` contracts. It does not call model discovery or read secret values. `llm-deepseek` and `llm-pi-ai` model edits require a unique exact ID, public schema, existing raw user-layer fields and the editor-open revision; mutation sets only context/output fields. Inherited model arrays are read-only. Check path ownership, model reordering, stale drafts, rejected writes and accepted-revision advancement before upgrading.
+
+Existing unmodified optional owners remain dsh-cost-meter 1.9.11 and dsh-deepseek-web-login 1.0.3. Cost reads use `getLocalState`; budget writes deep-merge only `{budget:{amount}}`. Ledger API estimates are separate from Plan equivalent values, balances and quotas; frozen CNY/EUR amounts take precedence without recalculating old exchange rates; unsupported/custom display currencies retain canonical USD API amounts. Budget-used follows the owner UI formula (`budgetUsed × exchangeRate`), separately from the amount limit. Web reads use only light status, accounts and the static models POST; raw config/guest/session/token fields are dropped immediately. Codex status and `usage {force:false}` use the owner's normal metadata cache/TTL, which can query its upstream on expiry; Grok uses cached status. They never call a model or sign in. Recheck exact route/payload shapes and error states on owner upgrades. Source reads have a 15-second bound and no automatic retry.
+
+The new settings section is registered and disposed through owned slots. The reversible settings adapter keeps original native buttons and pages, exposing them from advanced actions and restoring the flat list when classification is cancelled. No upstream component is invoked privately. Verify all three pages, original-page return, source-qualified same-name models, missing versus zero money/quota, long catalogs, narrow windows, keyboard focus and unload restoration. `tools/model-center` is a real-browser public-service replay with injected data; it proves UI integration, not live account connectivity. Exact packed-plugin and installed Desktop acceptance must remain separate. No dependency, host App, credential store or durable format is replaced.
+
+### Settings connection recovery
+
+The client settings store clears a read error after a successful read or acknowledged save, and ignores responses from reads superseded by a newer read or save. Header transparency distinguishes unavailable settings reads from an unacknowledged write; a later successful read must not hide a failed write or retry it. Verify transient read recovery, overlapping reads, delayed failures after saves, preserved preferences and visible write failures with the appearance-client tests and the installed header. No durable format, credentials or host networking is changed.
+
+
+### Unified session collaboration header (rc.2 adapter)
+
+`collaboration-entry.ts` consumes published session selector hooks and the
+`agentTeam`, `subagentCatalog`, `subagentTiming` and version-1
+`solar-pstack-status` projections. `collaboration-model.ts` adapts only observed
+fields into the owned `collaboration-view.ts`; no official component source or
+original pstack implementation is copied. Navigation uses public
+`uiWorkspace.openSession` with the exact catalog mode, and checks the originating
+session still owns the main-view retain. The browser plugin must declare the
+`uiWorkspace` service in its Cordis `inject` list in addition to declaring the
+workspace module in `dsh.client.inject`; a module dependency alone does not grant
+service access to the plugin context. A child session's direct parent is the
+Team lead, matching the published rc.2 Team UI. No model-facing rules, model
+choice, reasoning effort, session events or task database change.
+
+`collaboration-header-policy.ts` uses the published slot registry's list-cell
+priority shadowing: priority -100 on `agent-team`, `subagent-catalog`,
+`solar-pstack-status`, `cost-meter-statistics` and `agy-link-status`, only in
+`conversation.session.header.actions`. It does not dispose another plugin's
+registration or modify installed source. The owned Collaboration entry and the
+overrides share the plugin lifetime; unload restores the original winners.
+The composer cost entry and AGY subscription settings are separate slots.
+These IDs are observed in rc.2, cost-meter 1.9.11, AGY Link 0.4.94 and the reviewed
+pstack companion panel. On upgrades, recheck exact IDs, projection payloads,
+read-only versus continuable navigation, pending/unknown results, cross-session
+isolation, disable/re-enable, Markdown/source fidelity, native popover layering,
+keyboard interaction and normal/narrow viewport geometry. Source and keyless
+fixtures do not by themselves prove installed-App acceptance.

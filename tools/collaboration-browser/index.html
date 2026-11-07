@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="协作会话头部的合成浏览器夹具；仅加载已构建 client.cjs 与公开钩子形状。">
+    <title>协作会话头部合成浏览器夹具</title>
+    <style>
+      html, body { width: 100%; max-width: 100%; min-width: 0; margin: 0; overflow-x: clip; }
+      :root {
+        color-scheme: light;
+        --dsw-alias-bg-base: #f7f9fc;
+        --dsw-alias-bg-layer-1: #ffffff;
+        --dsw-alias-bg-layer-2: #f0f4f8;
+        --dsw-alias-label-primary: #17202a;
+        --dsw-alias-label-secondary: #5b6675;
+        --dsw-alias-border-l3: #c9d2dd;
+        --dsw-alias-state-error-primary: #a03434;
+        --dsw-alias-state-warning-primary: #875f12;
+        --dsw-alias-state-success-primary: #197b4d;
+        --iexp-card: #ffffff;
+        --iexp-bg: #ffffff;
+        --iexp-card-hover: #edf3f8;
+        --iexp-soft: #f1f5f9;
+        --iexp-text: #17202a;
+        --iexp-muted: #5b6675;
+        --iexp-line: #c9d2dd;
+        --iexp-accent: #256fa8;
+        --iexp-error: #a03434;
+        --iexp-warning: #875f12;
+        --iexp-shadow-panel: 0 18px 52px rgb(24 38 54 / 0.20);
+        --iexp-control-radius: 8px;
+        --iexp-panel-radius: 12px;
+        --iexp-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+        --iexp-code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --dsw-alias-bg-base: #151a20;
+        --dsw-alias-bg-layer-1: #1d252e;
+        --dsw-alias-bg-layer-2: #27323d;
+        --dsw-alias-label-primary: #eff4f8;
+        --dsw-alias-label-secondary: #b4c0cd;
+        --dsw-alias-border-l3: #627080;
+        --dsw-alias-state-error-primary: #ffaaaa;
+        --dsw-alias-state-warning-primary: #f6cd73;
+        --dsw-alias-state-success-primary: #78d9a9;
+        --iexp-card: #1d252e;
+        --iexp-bg: #1d252e;
+        --iexp-card-hover: #293643;
+        --iexp-soft: #27323d;
+        --iexp-text: #eff4f8;
+        --iexp-muted: #b4c0cd;
+        --iexp-line: #627080;
+        --iexp-accent: #80c8f5;
+        --iexp-error: #ffaaaa;
+        --iexp-warning: #f6cd73;
+        --iexp-shadow-panel: 0 18px 52px rgb(0 0 0 / 0.42);
+      }
+      body {
+        min-width: 0;
+        background: var(--dsw-alias-bg-base);
+        color: var(--dsw-alias-label-primary);
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      }
+      #root, .fixture-shell { min-width: 0; min-height: 100vh; }
+      .fixture-banner {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        padding: 10px 16px;
+        color: var(--dsw-alias-label-secondary);
+        overflow-wrap: anywhere;
+      }
+      .fixture-banner h1 { display: inline; margin: 0; color: var(--dsw-alias-label-primary); font: inherit; font-weight: 650; }
+      .fixture-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 54px;
+        padding: 8px 16px;
+        border-block: 1px solid var(--dsw-alias-border-l3);
+        background: var(--dsw-alias-bg-layer-1);
+      }
+      #fixture-outside {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 260px;
+        padding: 28px 16px;
+        border: 0;
+        color: var(--dsw-alias-label-secondary);
+        text-align: left;
+        background: repeating-linear-gradient(135deg, #deebf6 0 18px, #edf4fa 18px 36px);
+        overflow-wrap: anywhere;
+      }
+      :root[data-theme="dark"] #fixture-outside { background: repeating-linear-gradient(135deg, #273847 0 18px, #1d2a35 18px 36px); }
+      /* Intentionally overlaps the expected panel area. Native popover top-layer behavior must keep the panel above it. */
+      #fixture-floating-control {
+        position: fixed;
+        z-index: 2147483647;
+        top: 104px;
+        right: 32px;
+        box-sizing: border-box;
+        width: min(180px, calc(100vw - 64px));
+        min-height: 100px;
+        padding: 12px;
+        border: 2px solid #a92d6d;
+        border-radius: 10px;
+        color: #fff;
+        background: #7c174d;
+        box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
+      }
+      #fixture-floating-control:focus-visible { outline: 3px solid #f4cf3e; outline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="./collaboration-fixture.js"></script>
+    <script src="./client.cjs"></script>
+  </body>
+</html>

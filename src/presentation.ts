@@ -28,6 +28,7 @@ import { appearancePreferences, appearanceTokens } from './appearance.js'
 import { PresentationThemeContext, themePreferences, themeStyleTokens, usePresentationTheme } from './theme-runtime.js'
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -436,7 +437,7 @@ function SourceLabelRow(props: SourceOrganizationElementProps): ReactElement {
     ...sourceLabelAttributes(label),
   }, label), h('td', { className: 'iexp-source-label-detail' }, ...detail))
 }
-function MarkdownContent({ text, isStreaming, path, program }: { text: string, isStreaming: boolean, path: readonly number[], program: CompositionSelection | undefined }): ReactElement {
+function MarkdownContent({ text, isStreaming, path, program, preserveSoftBreaks = false }: { text: string, isStreaming: boolean, path: readonly number[], program: CompositionSelection | undefined, preserveSoftBreaks?: boolean }): ReactElement {
   const composition = program
   const experimentalProgram = !!program?.blockLayout
   const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
@@ -471,7 +472,7 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
       const block=id === undefined ? undefined : blockById.get(id)
       return h(BlockPresentationView, { block, id, isStreaming, value:block?.start!==undefined&&block.end!==undefined?text.slice(block.start,block.end):undefined }, children)
     }
-    return { remarkPlugins: [remarkGfm, remarkMath, preserveCurrencyAmounts(text), navigation.remarkPlugin, ...astPlugins], rehypePlugins: [[rehypeKatex, { trust: false, maxExpand: 1000, maxSize: 100, strict: 'ignore' }]], components: {
+    return { remarkPlugins: [remarkGfm, ...(preserveSoftBreaks ? [remarkBreaks] : []), remarkMath, preserveCurrencyAmounts(text), navigation.remarkPlugin, ...astPlugins], rehypePlugins: [[rehypeKatex, { trust: false, maxExpand: 1000, maxSize: 100, strict: 'ignore' }]], components: {
       ...headings,
       pre: ({ children, node }) => {
         const start = node?.position?.start.offset
@@ -532,7 +533,7 @@ function MarkdownContent({ text, isStreaming, path, program }: { text: string, i
         return scopedSelection(selection, h('div', { className: 'iexp-table-group', 'data-iexp-source-start': sourceStart, 'data-iexp-source-end': sourceEnd }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections && !explicit ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail || plans.length > 0 }, children)))
       },
     } }
-  }, [layout, prefix, tables, sections, illustrations, colorScheme, composition, program, path, rootLayout, globalReadingAids, headingIndexEligible, experimentalProgram, markdownBlocks, isStreaming, sourceCode, navigation, text])
+  }, [layout, prefix, tables, sections, illustrations, colorScheme, composition, program, path, rootLayout, globalReadingAids, headingIndexEligible, experimentalProgram, markdownBlocks, isStreaming, sourceCode, navigation, text, preserveSoftBreaks])
   return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, h(BlockLayoutBasis, { program, path }), sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: renderText, options: markdownOptions }))
 }
 function StructuredSource({ value, label = '完整原始记录' }: { value: unknown, label?: string }): ReactElement {
@@ -638,7 +639,7 @@ function StructuredContent({ value, isStreaming, dark, presentation = 'fallback'
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH, program, embedded = false }: { value: unknown, isStreaming?: boolean, path?: readonly number[], program?: CompositionSelection, embedded?: boolean }): ReactElement {
+function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH, program, embedded = false, preserveSoftBreaks = false }: { value: unknown, isStreaming?: boolean, path?: readonly number[], program?: CompositionSelection, embedded?: boolean, preserveSoftBreaks?: boolean }): ReactElement {
   const theme = useExperienceTheme()
   const presentationTheme = useSelectedTheme()
   const contextualProgram = useCompositionSelection() as CompositionSelection | undefined
@@ -652,9 +653,9 @@ function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH
   const structuredValue = normalized.kind === 'structured' || normalized.kind === 'scalar' ? normalized.value : value
   const structuredContent = h(StructuredContent, { value: structuredValue, isStreaming, dark: theme === 'dark', presentation: blockPresentation(block) })
   const content:ReactNode=normalized.kind==='blocks'
-    ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram,embedded}))
+    ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram,embedded,preserveSoftBreaks}))
     :normalized.kind==='markdown'
-      ?h(MarkdownContent,{text:normalized.markdown,isStreaming,path,program:rootProgram})
+      ?h(MarkdownContent,{text:normalized.markdown,isStreaming,path,program:rootProgram,preserveSoftBreaks})
       :block ? h(BlockPresentationView, { block, value: structuredValue, isStreaming }, structuredContent) : structuredContent
   const basis = structured ? h(BlockLayoutBasis, { program: rootProgram, path }) : undefined
   const body=h('div', { className: `dsh-experience iexp-content ${embedded?'iexp-embedded-markdown':'iexp-reply-surface'}`, 'data-experience-theme': theme }, basis, content)
@@ -662,8 +663,8 @@ function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH
 }
 
 /** One composition boundary per actual source output; nested renderers share its decision. */
-export function ContentView({value,isStreaming=false,documentId,sessionId,decide=true,embedded=false}:{value:unknown,isStreaming?:boolean,documentId?:string,sessionId?:string,decide?:boolean,embedded?:boolean}):ReactElement {
-  const body=h(ContentBody,{value,isStreaming,embedded})
+export function ContentView({value,isStreaming=false,documentId,sessionId,decide=true,embedded=false,preserveSoftBreaks=false}:{value:unknown,isStreaming?:boolean,documentId?:string,sessionId?:string,decide?:boolean,embedded?:boolean,preserveSoftBreaks?:boolean}):ReactElement {
+  const body=h(ContentBody,{value,isStreaming,embedded,preserveSoftBreaks})
   if(embedded)return h(CompositionSelectionContext.Provider,{value:undefined},body)
   return h(AdaptiveCompositionView,{value,isStreaming,documentId,sessionId,decide},body)
 }

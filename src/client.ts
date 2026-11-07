@@ -3,6 +3,8 @@ import {builtInThemes} from './theme-contracts.js'
 import {CompositionRuntimeContext,type CompositionApi} from './adaptive-ui/view.js'
 import {AdaptiveLoading,AdaptiveText} from './adaptive-ui/components.js'
 import {composeInputSchema,compositionResultSchema,compositionCancelInputSchema,compositionCancelResultSchema,compositionReceiptInputSchema,compositionReceiptResultSchema,compositionStatusSchema,type CompositionStatus} from './adaptive-ui/contracts.js'
+import { installModelCenter } from './model-center.js'
+import { installSettingsNavigation } from './settings-navigation.js'
 import { DataBrowser, type DataBrowserApi } from './data-browser.js'
 import { installDataBrowserNavigation } from './data-browser-navigation.js'
 import { InsightPreview, type InsightPreviewApi } from './insight-preview-view.js'
@@ -43,6 +45,16 @@ import { safeResearchUrl } from './research-content.js'
 import type { IntelligentUiClient } from './public-api.js'
 import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
+import { installShellLayoutStyles } from './shell-layout-style.js'
+import { CollaborationEntry } from './collaboration-entry.js'
+export { CollaborationEntry } from './collaboration-entry.js'
+import { installCollaborationHeaderPolicy } from './collaboration-header-policy.js'
+import { installCollaborationStyles } from './collaboration-style.js'
+export { collaborationCss } from './collaboration-style.js'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { CollaborationTarget } from './collaboration-contracts.js'
+
 import { installAsciiVisualTheme } from './ascii-visual-theme.js'
 import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contracts.js'
 import { blockLayoutEnabled, blockLayoutShortcutFromKeyboardEvent, blockLayoutShortcutLabel, isBlockLayoutShortcutCaptureTarget, matchesBlockLayoutShortcut, resolveBlockLayoutShortcut } from './layout-shortcut.js'
@@ -50,7 +62,7 @@ import { blockLayoutEnabled, blockLayoutShortcutFromKeyboardEvent, blockLayoutSh
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
 
 export const name = 'intelligent-experience-platform'
-export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
+export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme', 'locale', 'uiWorkspace']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
 type PreviewApi = Pick<DataBrowserApi,'localFiles'> & InsightPreviewApi
 type ClientApi = Partial<CompositionApi> & {compositionStatus?:()=>Promise<CompositionStatus>} & ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & Partial<DilPreviewApi> & { mcpStatus?: () => Promise<McpStatus> }
@@ -159,6 +171,7 @@ export class ExperienceStore {
   private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, shortcutError?: string, shortcutStatus?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
   private listeners = new Set<() => void>()
   private generation = 0
+  private settingsReads = 0
   private saves: Promise<void> = Promise.resolve()
   private transitions = new Map<number, { api: ClientApi, before: ExperienceSettings, after: ExperienceSettings }>()
   private previewOwner?: object
@@ -173,7 +186,19 @@ export class ExperienceStore {
   setTakeoverError(error?: string) { if (this.value.takeoverError !== error) this.update({ ...this.value, takeoverError: error }) }
   setShortcutError(error?: string) { if (this.value.shortcutError !== error) this.update({ ...this.value, shortcutError: error }) }
   setShortcutStatus(status?: string) { if (this.value.shortcutStatus !== status) this.update({ ...this.value, shortcutStatus: status }) }
-  async refresh() { const api = this.value.api; if (!api) return; const generation = this.generation; try { const settings = await api.settings(); if (this.value.api === api && generation === this.generation) this.update({ ...this.value, api, settings }) } catch (e) { if (this.value.api === api) this.update({ ...this.value, error: message(e) }) } }
+  async refresh() {
+    const api = this.value.api
+    if (!api) return
+    const generation = this.generation, read = ++this.settingsReads
+    const current = () => this.value.api === api && generation === this.generation && read === this.settingsReads
+    try {
+      const settings = await api.settings()
+      if (current()) this.update({ ...this.value, api, settings, error: undefined })
+    } catch (error) {
+      // A read started before a later read/save must not restore a stale error.
+      if (current()) this.update({ ...this.value, error: message(error) })
+    }
+  }
   async save(input: SaveSettingsInput) {
     this.generation++
     const api = this.value.api
@@ -204,7 +229,7 @@ export class ExperienceStore {
             this.transitions.set(current.revision, { api, before: copySettings(current), after: copySettings(saved) })
             if (this.transitions.size > 128) this.transitions.delete(this.transitions.keys().next().value!)
           }
-          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved })
+          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved, error: undefined })
         }
         return saved
       } catch (error) {
@@ -520,6 +545,11 @@ export function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, 
   return h('details', { open: true, className: 'dsh-experience', style: styles.section }, h('summary', null, `${tool.name || '工具调用'} · ${tool.isError ? '失败' : tool.kind === 'tool-result' ? '已完成' : '执行中'}`), tool.isError && h('pre', { role: 'alert', style: styles.raw }, rawText(tool.error)), body, tool.kind === 'tool-result' && h(McpInline, { api, sessionId, callId: tool.callId, enabled: !!mcpEnabled, onContinue, dilEnabled, dilApi: dilArtifactApi }), inspect && h(ThemeButton, { type: 'button', style: styles.button, onClick: () => inspect(tool.callId as never) }, '查看调用详情'), h('details', null, h('summary', null, '原始调用与结果'), h('pre', { style: styles.raw }, rawText(tool))), ...tool.subCalls.map((child, i) => h(ToolTree, { key: i, tool: child, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled, dilEnabled, dilApi: dilArtifactApi })))
 }
 function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps, dilEnabled: settings?.adaptive?.blockLayout === true, dilApi: dilApi(api) })) }
+/** The Chat-owned user row keeps attachments, timestamps, copy, and actions; only its raw text node is visualized. */
+function UserTextNode({ raw }: PropsRuntime<'conversation.user.text.node', 'text'>): ReactElement {
+  if (!raw.trim()) return h('span', { className: 'iexp-user-message-whitespace' }, raw)
+  return h('div', { className: 'iexp-user-message-text' }, h(ContentView, { value: raw, preserveSoftBreaks: true }))
+}
 export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState(''); const dilEnabled = settings?.adaptive?.blockLayout === true; const dilArtifactApi = dilApi(api)
   const refreshEpoch = useRef(0)
@@ -559,22 +589,77 @@ export function apply(ctx: Context): void {
   }, 'intelligent-experience: theme')
   ctx.effect(() => () => { displayModes.clear(); researchModes.clear() }, 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
+  ctx.effect(() => installShellLayoutStyles(), 'intelligent-experience: shell layout')
+  ctx.effect(() => installCollaborationStyles(), 'intelligent-experience: collaboration styles')
+  ctx.effect(() => ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({ name: 'conversation.session.header.actions', id: 'solar-collaboration', order: -100 }, (props: PropsRuntime<'conversation.session.header.actions'>) => h(CollaborationEntry, { ...props, key: props.sessionId, DocumentView: ScopedDocumentView, connectionState: (ctx.get('connection') as unknown as ConnectionHandle).state, onOpen: (target: CollaborationTarget) => {
+    if ((sessionContext.sessions.retainInfo(props.sessionId).getSnapshot().retainedBy.mainView ?? 0) === 0) throw Error('当前主视图已切换，请重新打开协作面板。')
+    if ('sessionId' in target) ctx.uiWorkspace.openSession(target.sessionId as SessionId)
+    else ctx.uiWorkspace.openSession({ ...target, parentSessionId: target.parentSessionId as SessionId, childSessionId: target.childSessionId as SessionId })
+  } }))), 'intelligent-experience: collaboration panel')
+  installCollaborationHeaderPolicy(ctx)
   ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
+  installSettingsNavigation(ctx, {
+    snapshot: store.snapshot,
+    subscribe: store.subscribe,
+    async setEnabled(settingsNavigation) {
+      const settings = store.snapshot().settings
+      if (!settings) throw new Error('智能体验设置尚未就绪。')
+      await store.save({ expectedRevision: settings.revision, takeover: settings.takeover, openui: settings.openui, mcpApps: settings.mcpApps, settingsNavigation })
+    },
+  })
+  installModelCenter(ctx)
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
   ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined
-  let injectionDispose: (() => void) | undefined
-  let registrationDisposers: Array<() => void> = []
+  let injectionDisposers: Array<() => void> = []
+  let chatRegistrationDisposers: Array<() => void> = []
+  let userTextRegistrationDisposers: Array<() => void> = []
   let failed = false; let syncing = false
   const assistantView = (props: PropsRuntime<'conversation.chat.node', 'assistant-step'>) => h(CompositionScope,{store,sessionId:String(props.sessionId)},h(AssistantNode, { store, nodeProps: props, onOrganize: (text, signal) => submitResearchPrompt(sessionContext, props.sessionId, text, signal), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) }))
   const toolView = (props: PropsRuntime<'conversation.chat.node', 'tool-call'>) => h(CompositionScope,{store,sessionId:String(props.sessionId)},h(ToolNode, { store, nodeProps: props, onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) }))
-  const retract = () => { const owned = registrationDisposers; registrationDisposers = []; for (const dispose of owned.reverse()) dispose() }
+  const userTextView = (props: PropsRuntime<'conversation.user.text.node', 'text'>) => h(UserTextNode, props)
+  const retract = () => {
+    const owned = [...userTextRegistrationDisposers, ...chatRegistrationDisposers]
+    userTextRegistrationDisposers = []; chatRegistrationDisposers = []
+    for (const dispose of owned.reverse()) dispose()
+  }
+  const retractInjections = () => { const owned = injectionDisposers; injectionDisposers = []; for (const dispose of owned.reverse()) dispose() }
   const fail = (error: unknown) => { failed = true; retract(); console.warn('智能体验聊天接管失败：', error); store.setTakeoverError('聊天显示位置发生冲突或尚未就绪。') }
   const checkWinners = () => {
-    if (!registrationDisposers.length || failed) return
-    const winners = ctx.slots.entriesOfSlot('conversation.chat.node')
-    if (winners.find(entry => entry.options.key === 'assistant-step')?.component !== assistantView || winners.find(entry => entry.options.key === 'tool-call')?.component !== toolView) fail('其他插件占用了聊天显示位置')
+    if (failed || !chatRegistrationDisposers.length || !userTextRegistrationDisposers.length) return
+    const chatWinners = ctx.slots.entriesOfSlot('conversation.chat.node')
+    const userTextWinners = ctx.slots.entriesOfSlot('conversation.user.text.node')
+    if (chatWinners.find(entry => entry.options.key === 'assistant-step')?.component !== assistantView || chatWinners.find(entry => entry.options.key === 'tool-call')?.component !== toolView || userTextWinners.find(entry => entry.options.key === 'text')?.component !== userTextView) fail('其他插件占用了聊天显示位置')
+  }
+  const registerChatNodes = () => {
+    if (failed) return () => {}
+    const owned: Array<() => void> = []
+    try {
+      owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -100 }, assistantView))
+      owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'tool-call', priority: -100 }, toolView))
+      chatRegistrationDisposers = owned
+      checkWinners()
+    } catch (error) {
+      for (const dispose of owned.reverse()) dispose()
+      chatRegistrationDisposers = []
+      fail(error)
+    }
+    return () => { for (const dispose of owned.reverse()) dispose(); if (chatRegistrationDisposers === owned) chatRegistrationDisposers = [] }
+  }
+  const registerUserText = () => {
+    if (failed) return () => {}
+    const owned: Array<() => void> = []
+    try {
+      owned.push(ctx.slots.register({ name: 'conversation.user.text.node', key: 'text', priority: -100 }, userTextView))
+      userTextRegistrationDisposers = owned
+      checkWinners()
+    } catch (error) {
+      for (const dispose of owned.reverse()) dispose()
+      userTextRegistrationDisposers = []
+      fail(error)
+    }
+    return () => { for (const dispose of owned.reverse()) dispose(); if (userTextRegistrationDisposers === owned) userTextRegistrationDisposers = [] }
   }
   const syncTakeover = () => {
     if (syncing) return
@@ -582,34 +667,24 @@ export function apply(ctx: Context): void {
     try {
       if (!store.snapshot().settings?.takeover) {
         researchModes.clear()
-        injectionDispose?.(); injectionDispose = undefined; retract(); failed = false; store.setTakeoverError(undefined); return
+        retractInjections(); retract(); failed = false; store.setTakeoverError(undefined); return
       }
-      if (injectionDispose || failed) return
+      if (injectionDisposers.length || failed) return
+      const ownedInjections: Array<() => void> = []
       try {
-        injectionDispose = ctx.slots.inject('conversation.chat.node', () => {
-          if (failed) return () => {}
-          const owned: Array<() => void> = []
-          try {
-            owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -100 }, assistantView))
-            owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'tool-call', priority: -100 }, toolView))
-            registrationDisposers = owned
-            checkWinners()
-          } catch (error) {
-            for (const dispose of owned.reverse()) dispose()
-            registrationDisposers = []
-            fail(error)
-          }
-          return () => { for (const dispose of owned.reverse()) dispose(); if (registrationDisposers === owned) registrationDisposers = [] }
-        })
-      } catch (error) { fail(error) }
+        ownedInjections.push(ctx.slots.inject('conversation.chat.node', registerChatNodes))
+        ownedInjections.push(ctx.slots.inject('conversation.user.text.node', registerUserText))
+        injectionDisposers = ownedInjections
+      } catch (error) { for (const dispose of ownedInjections.reverse()) dispose(); fail(error) }
     } finally { syncing = false }
   }
   const unsubscribeSlots = ctx.slots.subscribe('conversation.chat.node', checkWinners)
+  const unsubscribeUserTextSlots = ctx.slots.subscribe('conversation.user.text.node', checkWinners)
   const unsubscribe = store.subscribe(syncTakeover)
   ctx.effect(() => {
     void ctx.remote.$mount({ ...RPC_REMOTE, descriptors: [...RPC_REMOTE.descriptors, ...RESEARCH_REMOTE.descriptors] }).then(async dispose => { if (disposed) { await dispose(); return }; remoteDispose = dispose; const wire = ctx.get('remote.solarExperience') as unknown as Wire | undefined; if (!wire) { store.update({ error: '本机没有提供智能体验服务。' }); return }; store.update({ api: apiFromWire(wire, ctx.get('remote.solarResearch') as unknown as ResearchWire | undefined) }); await store.refresh() }).catch(e => { if (!disposed) store.update({ error: message(e) }) })
     const timer = setInterval(() => { void store.refresh() }, 5000)
-    return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); injectionDispose?.(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
+    return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); unsubscribeUserTextSlots(); retractInjections(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
   }, 'intelligent-experience: remote')
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'solar-intelligent-experience-mode', order: 47 }, (props: PropsRuntime<'conversation.session.header.utilities'>) => h(HeaderControls, { store, sessionId: String(props.sessionId) })))
   function BrowserPanel(): ReactElement {

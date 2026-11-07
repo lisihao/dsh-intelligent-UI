@@ -390,6 +390,14 @@ The owner approved this direction on 2026-11-07 from reader screenshots. A `card
 
 ## Data browser and Insight preview
 
-Data browser is a plugin-owned main panel, reached through one fixed sidebar footer action so it is also reachable in DS Bot mode. A compact toolbar holds import, refresh, display mode and the existing theme selector. The file list is 180–260px beside a flexible reader; below 760px it becomes a 160px-high list above the reader. Both areas scroll independently. Source labels keep their prefix on one line, file names and report links wrap, and focused reader Home/End reaches the document boundaries. Use existing theme tokens and controls; no new visual theme is introduced.
+Data browser is a plugin-owned main panel, reached through the native Tools panel list; DS Bot mode can hide that list. A compact toolbar holds import, refresh, display mode and the existing theme selector. The file list is 180–260px beside a flexible reader; below 760px it becomes a 160px-high list above the reader. Both areas scroll independently. Source labels keep their prefix on one line, file names and report links wrap, and focused reader Home/End reaches the document boundaries. Use existing theme tokens and controls; no new visual theme is introduced.
 
 Conversation Insight preview selects an existing run and an already-produced stage/node output. Source status and complete original-run disclosure sit above the reader. PPTX waiting/manifest state is explicit. The local research workspace exposes report, judgments, sources and technical comparison without changing the conversation's research preference; its tabs form two columns at narrow widths. This is content preview rather than final slide-layout proof. Real output, units and source strings remain available in shared original/compare modes.
+
+
+## Compact grouped settings (2026-11-04)
+
+Grouped settings retain the existing opaque theme and 14px navigation type. The title/category tracks use 60/44px, navigation and header controls use 32px, and menu rows have a 2px gap. The category strip explicitly includes padding and border in its reserved track; the native list starts below it with an 8px inset. All entries use one plain 16px outline icon with the same stroke and alignment; known sections have semantic icons and unknown sections use sliders. Native decorative icons are visually suppressed only in grouped mode, without changing labels, original nodes, handlers or configuration. Cancellation removes the owned stylesheet and restores native icons and layout.
+Shell layout: keep native tool rows together, place Settings and ancillary footer actions above the scrolling cost-meter block, and float the Synapse switch at the upper right without a reserved row, retaining its native draggable grip and persisted position. Preserve native handlers and source data.
+
+The sidebar fee block fills its slot instead of sizing to its text. DS Bot’s existing return button occupies a compact seat to the right of the DeepSeek Harness brand, while the native macOS window controls retain their positions.
