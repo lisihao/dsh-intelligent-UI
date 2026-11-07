@@ -491,7 +491,7 @@ describe('adaptive composition through the real ContentView', () => {
   it('keeps the assistant OpenUI stream composition document ID bound to anchorSeq through the real client slot', async () => {
     const core = new SlotCore()
     const register = core.register.bind(core) as unknown as (options: unknown, component: unknown) => () => void
-    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' } } }, () => null)
+    register({ name: 'root', children: { 'conversation.chat.node': { kind: 'keyed', scope: 'session' }, 'conversation.user.text.node': { kind: 'keyed', scope: 'session' }, 'settings.section': { kind: 'list', scope: 'root' }, 'settings.action': { kind: 'list', scope: 'root' }, 'conversation.view': { kind: 'list', scope: 'session' }, 'conversation.session.header.utilities': { kind: 'list', scope: 'session' }, 'conversation.session.header.actions': { kind: 'list', scope: 'session' } } }, () => null)
     const appSettings = settings({ takeover: true, openui: true })
     const ok = <T,>(value: T) => ({ ok: true as const, value })
     const wire = {
@@ -505,10 +505,12 @@ describe('adaptive composition through the real ContentView', () => {
     }
     const cleanups: Array<() => void> = []
     const ctx = {
+      locale: { subscribe: () => () => {} },
       inject: () => () => {},
       slots: {
         register,
         inject: (_name: string, callback: () => () => void) => callback(),
+        entries: core.entries.bind(core),
         entriesOfSlot: core.entriesOfSlot.bind(core),
         subscribe: core.subscribe.bind(core),
       },
@@ -533,6 +535,16 @@ describe('adaptive composition through the real ContentView', () => {
       await act(async () => root.render(h(Assistant, { sessionId: 'session-1', node, loadImage: () => Promise.resolve('') })))
       await vi.waitFor(() => expect(wire.composition).toHaveBeenCalled())
       expect(wire.composition.mock.calls[0]?.[0]?.documentId).toBe('artifact:stream-42-0')
+      // The user's own message is visualized locally; it is never a composition input.
+      const userText = core.entriesOfSlot('conversation.user.text.node').find(item => item.options.key === 'text')
+      expect(userText).toBeDefined()
+      const UserText = userText!.component as (props: Record<string, unknown>) => ReactElement
+      const calls = wire.composition.mock.calls.length
+      await act(async () => root.render(h(UserText, { sessionId: 'session-1', raw: '# 标题\n\n用户自己的消息\n第二行' })))
+      await flush(); await flush()
+      expect(host.textContent).toContain('用户自己的消息')
+      expect(host.querySelector('br')).not.toBeNull()
+      expect(wire.composition.mock.calls.length).toBe(calls)
     } finally {
       await act(async () => root.unmount())
       host.remove()

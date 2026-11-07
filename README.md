@@ -66,6 +66,24 @@ TuffUI's original production components run in a separate React 19/Tailwind 4 re
 
 Rendered Markdown retains code indentation and blank lines, declared language highlighting and exact-source copying. Inline/display mathematics supports dollar and supported TeX delimiters with offline KaTeX fonts; unsupported formulas remain visible. Explicit source directories link only entries that match real headings; unmatched entries retain their original text. These are baseline rendering capabilities beneath the experimental layout/material choice, and raw/comparison views retain the original source.
 
+## Unified conversation collaboration panel
+
+The current candidate replaces the separate Agent Team, child-session catalog
+and pstack header controls with one **协作** entry. **团队** shows the lead's
+members and shared tasks; **子任务** shows the current session's child sessions
+and observed pstack role tasks/results. Normal navigation preserves each child's
+original address and mode. Missing projections and disconnected records are
+explicit; inactive does not mean completed, and supplied pstack rules do not
+prove a tool was called. The panel never creates, resumes or resends a task.
+
+Only the redundant header cost-details and AGY status entries are shadowed.
+Composer cost details and all subscription/provider settings remain owned by
+their original plugins. The presentation follows the active Intelligent UI theme
+and preserves full result source alongside Markdown reading. Disabling this
+plugin removes its overrides and restores the original header entries. This is
+a local development candidate; installation and native acceptance are recorded
+separately from source and synthetic browser checks.
+
 ## Built-in component intelligence
 
 Uiverse component reuse is a core feature of intelligent UI, shared by frontend development and live content presentation.
@@ -123,7 +141,7 @@ The newer block-layout candidate registers all 35 exact Canvas IDs (29 HTML / si
 
 ## Local data browser
 
-The current development candidate adds a fixed **数据浏览器** entry in the sidebar. Import UTF-8 JSON, Markdown and TXT, search previously imported files and reopen them across conversations. Files stay in this plugin's own library; importing does not create a Host conversation or submit content to a model. Existing imports are recognized in place without moving or changing them. **生成内容** keeps saved conversation artifacts and no longer carries the import form. Native navigation acceptance is pending the central installer. Original tables in the current development candidate automatically fit their available container and show the resulting scale. **原尺寸** restores a keyboard-focusable horizontal viewport for detail; **适应宽度** restores the full overview. The existing cells, columns, source strings and anchors remain intact. Prose and toolbar controls keep their normal size. Research technical comparisons and chart source tables share this adapter. Very narrow, dense overviews can be small; use native size to read them. Formal Desktop acceptance of this update remains pending.
+The current development candidate adds a **数据浏览器** entry in the native sidebar Tools group. Import UTF-8 JSON, Markdown and TXT, search previously imported files and reopen them across conversations. Files stay in this plugin's own library; importing does not create a Host conversation or submit content to a model. Existing imports are recognized in place without moving or changing them. **生成内容** keeps saved conversation artifacts and no longer carries the import form. Native navigation acceptance is pending the central installer. Original tables in the current development candidate automatically fit their available container and show the resulting scale. **原尺寸** restores a keyboard-focusable horizontal viewport for detail; **适应宽度** restores the full overview. The existing cells, columns, source strings and anchors remain intact. Prose and toolbar controls keep their normal size. Research technical comparisons and chart source tables share this adapter. Very narrow, dense overviews can be small; use native size to read them. Formal Desktop acceptance of this update remains pending.
 
 ## Insight preview before PPTX
 
@@ -143,7 +161,10 @@ This is source/build candidate behavior; the new archive requires centralized De
 
 ## What it does
 
-- Optional takeover of standard assistant/tool output and generated content. One conversation-level **显示** control switches visual, original and comparison views.
+- Optional takeover of standard assistant/tool output, generated content and user-message text. User messages retain the host-owned attachments, timestamps, copy controls and actions; the same path also covers steering messages. User text is rendered from its original raw slice as data; user-scoped Markdown whitespace preserves prose/list soft line breaks and pre/code wrapping without inheriting the host bubble's broad preformatted layout. It is not handed to OpenUI, MCP Apps or a model for execution. One conversation-level **显示** control switches visual, original and comparison views for output.
+- Settings offers an optional **分类导航** mode with fixed category tabs, a native list for the selected group and the original settings page. It reuses Intelligent UI theme tokens with compact spacing and a consistent outline icon for every entry, and has no dropdown or persistent popup. Every registered setting remains reachable, including future entries under Other. A version-bounded, reversible DOM/CSS adapter preserves the original shell, launcher, handlers and page components; unmatched layouts restore native navigation with a visible error. Page changes keep the saved mode; **取消分类导航** restores the flat list. See [ownership and compatibility](docs/design/grouped-settings-navigation.md).
+- The current development candidate adds **模型中心** inside Settings → 模型与账号: three compact pages project existing account/credential-status metadata, the official route-qualified model catalog, and API cost estimates/balances/subscription windows. They consume source data rather than embedding the former settings pages. Source failures have explicit retry, and unavailable values are not zero. Existing model definitions can be edited only when the public owner schema and user configuration expose the exact fields; saves use revision fencing. Budget edits change only the amount, retaining currency, period and enabled state. Advanced sign-in, secret entry, pricing and other owner-specific controls stay reachable through the original settings pages. No new credential store, model catalog or ledger is created. See [interfaces and acceptance boundaries](docs/integrations/model-center.md). Source/fixture checks and installed-App acceptance are separate evidence.
+
 - Local content analysis chooses suitable icons, charts, table columns, relationship graphs, read-only task boards and list/detail layouts. It preserves original text, cells, units, qualifications and complete tables. Unsupported content remains readable; no model call is required to choose a layout.
 - Unmodified OpenUI components supply Markdown, charts, forms and streaming UI. React Flow and ELK supply source-relationship diagrams with animated edges, pause, pan/zoom and keyboard selection. Edges describe source relationships and do not assert that work executed.
 - Content-aware Uiverse adapters are selected automatically for supported UI-owned semantic surfaces. Three explicit component themes also supply coordinated buttons, inputs, toggles, cards and loaders, with original-source comparison. Foreign pages retain token/CSS appearance compatibility and their original behavior. See [mapping and compatibility](docs/design/uiverse-component-themes.md).
@@ -164,7 +185,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 
 Use the official application's bundled `dsh` CLI for an installed Desktop profile. Lifecycle scripts are disabled; the published renderer does not need its optional install telemetry.
 
-In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings; in the revised compact header it is under **更多显示选项**. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
+In **Settings → 智能体验**, enable **接管输出与兼容页面外观**. Initial takeover is off. The conversation header has one **开启透明** checkbox, synchronized with content appearance settings; in the revised compact header it is under **更多显示选项**. Temporary settings-read failures show a connection warning and clear after a successful read or acknowledged save. Failed transparency writes keep their separate unsaved warning and are not retried automatically. It reveals a wallpaper already supplied by the host; this plugin does not read or change the wallpaper file, and it does not make the native window transparent to the macOS desktop.
 
 ### Updating an older two-package installation
 
@@ -261,3 +282,11 @@ These changes ship in **0.1.0-preview.2**. The runtime-equivalent candidate pass
 
 
 The **Generated content** tab accepts local JSON, Markdown and text files through its ordinary file picker and **Import and display** action. Original file text is retained in the UI-owned artifact namespace. Import does not submit a model request or edit session logs. Source units and sampling/subset notes should be included in the file; the configured artifact size/count limits still apply.
+
+### Sidebar and global view switch layout
+
+The data browser joins the native `sidebar.panellist` navigation, so the existing Tools disclosure folds it with QuantJourney and the other tool pages. The host owns the button label, selection and keyboard focus. DS Bot mode may hide the native panel list; this change does not override that mode.
+
+An rc.2 presentation adapter places Settings and other footer actions above the installed cost meter's full-width `.cm-footer-stack`. The original DS Bot return button is anchored to the right of the sidebar brand row; its existing handler and lifecycle are retained. Unsupported anchor positioning keeps its footer fallback. The fee block scrolls independently when taller than 36% of the viewport (capped at 320 px). With Synapse 0.5.7 mounted, its existing Dialogue/Conversation Map switch floats at the upper right without reserving a header row. Drag its dotted grip anywhere in the viewport, including beside the input or over the sidebar. Synapse retains the position in this app profile's local storage and restores it after restart, clamping it into a smaller viewport when necessary. Double-click the grip to return to the default position. Existing saved coordinates and native drag/keyboard handlers remain in use. Disabling this plugin removes the layout sheet. These adapters depend on the documented host/plugin DOM shape; they do not change billing, map data, native modules or event handlers.
+
+Run `node tools/shell-layout/check.mjs` for the synthetic Chromium geometry fixture. It reads the pinned SDK CSS and the locally installed Synapse/QuantJourney client CSS; paths can be overridden through the environment variables listed by `--help`. It checks visual/keyboard ordering, internal fee scrolling, tool folding, floating placement, saved inline coordinates, map switching and stylesheet removal at four widths, in windowed and fullscreen states. It does not exercise the installed Desktop, accounts or real sessions. Native installation acceptance for this update remains pending.

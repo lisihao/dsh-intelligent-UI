@@ -118,7 +118,7 @@ export class ExperienceStore {
         ...(parsed.adaptive.blockLayout === undefined && current.adaptive?.blockLayout !== undefined ? { blockLayout: current.adaptive.blockLayout } : {}),
         ...(parsed.adaptive.blockLayoutShortcut === undefined && current.adaptive?.blockLayoutShortcut !== undefined ? { blockLayoutShortcut: current.adaptive.blockLayoutShortcut } : {}),
       }
-      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, appearance, theme, ...(adaptive === undefined ? {} : { adaptive }), ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
+      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, ...(parsed.settingsNavigation === undefined ? {} : { settingsNavigation: parsed.settingsNavigation }), appearance, theme, ...(adaptive === undefined ? {} : { adaptive }), ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
     })
   }
 

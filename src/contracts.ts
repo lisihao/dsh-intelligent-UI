@@ -18,6 +18,7 @@ export type AdaptiveSettings = z.infer<typeof adaptiveSettingsSchema>
 export const settingsSchema = z.strictObject({
   formatVersion: z.literal(1), revision: z.number().int().nonnegative(),
   takeover: z.boolean(), openui: z.boolean(), mcpApps: z.boolean(),
+  settingsNavigation: z.boolean().optional(),
   appearance: appearanceSchema.optional(),
   theme: themePreferenceSchema.optional(),
   themeSource: themeSourceSchema.optional(),
@@ -27,6 +28,7 @@ export type ExperienceSettings = z.infer<typeof settingsSchema>
 export const initialSettings = (): ExperienceSettings => ({ formatVersion: 1, revision: 0, takeover: false, openui: true, mcpApps: false, appearance: defaultAppearance() })
 export const saveSettingsSchema = z.strictObject({
   expectedRevision: z.number().int().nonnegative(), takeover: z.boolean(), openui: z.boolean(), mcpApps: z.boolean(),
+  settingsNavigation: z.boolean().optional(),
   appearance: appearanceSchema.optional(),
   themeId: themeIdSchema.optional(),
   themeSource: themeSourceSchema.optional(),

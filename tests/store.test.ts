@@ -31,9 +31,31 @@ describe('ExperienceStore', () => {
     await writeFile(join(path, 'settings.json'), text)
     const loaded = await store.settings()
     expect(loaded).toEqual(legacy)
+    expect(loaded).not.toHaveProperty('settingsNavigation')
     expect(loaded.appearance ?? defaultAppearance()).toEqual({ backgroundColor: '#24262b', translucent: true })
     expect(await readFile(join(path, 'settings.json'), 'utf8')).toBe(text)
     expect((await new ExperienceStore(await root()).settings()).appearance).toEqual(defaultAppearance())
+  })
+
+  it('restores settings navigation, preserves it for older callers, and cancels it only when false is explicit', async () => {
+    const path = await root(), first = new ExperienceStore(path)
+    const flags = { takeover: false, openui: true, mcpApps: false }
+    const enabled = await first.saveSettings({ expectedRevision: 0, ...flags, settingsNavigation: true })
+    expect(enabled.settingsNavigation).toBe(true)
+    expect((await new ExperienceStore(path).settings()).settingsNavigation).toBe(true)
+    const preserved = await first.saveSettings({ expectedRevision: enabled.revision, ...flags })
+    expect(preserved.settingsNavigation).toBe(true)
+    const cancelled = await first.saveSettings({ expectedRevision: preserved.revision, ...flags, settingsNavigation: false })
+    expect(cancelled.settingsNavigation).toBe(false)
+    expect((await new ExperienceStore(path).settings()).settingsNavigation).toBe(false)
+  })
+
+  it('rejects non-boolean settings navigation at save and stored-file boundaries', async () => {
+    const path = await root(), store = new ExperienceStore(path)
+    const flags = { takeover: false, openui: true, mcpApps: false }
+    expect(() => store.saveSettings({ expectedRevision: 0, ...flags, settingsNavigation: 'true' } as never)).toThrow()
+    await writeFile(join(path, 'settings.json'), JSON.stringify({ formatVersion: 1, revision: 0, ...flags, settingsNavigation: 'true' }))
+    await expect(store.settings()).rejects.toThrow(/Invalid stored data.*settings\.json/)
   })
 
   it('roundtrips appearance through durable settings and preserves it when an older caller omits it', async () => {
