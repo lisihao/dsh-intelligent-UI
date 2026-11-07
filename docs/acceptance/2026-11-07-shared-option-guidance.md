@@ -86,11 +86,11 @@ The verification above did not run a model. Afterwards, live runs used the saved
 - **Not measured.** Whether the shift is better or worse as a design is a judgment, and it was not assessed.
 - **Tokens.** Step 1 made the frame call about 36% (md-1) and 29% (md-3) smaller in input tokens. A whole three-call composition was 8–13% smaller.
 
-The sharing is reverted on `claude/revert-shared-guidance-20261107`, which leaves every option with its complete description. The outline (`block-outline@2`) stays. The frame request's input format is now `block-design-context@5`.
+The sharing is reverted on `claude/revert-shared-guidance-20261107`, which leaves every option with its complete description. The revert commit `d015acc` kept the outline in all three requests (frame input format `block-design-context@5`). After the check below, the outline was taken out of the frame request (`block-design-context@6`) and stays only in the component requests; see the [block-outline record](2026-11-07-block-outline.md).
 
 ### Revert check (live, interleaved)
 
-- **Run.** Base (`c2e8f4a`) against the revert (this branch: base plus the outline), interleaved in one session. md-1 and md-3, 3 repeats each, 36 requests, all HTTP 200, 1,754,105 input tokens. Every run ended `selected`.
+- **Run.** Base (`c2e8f4a`) against the revert `d015acc` (base plus the outline in all three requests), interleaved in one session. md-1 and md-3, 3 repeats each, 36 requests, all HTTP 200, 1,754,105 input tokens. Every run ended `selected`.
 - **Pass rule, fixed before the run.** For each document, the revert's soft-relief share must be at least half of base's share in the same session, and above 5%.
 
 | Document | soft-relief, base | soft-relief, revert | Rule |
