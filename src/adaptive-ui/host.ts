@@ -4,6 +4,7 @@ import { buildCompositionCandidates, validateCompositionChoices } from './planne
 import { neutralDesignRubric } from './design-guidance.js'
 import { compileBlockLayout } from './block-compiler.js'
 import { decideExecutableComponentsBatch } from './component-decision.js'
+import { shareBlockOptionGuidance } from './question-sharing.js'
 import { SOURCE_PRESENTATION_RENDERER_KEY, validateSourcePresentationInput } from './source-block-components.js'
 import { SOURCE_LIBRARY_RENDERER_KEY, CURATED_UI_RENDERER_KEY, validateSourceLibraryInput, validateCuratedUiInput } from './library-component-bindings.js'
 import {
@@ -38,7 +39,7 @@ import {
 
 const DEFAULT_MAX_SOURCE_BYTES = 1024 * 1024
 const DEFAULT_MAX_CACHE_ENTRIES = 32
-const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@2'
+const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@3'
 
 type CandidateBundle = ReturnType<typeof buildCompositionCandidates>
 type CandidateQuestion = CandidateBundle['questions'][number]
@@ -681,8 +682,11 @@ export class AdaptiveCompositionCoordinator {
   }
 
   private jevRequest(active: ActiveRequest, bundle = active.bundle): { state: JevJson, questions: readonly JevQuestion[] } {
-    const questions = cloneJson<readonly JevQuestion[]>(bundle.questions)
+    const candidates = cloneJson<readonly JevQuestion[]>(bundle.questions)
       .filter(question => question.options.length >= 2)
+    // Only the block-layout request shares option guidance; the legacy request is a durable contract.
+    const sharing = bundle.blockLayout === undefined ? { questions: candidates } : shareBlockOptionGuidance(candidates)
+    const questions = sharing.questions
     const composition = bundle.blockLayout === undefined
       ? {
           // The pre-experiment request is a durable legacy contract.
@@ -704,6 +708,7 @@ export class AdaptiveCompositionCoordinator {
           isStreaming: active.input.isStreaming === true,
           ...(active.snapshot.styleMode === 'selected' ? { lockedThemeId: active.snapshot.selectedThemeId } : {}),
           blockLayout: blockDesignContext(bundle.blockLayout, this.options.getExecutableComponents ? new Set(questions.map(question=>question.id)) : undefined),
+          ...(sharing.shared === undefined ? {} : { sharedOptionGuidance: sharing.shared }),
         }
     const state = cloneJson<JevJson>({
       formatVersion: ADAPTIVE_COMPOSITION_FORMAT_VERSION,
