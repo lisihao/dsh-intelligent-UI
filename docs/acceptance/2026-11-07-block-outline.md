@@ -56,8 +56,39 @@ The outline is sent three times, once in each request, so each document's total 
 
 ## Known limits
 
-- **Bold-paragraph headings.** md-3 has no Markdown headings. It uses 18 paragraphs that contain only bold text as headings, 15 of them numbered. Its outline is therefore empty. `src/content-analysis.ts` already treats numbered bold-only paragraphs as section boundaries for table-note context (`isStandaloneNumberedBoldHeading`, not exported, no depth). Reusing it for the outline would be a separate decision.
+- **Bold-paragraph headings.** md-3 has no Markdown headings. It uses 18 paragraphs that contain only bold text as headings, 15 of them numbered. Its outline was therefore empty; the follow-up below addresses it.
 - **Model quality not measured.** Whether the outline improves choices needs a real-model run, which needs paid calls and the owner's approval.
 - **Not run.** A browser check (no rendered output changes) and the installed Desktop.
 
 Probe receipts are under `.acceptance/claude-unified-description-20261107/` (not in Git).
+
+## Follow-up: numbered bold paragraphs (`block-outline@2`)
+
+The owner chose to reuse the existing recognizer. `isStandaloneNumberedBoldHeading` in `src/content-analysis.ts` is now exported. It accepts a paragraph whose only child is bold text, with a numeric prefix, and whose title does not refer to table data. Before this change it was used only for table-note context.
+
+- **Sections.** Each top-level paragraph that the recognizer accepts becomes a section with evidence `source:numbered-bold-paragraph`.
+- **Depth.** The source gives no level, so the depth is derived: one level below the nearest open Markdown heading, or 1 when there is none. The evidence records this as `depth:derived-from-enclosing-heading`.
+- **Section end.** Such a section ends at the next bold section or at the next Markdown heading of the same or a higher level.
+- **Unchanged.** Compiler block grouping.
+
+Verification (MacBook, no model calls):
+- **Tests (run).** 2 new cases:
+  - a document without Markdown headings, including an unnumbered bold line and a table-note title, neither of which becomes a section;
+  - bold sections mixed with Markdown headings.
+
+  Both failed on `ede4441`.
+- **Mutation check (run).** Each of these, changed on its own, failed a test:
+  - recognition;
+  - the depth rule;
+  - closing sibling bold sections;
+  - the table-note and unnumbered exclusions;
+  - the derived-depth evidence.
+- **Full suite (run).** 1557 passed, 5 skipped. `pnpm typecheck`, `pnpm build` and `pnpm test:plugin` passed.
+- **Recognizer matches in the five documents (run).** 15 in md-3, 0 in the others, so their outlines are unchanged.
+
+| Document | Sections | Blocks without a section | Blocks containing more than one section start | Outline bytes |
+|---|---|---|---|---|
+| md-3 | 15 (all depth 1) | 1 of 31 (before the first bold heading) | 0 | 6,293 |
+| md-4 | 139 (unchanged) | 0 of 38 | 26 | 35,590 |
+
+md-4's 26 blocks predate this change: the compiler groups md-4 at a coarser heading level than its finest headings, so one block can contain several sections. The outline records only the section at each block's start.

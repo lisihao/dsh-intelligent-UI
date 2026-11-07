@@ -2,8 +2,9 @@ import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import { blockLayoutMarkdownLeaves, type BlockLayoutCompilation } from './block-compiler.js'
+import { isStandaloneNumberedBoldHeading } from '../content-analysis.js'
 
-export const BLOCK_OUTLINE_FORMAT = 'block-outline@1'
+export const BLOCK_OUTLINE_FORMAT = 'block-outline@2'
 export const MAX_BLOCK_OUTLINE_SECTIONS = 512
 export const MAX_BLOCK_OUTLINE_TITLE_CHARACTERS = 200
 
@@ -54,17 +55,29 @@ function plainText(node: MarkdownNode): string {
 
 function sectionsFor(path: readonly number[], markdown: string): BlockOutlineSection[] {
   const root = parser.parse(markdown) as unknown as { readonly children: readonly MarkdownNode[] }
+  // A numbered bold-only paragraph (the existing table-context boundary rule)
+  // has no source level; it sits one level below the nearest open Markdown heading.
+  const open: { readonly depth: number, readonly bold: boolean }[] = []
   const headings = root.children.flatMap(node => {
     const start = node.position?.start?.offset
-    if (node.type !== 'heading' || typeof node.depth !== 'number' || typeof start !== 'number') return []
-    return [{ node, depth: node.depth, start }]
+    if (typeof start !== 'number') return []
+    if (node.type === 'heading' && typeof node.depth === 'number') {
+      while (open.length && open.at(-1)!.depth >= node.depth!) open.pop()
+      open.push({ depth: node.depth, bold: false })
+      return [{ node, depth: node.depth, start, evidence: ['source:heading', `heading-depth:${node.depth}`] }]
+    }
+    if (!isStandaloneNumberedBoldHeading(node as never)) return []
+    while (open.at(-1)?.bold) open.pop()
+    const depth = (open.at(-1)?.depth ?? 0) + 1
+    open.push({ depth, bold: true })
+    return [{ node, depth, start, evidence: ['source:numbered-bold-paragraph', 'depth:derived-from-enclosing-heading'] }]
   })
   const prefix = path.length ? `path-${path.join('-')}` : 'root'
-  const open: BlockOutlineSection[] = []
+  const parents: BlockOutlineSection[] = []
   const sections: BlockOutlineSection[] = []
   headings.forEach((heading, index) => {
     const next = headings.slice(index + 1).find(candidate => candidate.depth <= heading.depth)
-    while (open.length && open.at(-1)!.depth >= heading.depth) open.pop()
+    while (parents.length && parents.at(-1)!.depth >= heading.depth) parents.pop()
     const text = plainText(heading.node).replace(/\s+/gu, ' ').trim()
     const truncated = text.length > MAX_BLOCK_OUTLINE_TITLE_CHARACTERS
     const section: BlockOutlineSection = {
@@ -75,11 +88,11 @@ function sectionsFor(path: readonly number[], markdown: string): BlockOutlineSec
       titleTruncated: truncated,
       start: heading.start,
       end: next?.start ?? markdown.length,
-      parentId: open.at(-1)?.id ?? null,
-      evidence: ['source:heading', `heading-depth:${heading.depth}`],
+      parentId: parents.at(-1)?.id ?? null,
+      evidence: heading.evidence,
     }
     sections.push(section)
-    open.push(section)
+    parents.push(section)
   })
   return sections
 }
@@ -90,8 +103,8 @@ function samePath(left: readonly number[], right: readonly number[]): boolean {
 
 /**
  * Describes the source heading tree and which compiled block sits in which
- * section. Everything comes from top-level Markdown headings; nothing is inferred
- * from wording, and headings nested inside lists or quotes are not sections.
+ * section. Sections come from top-level Markdown headings and from numbered
+ * bold-only paragraphs; headings nested inside lists or quotes are not sections.
  */
 export function outlineBlockLayout(value: unknown, compilation: BlockLayoutCompilation): BlockOutline {
   const sections = blockLayoutMarkdownLeaves(value).flatMap(leaf => sectionsFor(leaf.path, leaf.markdown))
