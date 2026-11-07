@@ -7,6 +7,7 @@ import { ContentView } from '../src/presentation.js'
 import { initialSettings, type ExperienceSettings } from '../src/contracts.js'
 import { compileBlockLayout, type CompiledBlock } from '../src/adaptive-ui/block-compiler.js'
 import type { BaseCompositionSelection } from '../src/adaptive-ui/planner.js'
+import type { BlockPresentationId } from '../src/adaptive-ui/presentation-recipes.js'
 import { CompositionRuntimeContext, type CompositionApi } from '../src/adaptive-ui/view.js'
 import type { ComposeInput, CompositionResult } from '../src/adaptive-ui/contracts.js'
 
@@ -86,6 +87,36 @@ function plannedResult(value: unknown, options: { root?: Partial<BaseComposition
     selection: {
       ...selection(options.root),
       blockLayout: { version: compiled.version, inspection: options.inspection ?? 'none', blocks: references },
+    },
+  } as CompositionResult
+}
+
+function explicitResult(value: unknown, recipe: (block: CompiledBlock) => { presentation: BlockPresentationId, selection?: Partial<BaseCompositionSelection> }, root: Partial<BaseCompositionSelection> = {}): CompositionResult {
+  const compiled = compileBlockLayout(value)
+  return {
+    status: 'selected',
+    reason: 'JEV_SELECTION_ADOPTED',
+    sourceVersion: 'sha256:explicit-block-presentation',
+    operationId: 'explicit-block-presentation',
+    selection: {
+      ...selection({ themeId: 'plain', layout: 'document', ...root }),
+      blockLayout: {
+        version: compiled.version,
+        inspection: 'none',
+        blocks: compiled.blocks.map(block => {
+          const chosen = recipe(block)
+          return {
+            id: block.id,
+            path: [...block.path],
+            ...(block.start === undefined ? {} : { start: block.start }),
+            ...(block.end === undefined ? {} : { end: block.end }),
+            kind: block.kind,
+            presentation: chosen.presentation,
+            selection: selection({ themeId: 'plain', layout: 'document', ...chosen.selection }),
+            evidence: [...block.evidence],
+          }
+        }),
+      },
     },
   } as CompositionResult
 }
@@ -253,5 +284,133 @@ describe('source-bound experimental block layout', () => {
     await waitFor(item.host, '[data-research-workspace="enabled"]')
     expect(item.host.querySelector('.iexp-flow')).not.toBeNull()
     expect(item.host.querySelector<HTMLAnchorElement>('a[href="https://example.com/evidence"]')?.textContent).toBe('来源链接')
+  })
+
+  it('renders complete explicit card and disclosure groups without losing code, links, or footnotes', async () => {
+    const explicitSource = `# 代码与依据
+
+完整段落保留 [原始依据][evidence] 与脚注[^note]。
+
+\`\`\`ts
+export const answer = 42
+\`\`\`
+
+[evidence]: https://example.com/evidence
+[^note]: 这是完整脚注。`
+    const fake = apiFor(value => explicitResult(value, block => block.kind === 'code'
+      ? { presentation: 'cards', selection: { componentSet: 'mechanical-outline' } }
+      : { presentation: 'disclosure', selection: { componentSet: 'clear-glass' } }))
+    const clipboard = { writeText: vi.fn() }
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
+    const item = await mount(explicitSource, fake.api)
+
+    await waitFor(item.host, '[data-iexp-composition-status="selected"]')
+    const disclosure = item.host.querySelector<HTMLDetailsElement>('[data-iexp-presentation="disclosure"]')!
+    const codeCard = item.host.querySelector<HTMLElement>('[data-iexp-presentation="cards"][data-iexp-block-kind="code"]')!
+    expect(disclosure).not.toBeNull()
+    expect(disclosure.open).toBe(true)
+    expect(disclosure.querySelector('[data-iexp-component-set="clear-glass"].iexp-uiv-card')).not.toBeNull()
+    expect(codeCard.matches('[data-iexp-component-set="mechanical-outline"].iexp-uiv-card')).toBe(true)
+    expect(codeCard.textContent).toContain('export const answer = 42')
+    expect(codeCard.querySelector('code[class*="language-ts"]')).not.toBeNull()
+    const copy = codeCard.querySelector<HTMLButtonElement>('[aria-label="复制原始代码"]')!
+    expect(copy).not.toBeNull()
+    await act(async () => copy.click())
+    expect(clipboard.writeText).toHaveBeenCalledWith('export const answer = 42')
+    expect(item.host.querySelector<HTMLAnchorElement>('a[href="https://example.com/evidence"]')?.textContent).toBe('原始依据')
+    expect(item.host.textContent).toContain('这是完整脚注。')
+  })
+
+  it('keeps definitions global without splitting a source block that contains references before and after them', async () => {
+    const references = `# 依据
+
+开头保留 [第一条][evidence]。
+
+[evidence]: https://example.com/evidence
+
+中间保留 [第二条][evidence] 与脚注[^note]。
+
+[^note]: 中间定义的脚注。
+
+结尾保留 [第三条][tail]。
+
+[tail]: https://example.com/tail`
+    const compiled = compileBlockLayout(references)
+    const prose = compiled.blocks.find(block => block.kind === 'prose')!
+    const fake = apiFor(value => explicitResult(value, () => ({ presentation: 'reading' })))
+    const item = await mount(references, fake.api)
+
+    await waitFor(item.host, '[data-iexp-composition-status="selected"]')
+    expect(item.host.querySelectorAll(`[data-iexp-block-id="${prose.id}"]`)).toHaveLength(1)
+    expect(item.host.querySelectorAll<HTMLAnchorElement>('a[href="https://example.com/evidence"]')).toHaveLength(2)
+    expect(item.host.querySelector<HTMLAnchorElement>('a[href="https://example.com/tail"]')?.textContent).toBe('第三条')
+    expect(item.host.textContent).toContain('中间定义的脚注。')
+  })
+
+  it('executes an explicit chart recipe even though its block layout is table, without re-enabling automatic routing', async () => {
+    const table = `| 项目 | 金额（亿元） |
+| --- | ---: |
+| 训练 | 23.80 |
+| 推理 | 97.41 |
+
+图后说明保留 [来源][ref] 与脚注[^note]。
+
+[ref]: https://example.com/table-source
+[^note]: 表格后的完整脚注。`
+    const tableBlock = compileBlockLayout(table).blocks.find(block => block.kind === 'table')!
+    const fake = apiFor(value => explicitResult(value, () => ({
+      presentation: 'chart-openui',
+      selection: { layout: 'table', chart: 'openui', componentSet: 'soft-relief' },
+    })))
+    const item = await mount(table, fake.api)
+
+    await waitFor(item.host, '[data-iexp-composition-status="selected"]')
+    await waitFor(item.host, '[data-iexp-presentation="chart-openui"] [data-auto-chart]')
+    const chartBlock = item.host.querySelector<HTMLElement>('[data-iexp-presentation="chart-openui"]')!
+    expect(chartBlock.querySelector('[data-auto-chart]')).not.toBeNull()
+    expect(chartBlock.querySelector('[data-iexp-component-set="soft-relief"].iexp-uiv-card')).not.toBeNull()
+    expect(chartBlock.querySelector('table')?.textContent).toContain('97.41')
+    expect(item.host.querySelectorAll(`[data-iexp-block-id="${tableBlock.id}"]`)).toHaveLength(1)
+    expect(item.host.querySelector<HTMLAnchorElement>('a[href="https://example.com/table-source"]')?.textContent).toBe('来源')
+    expect(item.host.textContent).toContain('表格后的完整脚注。')
+  })
+
+  it('uses an eligible block-local ASCII theme for an explicit ASCII chart without replacing the root theme', async () => {
+    const table = '| 项目 | 金额（亿元） |\n| --- | ---: |\n| 训练 | 23.80 |\n| 推理 | 97.41 |'
+    const fake = apiFor(value => explicitResult(value, () => ({
+      presentation: 'chart-ascii',
+      selection: { themeId: 'ascii', layout: 'table', chart: 'ascii' },
+    }), { themeId: 'plain' }))
+    const item = await mount(table, fake.api)
+
+    await waitFor(item.host, '[data-iexp-composition-status="selected"]')
+    await waitFor(item.host, '[data-iexp-presentation="chart-ascii"] [data-ascii-chart="bar"]')
+    expect(item.host.querySelector('[data-iexp-adaptive-theme="plain"]')).not.toBeNull()
+    expect(item.host.querySelector('[data-iexp-block-theme="ascii"] [data-ascii-chart="bar"]')).not.toBeNull()
+    expect(item.host.textContent).toContain('23.80')
+  })
+
+  it('uses the block-aware Paper section adapter for explicit continuous pure prose without splitting source blocks', async () => {
+    const prose = `# 总览
+
+开场来源段落。
+
+## 第一章
+
+第一章完整说明。
+
+## 第二章
+
+第二章完整说明。`
+    const fake = apiFor(value => explicitResult(value, () => ({ presentation: 'reading' }), { layout: 'continuous' }))
+    const item = await mount(prose, fake.api)
+
+    await waitFor(item.host, '[data-iexp-composition-status="selected"]')
+    await waitFor(item.host, '.iexp-continuous .iexp-story-section')
+    expect(item.host.querySelectorAll('.iexp-continuous .iexp-story-section')).toHaveLength(2)
+    expect(item.host.querySelectorAll('[data-iexp-presentation="reading"]')).toHaveLength(3)
+    expect(item.host.textContent).toContain('开场来源段落。')
+    expect(item.host.textContent).toContain('第一章完整说明。')
+    expect(item.host.textContent).toContain('第二章完整说明。')
   })
 })

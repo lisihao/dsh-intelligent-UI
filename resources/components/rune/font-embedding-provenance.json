@@ -1,0 +1,39 @@
+{
+  "embeddedFonts": false,
+  "fonts": [
+    {
+      "bytes": 155940,
+      "fullBytesPresent": false,
+      "name": "IBMPlexMono-Regular.ttf",
+      "prefix256Present": false,
+      "sha256": "fe11304a5fe956d5744e9b6a246cc83d90425245e75a62230044966ca96a7f50"
+    },
+    {
+      "bytes": 417300,
+      "fullBytesPresent": false,
+      "name": "Inter-Medium.ttf",
+      "prefix256Present": false,
+      "sha256": "97ad806f526e41546d46365bb3a393145f75b7b1568913db74549ad8b8dba872"
+    },
+    {
+      "bytes": 411640,
+      "fullBytesPresent": false,
+      "name": "Inter-Regular.ttf",
+      "prefix256Present": false,
+      "sha256": "40d692fce188e4471e2b3cba937be967878f631ad3ebbbdcd587687c7ebe0c82"
+    },
+    {
+      "bytes": 419744,
+      "fullBytesPresent": false,
+      "name": "Inter-SemiBold.ttf",
+      "prefix256Present": false,
+      "sha256": "78a843fade9d4612a5567302fb595b56976eb5fcebf4fea5a5912d638bafcde3"
+    }
+  ],
+  "formatVersion": 1,
+  "method": "exact full-byte and 256-byte-prefix comparison against pinned Rune assets",
+  "rune": {
+    "source": "git+https://github.com/anomalyco/rune?rev=4ca683561a100e16b1ce32f3576f4ade61bd2924#4ca683561a100e16b1ce32f3576f4ade61bd2924",
+    "version": "0.0.1"
+  }
+}

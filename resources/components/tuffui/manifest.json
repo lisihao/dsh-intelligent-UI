@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "library": "tuffui",
+  "sourceCommit": "378f3eaac693c693d2ec845baf38bf6c0488cb37",
+  "entry": "tuffui-realm.html",
+  "assets": [
+    {
+      "path": "tuffui-realm.html",
+      "contentType": "text/html; charset=utf-8",
+      "sha256": "fd7ed5cdb068a18f75328f1da144993a71a63008169408ed3041f8c39a6f63d4",
+      "bytes": 468
+    },
+    {
+      "path": "tuffui-realm.js",
+      "contentType": "text/javascript; charset=utf-8",
+      "sha256": "342991618747612bdf329bba0077de2c7ac6d13a41875726b45e206162421ad2",
+      "bytes": 2846010
+    },
+    {
+      "path": "tuffui-realm.css",
+      "contentType": "text/css; charset=utf-8",
+      "sha256": "32c0510f0e21d83aeec95e1abde8f0e5e8c978d2317f1e193f65a1f3045903c8",
+      "bytes": 109820
+    },
+    {
+      "path": "source-manifest.json",
+      "contentType": "application/json; charset=utf-8",
+      "sha256": "a2febbc5e434d4060eb5e5ea9d6263b861ad0d54af4c6d42747fd24853fa4278",
+      "bytes": 176453
+    },
+    {
+      "path": "type-schema.json",
+      "contentType": "application/json; charset=utf-8",
+      "sha256": "990c8078c8191accc13e112cb0f0ee64f81cf88a7938de4ed46ad31622532e3e",
+      "bytes": 499981
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "contentType": "text/markdown; charset=utf-8",
+      "sha256": "7138d0f7b01cf617d84cb7a45d030cf14748c5f33df48fe0f9a34c492514b026",
+      "bytes": 17886
+    },
+    {
+      "path": "bundle-provenance.json",
+      "contentType": "application/json; charset=utf-8",
+      "sha256": "e900f555960b8498b7bc01de58bc7def9f841686e8fcb57abc639b194683b6f5",
+      "bytes": 41985
+    },
+    {
+      "path": "THIRD_PARTY_LICENSES.txt",
+      "contentType": "text/plain; charset=utf-8",
+      "sha256": "3e895f01b0988bbdc0a5d44dd00495724c125a09fcefcdfb59624513abc4a519",
+      "bytes": 118895
+    }
+  ]
+}

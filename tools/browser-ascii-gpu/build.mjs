@@ -1,3 +1,4 @@
+import { dilReferencePlugin } from '../dil-reference.mjs'
 import { build } from 'esbuild'
 import { createHash } from 'node:crypto'
 import { chmod, mkdir, readFile } from 'node:fs/promises'
@@ -43,7 +44,7 @@ await build({
   absWorkingDir: root, entryPoints: ['tools/browser-ascii-gpu/fixture.ts'], bundle: true, format: 'esm', platform: 'browser', outfile: resolve(outputRoot, 'fixture.js'), sourcemap: false,
   define: { 'process.env.NODE_ENV': '"production"', __IEXP_ELK_WORKER_SOURCE__: JSON.stringify(await readFile(resolve(root, 'node_modules/elkjs/lib/elk-worker.min.js'), 'utf8')), LOCAL_REPORT: JSON.stringify(markdown) },
   loader: { '.css': 'text', '.woff2': 'dataurl' },
-  plugins: [openuiCssPlugin, { name: 'fixture-remote', setup(build) { build.onResolve({ filter: /^\.\/remote\.js$/ }, () => ({ path: resolve(root, 'tools/browser-experience/remote-stub.ts') })) } }],
+  plugins: [openuiCssPlugin, dilReferencePlugin(), { name: 'fixture-remote', setup(build) { build.onResolve({ filter: /^\.\/remote\.js$/ }, () => ({ path: resolve(root, 'tools/browser-experience/remote-stub.ts') })) } }],
 })
 await Promise.all([...effects.map(([slug]) => `${slug}.mjs`), 'fixture.js'].map(name => chmod(resolve(outputRoot, name), 0o600)))
 console.log(`Built private fixture at ${outputRoot}; fixed Canvas UI sources and Three.js ${installedThree.version} verified; optional report ${markdown === null ? 'not included' : 'included'}.`)

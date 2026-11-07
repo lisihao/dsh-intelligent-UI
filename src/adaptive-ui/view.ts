@@ -10,8 +10,9 @@ import { compositionResultSchema, type CompositionResult, type ComposeInput, typ
 import { AdaptiveText } from './components.js'
 import {recognizeLiveSeries,normalizeCompositionSource} from './source-contracts.js'
 import { validateBlockSourceReferences } from './block-compiler.js'
+import type { ComponentRuntimeApi } from '../component-runtime-contracts.js'
 
-export interface CompositionApi {
+export interface CompositionApi extends Partial<ComponentRuntimeApi> {
   composition(input: ComposeInput): Promise<CompositionResult>
   compositionReceipt(input: CompositionReceiptInput): Promise<unknown>
   compositionCancel(input: CompositionCancelInput): Promise<unknown>
@@ -31,7 +32,7 @@ function browserCapabilities() {
     const canvas = document.createElement('canvas')
     try { const gl = canvas.getContext('webgl2'); webgl = !!gl; gl?.getExtension('WEBGL_lose_context')?.loseContext() } catch { /* No GPU candidate. */ }
   }
-  return { webgl, reducedMotion: typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches }
+  return { webgl, webgpu:typeof navigator!=='undefined'&&'gpu' in navigator&&globalThis.isSecureContext===true, reducedMotion: typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches }
 }
 function sourceText(value: unknown): string {
   if (typeof value === 'string') return value

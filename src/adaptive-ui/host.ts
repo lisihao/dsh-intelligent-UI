@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto'
 import { builtInThemes, type ThemePackage } from '../theme-contracts.js'
 import { buildCompositionCandidates, validateCompositionChoices } from './planner.js'
+import { neutralDesignRubric } from './design-guidance.js'
+import { compileBlockLayout } from './block-compiler.js'
+import { decideExecutableComponentsBatch } from './component-decision.js'
+import { SOURCE_PRESENTATION_RENDERER_KEY, validateSourcePresentationInput } from './source-block-components.js'
+import { SOURCE_LIBRARY_RENDERER_KEY, CURATED_UI_RENDERER_KEY, validateSourceLibraryInput, validateCuratedUiInput } from './library-component-bindings.js'
 import {
   ADAPTIVE_COMPOSITION_FEATURE_ID,
   ADAPTIVE_COMPOSITION_FORMAT_VERSION,
@@ -33,6 +38,7 @@ import {
 
 const DEFAULT_MAX_SOURCE_BYTES = 1024 * 1024
 const DEFAULT_MAX_CACHE_ENTRIES = 32
+const BLOCK_DESIGN_CONTEXT_INPUT_FORMAT = 'block-design-context@2'
 
 type CandidateBundle = ReturnType<typeof buildCompositionCandidates>
 type CandidateQuestion = CandidateBundle['questions'][number]
@@ -89,6 +95,7 @@ type OperationRecord = {
   documentId: string
   sourceVersion: string
   operationId: string
+  relatedOperationIds?: readonly string[]
   port: JevCompositionPort
   receiptState: 'ready' | 'writing' | 'observed' | 'failed'
   receiptAt?: string
@@ -128,6 +135,61 @@ function digest(value: unknown): string {
 
 function cloneJson<T>(value: unknown): T {
   return JSON.parse(stableJson(value)) as T
+}
+
+/**
+ * The model receives the canonical questions separately. Keep only stable
+ * block-to-question links here, never a second catalog or local renderer recipe.
+ */
+function blockFieldBindings(referenceId: string, questionIds: readonly string[]): Readonly<Record<string, string>> {
+  const prefix = `${referenceId}:`
+  const bindings: Record<string, string> = {}
+  for (const questionId of questionIds) {
+    if (!questionId.startsWith(prefix)) continue
+    const field = questionId.slice(prefix.length)
+    if (!field) continue
+    bindings[field.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = questionId
+  }
+  return bindings
+}
+
+function blockDesignContext(program: NonNullable<CandidateBundle['blockLayout']>, sentIds?: ReadonlySet<string>): unknown {
+  return {
+    version: program.version,
+    blocks: program.blocks.map(binding => ({
+      reference: binding.reference,
+      questionIds: binding.questionIds.filter(id=>!sentIds||sentIds.has(id)),
+      fieldBindings: blockFieldBindings(binding.reference.id, binding.questionIds.filter(id=>!sentIds||sentIds.has(id))),
+    })),
+  }
+}
+
+/** The component stage owns content choices; the first stage only selects its frame/style. */
+function frameDecisionBundle(bundle: CandidateBundle): CandidateBundle {
+  if (!bundle.blockLayout) return bundle
+  const deferred = new Map<string, string>()
+  const blocks = bundle.blockLayout.blocks.map(binding => {
+    const reading = binding.presentations?.find(candidate => candidate.id === 'reading')
+    if (!reading) throw new NamedError('COMPOSITION_FRAME_SOURCE_RECIPE_MISSING')
+    deferred.set(`${binding.reference.id}:presentation`, reading.id)
+    for (const field of ['live', 'loading', 'text-motion']) {
+      const id = `${binding.reference.id}:${field}`
+      if (bundle.questions.some(question => question.id === id)) {
+        const value = bundle.defaultAnswers[id]
+        if (!value) throw new NamedError('COMPOSITION_DEFAULT_CHOICES_MISSING')
+        deferred.set(id, value)
+      }
+    }
+    return {...binding, presentations:[reading]}
+  })
+  const questions = bundle.questions.map(question => {
+    const value = deferred.get(question.id)
+    if (!value) return question
+    const option = question.options.find(candidate => candidate.id === value)
+    if (!option) throw new NamedError('COMPOSITION_FRAME_SOURCE_RECIPE_MISSING')
+    return {...question, options:[option]}
+  })
+  return {...bundle, questions, defaultAnswers:{...bundle.defaultAnswers,...Object.fromEntries(deferred)}, blockLayout:{...bundle.blockLayout,blocks}}
 }
 
 function reasonFrom(error: unknown, fallback: string): string {
@@ -239,6 +301,11 @@ export class AdaptiveCompositionCoordinator {
       cachedResults: this.cache.size,
       ...(reason === undefined ? {} : { reason }),
     })
+  }
+  /** Source-independent capabilities come from the same definitions used by actual dispatch. */
+  async executableCatalog() {
+    const registry=await this.options.getExecutableComponents?.()
+    return registry?.list().map(({id,family,title,suitability,rendererKey})=>({id,family,title,suitability,rendererKey}))??[]
   }
 
   async compose(raw: ComposeInput): Promise<CompositionResult> {
@@ -354,12 +421,12 @@ export class AdaptiveCompositionCoordinator {
     record.receiptState = 'writing'
     record.receiptAt ??= (this.options.now?.() ?? new Date()).toISOString()
     const receipt = compositionReceiptResultSchema.parse({ status: 'observed', operationId: record.operationId, sourceVersion: record.sourceVersion })
-    const write = record.port.writeReceipt(record.operationId, {
-      id: `adaptive-ui-observed-${digest({ operationId: record.operationId, sourceVersion: record.sourceVersion })}`,
+    const write = Promise.all((record.relatedOperationIds ?? [record.operationId]).map(operationId => record.port.writeReceipt(operationId, {
+      id: `adaptive-ui-observed-${digest({ operationId, sourceVersion: record.sourceVersion })}`,
       status: 'observed',
       reason: 'Renderer acknowledged the source-bound composition.',
-      at: record.receiptAt,
-    }).then(() => {
+      at: record.receiptAt!,
+    }))).then(() => {
       record.receiptState = 'observed'
       return receipt
     }).catch(error => {
@@ -497,7 +564,8 @@ export class AdaptiveCompositionCoordinator {
   }
 
   private async runDecision(active: ActiveRequest): Promise<Omit<CompositionResult, 'requestId'>> {
-    const request = this.jevRequest(active)
+    const decisionBundle = this.options.getExecutableComponents && active.bundle.blockLayout ? frameDecisionBundle(active.bundle) : active.bundle
+    const request = this.jevRequest(active, decisionBundle)
     const sentQuestionIds = request.questions.map(question => question.id)
     const exactRequest = stableJson(request)
     let selected: CompositionSelection | undefined
@@ -520,7 +588,7 @@ export class AdaptiveCompositionCoordinator {
         interpret: (response, signal) => {
           try {
             this.assertFresh(active, signal)
-            selected = compositionSelectionSchema.parse(validateCompositionChoices(active.bundle, this.choiceAnswers(active.bundle, sentQuestionIds, response)))
+            selected = compositionSelectionSchema.parse(validateCompositionChoices(decisionBundle, this.choiceAnswers(decisionBundle, sentQuestionIds, response)))
             return { usable: true }
           } catch (error) {
             selectionReason = reasonFrom(error, 'COMPOSITION_SELECTION_INVALID')
@@ -539,6 +607,9 @@ export class AdaptiveCompositionCoordinator {
     if (current) return this.base('stale', current, active.sourceVersion, active.localSelection, operationId(outcome))
     if (outcome.kind === 'ok') {
       if (!selected) return this.base('local', selectionReason ?? 'COMPOSITION_SELECTION_INVALID', active.sourceVersion, active.localSelection, outcome.operationId)
+      if (selected.blockLayout && this.options.getExecutableComponents) {
+        return await this.runComponentDecision(active, selected, outcome.operationId)
+      }
       const result = this.base('selected', 'JEV_SELECTION_ADOPTED', active.sourceVersion, selected, outcome.operationId)
       this.recordOperation(active, outcome.operationId)
       return result
@@ -552,9 +623,88 @@ export class AdaptiveCompositionCoordinator {
     return this.base('local', safeServiceCode(outcome.reason, 'JEV_NOT_ADOPTED'), active.sourceVersion, active.localSelection, outcome.operationId)
   }
 
-  private jevRequest(active: ActiveRequest): { state: JevJson, questions: readonly JevQuestion[] } {
-    const questions = cloneJson<readonly JevQuestion[]>(active.bundle.questions)
+  /** Batch source-bound component decisions after the reading/theme decision. No automatic replay. */
+  private async runComponentDecision(active: ActiveRequest, selection: CompositionSelection, layoutOperationId: string): Promise<Omit<CompositionResult, 'requestId'>> {
+    try {
+      this.assertFresh(active, active.controller.signal)
+      const registry = await this.options.getExecutableComponents!()
+      const compiled = compileBlockLayout(active.input.value)
+      const sourceBlocks = compiled.blocks.map(block => ({
+        id: block.id, reference: {id:block.id,path:block.path,kind:block.kind,...(block.start === undefined ? {} : {start:block.start,end:block.end})},
+        value: block.value,
+        recipes: active.bundle.blockLayout?.blocks.find(candidate => candidate.reference.id === block.id)?.presentations?.map(candidate => ({id:candidate.id, selection:candidate.selection, evidence:candidate.evidence})) ?? [],
+      }))
+      const decision = await decideExecutableComponentsBatch({
+        port: active.port, registry,
+        blocks: sourceBlocks.map((source, index) => ({id:source.id,inputPath:['blocks',index],context:{source,capabilities:active.input.capabilities,isStreaming:active.input.isStreaming,hostActionIds:[]}})),
+        // Bindings retain exact executable parameters locally; model context only
+        // carries source/eligibility. Internal native/auto defaults are not preferences.
+        state: cloneJson<JevJson>({blocks:sourceBlocks.map(({recipes,...source})=>({...source,recipes:recipes.map(({id,evidence})=>({id,evidence}))})),designRubric:neutralDesignRubric()}),
+        inputFingerprint: active.fingerprint,
+        link: {sessionId:active.input.sessionId,inputVersion:`${ADAPTIVE_COMPOSITION_INPUT_VERSION}:${active.fingerprint}:components`},
+        connection: active.connection, signal: active.controller.signal, featureId: ADAPTIVE_COMPOSITION_FEATURE_ID,
+        callbacks: {
+          refresh: signal => {this.assertFresh(active,signal);return {inputFingerprint:active.fingerprint}},
+          preflight: () => this.assertFresh(active,active.controller.signal),
+          canAdopt: async (_response,signal) => this.canAdopt(active,signal),
+        },
+      })
+      const stale = await this.currentReason(active)
+      if (stale) return this.base('stale',stale,active.sourceVersion)
+      const rejected = decision.blocks.find(block => block.status !== 'selected')
+      if (rejected) return this.base('failed',rejected.reason,active.sourceVersion)
+      const byId = new Map(decision.blocks.filter(block => block.status === 'selected').map(block => [block.id,block.selected]))
+      if (byId.size !== selection.blockLayout!.blocks.length) throw new NamedError('COMPOSITION_COMPONENT_BLOCKS_INCOMPLETE')
+      const next = compositionSelectionSchema.parse({...selection,blockLayout:{...selection.blockLayout,blocks:selection.blockLayout!.blocks.map(block=>{
+        const component=byId.get(block.id)!
+        const definition=registry.get(component.id)
+        if(!definition)throw new NamedError('COMPOSITION_COMPONENT_DEFINITION_MISSING')
+        const named={...block,componentName:definition.title,componentFit:definition.suitability}
+        if(component.rendererKey!==SOURCE_PRESENTATION_RENDERER_KEY&&component.rendererKey!==SOURCE_LIBRARY_RENDERER_KEY){
+          const material=component.rendererKey===CURATED_UI_RENDERER_KEY?validateCuratedUiInput(component.input).componentSet:block.selection.componentSet
+          return {...named,component,presentation:'reading',selection:{...block.selection,componentSet:material,surface:'semantic',layout:'document',chart:'auto',objectEffect:'none'}}
+        }
+        const chosen=component.rendererKey===SOURCE_LIBRARY_RENDERER_KEY?validateSourceLibraryInput(component.input):validateSourcePresentationInput(component.input)
+        if(component.id!==(component.rendererKey===SOURCE_LIBRARY_RENDERER_KEY?validateSourceLibraryInput(component.input).componentId:`presentation:${chosen.presentation}`))throw new NamedError('COMPOSITION_COMPONENT_ID_MISMATCH')
+        // The component leaf determines the executable recipe; theme/material remain independent choices.
+        return {...named,component,presentation:chosen.presentation,selection:{...chosen.selection,themeId:block.selection.themeId,componentSet:block.selection.componentSet}}
+      })}})
+      if (Buffer.byteLength(stableJson(next)) > this.maxSourceBytes * 8) throw new NamedError('COMPOSITION_COMPONENT_RESULT_TOO_LARGE')
+      const operations = [...new Set([layoutOperationId,...decision.modelRounds.flatMap(round=>round.operationId?[round.operationId]:[])])]
+      const finalOperationId = operations.at(-1)!
+      this.recordOperation(active,finalOperationId,operations)
+      return this.base('selected','JEV_COMPONENT_SELECTION_ADOPTED',active.sourceVersion,next,finalOperationId)
+    } catch (error) {
+      const stale = await this.currentReason(active)
+      return this.base(stale?'stale':'failed',stale??reasonFrom(error,'COMPOSITION_COMPONENT_DECISION_FAILED'),active.sourceVersion)
+    }
+  }
+
+  private jevRequest(active: ActiveRequest, bundle = active.bundle): { state: JevJson, questions: readonly JevQuestion[] } {
+    const questions = cloneJson<readonly JevQuestion[]>(bundle.questions)
       .filter(question => question.options.length >= 2)
+    const composition = bundle.blockLayout === undefined
+      ? {
+          // The pre-experiment request is a durable legacy contract.
+          selectedThemeId: active.snapshot.selectedThemeId,
+          styleMode: active.snapshot.styleMode,
+          capabilities: active.input.capabilities,
+          isStreaming: active.input.isStreaming === true,
+          themes: active.snapshot.themes,
+          candidateBundle: bundle,
+        }
+      : {
+          // `inputVersion` remains the only opaque request-specific fingerprint.
+          // Automatic mode deliberately has no current-theme hint; all model
+          // choices live in the authoritative `questions` array above.
+          inputFormat: BLOCK_DESIGN_CONTEXT_INPUT_FORMAT,
+          designRubric: neutralDesignRubric(),
+          styleMode: active.snapshot.styleMode,
+          capabilities: active.input.capabilities,
+          isStreaming: active.input.isStreaming === true,
+          ...(active.snapshot.styleMode === 'selected' ? { lockedThemeId: active.snapshot.selectedThemeId } : {}),
+          blockLayout: blockDesignContext(bundle.blockLayout, this.options.getExecutableComponents ? new Set(questions.map(question=>question.id)) : undefined),
+        }
     const state = cloneJson<JevJson>({
       formatVersion: ADAPTIVE_COMPOSITION_FORMAT_VERSION,
       kind: 'adaptive-ui-composition',
@@ -565,14 +715,7 @@ export class AdaptiveCompositionCoordinator {
         inputVersion: `${ADAPTIVE_COMPOSITION_INPUT_VERSION}:${active.fingerprint}`,
         value: active.input.value,
       },
-      composition: {
-        selectedThemeId: active.snapshot.selectedThemeId,
-        styleMode: active.snapshot.styleMode,
-        capabilities: active.input.capabilities,
-        isStreaming: active.input.isStreaming === true,
-        themes: active.snapshot.themes,
-        candidateBundle: active.bundle,
-      },
+      composition,
     })
     return { state, questions }
   }
@@ -661,12 +804,13 @@ export class AdaptiveCompositionCoordinator {
     catch { return false }
   }
 
-  private recordOperation(active: ActiveRequest, operationId: string): void {
+  private recordOperation(active: ActiveRequest, operationId: string, relatedOperationIds?: readonly string[]): void {
     const record: OperationRecord = {
       sessionId: active.input.sessionId,
       documentId: active.input.documentId,
       sourceVersion: active.sourceVersion,
       operationId,
+      ...(relatedOperationIds === undefined ? {} : {relatedOperationIds}),
       port: active.port,
       receiptState: 'ready',
     }

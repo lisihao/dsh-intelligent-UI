@@ -3422,3 +3422,21 @@ SOFTWARE.
 The browser bundle includes unmodified public React/primitives entries from Skullet 0.0.3 (Lochie Axon, MIT), Torph 0.1.3 (Lochie Axon, MIT), Liveline 0.0.7 (Benji Taylor, MIT), and @visx/shape plus @visx/scale 4.0.0 (Airbnb, MIT). Full notices ship respectively as `lib/Skullet-MIT.txt`, `lib/Torph-MIT.txt`, `lib/Liveline-MIT.txt` and `lib/visx-MIT.txt`; source copies are in `assets/`. Pins and exact source/archive provenance are recorded in `src/adaptive-ui/component-provenance.ts` and `pnpm-lock.yaml`. Their demo sites and non-React framework builds are not copied into the source tree.
 
 The optional Jev service is an external installed peer, not redistributed by this UI package. Existing Canvas UI licensing and redistribution restrictions remain unchanged.
+
+
+## Markdown semantic rendering
+
+The pinned, unmodified dependencies are KaTeX 0.16.47 (MIT), remark-math 6.0.0 (MIT, copyright Junyoung Choi), rehype-katex 7.0.1 (MIT, copyright Junyoung Choi), refractor 5.0.0 (MIT) and github-slugger 2.0.0 (ISC). KaTeX's WOFF2 fonts are embedded from that distribution for offline rendering. The exact shipped KaTeX, refractor and github-slugger license texts are included as `lib/KaTeX-MIT.txt`, `lib/refractor-MIT.txt` and `lib/github-slugger-ISC.txt`; the math parser/render bridge retain their distributed README license notices in their installed packages. Their source and licenses remain at https://github.com/remarkjs/remark-math, https://github.com/KaTeX/KaTeX, https://github.com/wooorm/refractor and https://github.com/Flet/github-slugger.
+
+
+## DIL reference compiler and sandbox
+
+Selected unmodified source from [yunyv/dsh-intelligent-ui](https://github.com/yunyv/dsh-intelligent-ui/tree/c4920ad2327ee5dfdfb42744e4696286868d934e) is bundled at the fixed commit `c4920ad2327ee5dfdfb42744e4696286868d934e`. Its MIT license is copyright 2026 yunyv; the vendored DIL replica has a separate MIT license, copyright 2026 DJJ. Full original notices ship as `lib/DIL-yunyv-MIT.txt` and `lib/DIL-replica-MIT.txt`, with source copies in assets/. This is a replica integration and does not distribute an OpenAI runtime bundle. The reference plugin itself is not installed or enabled.
+
+[Zephinel/dsh-intelligent-ui](https://github.com/Zephinel/dsh-intelligent-ui/tree/ca7bc47cc9ae589d361d57248e10e8fc4f3220d0) and [comeonzhj/dsh-intelligent-ui](https://github.com/comeonzhj/dsh-intelligent-ui/tree/68426b8477915a6cb469d2179c4eeccc5d575d69) were inspected as behavioral references. Their plugin clients and the latter's ECharts distribution are not copied into this package. Exact source identities and the adopted mechanisms are recorded in `docs/integrations/dil-generative-ui.md`.
+
+## Rune and TuffUI component runtimes (development candidate)
+
+Rune/rune-fx are consumed unmodified from https://github.com/anomalyco/rune at `4ca683561a100e16b1ce32f3576f4ade61bd2924` under MIT, behind `native/rune-theme`. Its original Rust code is compiled to the bundled Wasm material runtime; no JavaScript shader replacement is represented as Rune. The original MIT notice, the resolved wasm32 dependency-license closure and font-feature provenance accompany `resources/components/rune` and built `lib/components/rune`.
+
+TuffUI is from https://github.com/yurigdesigner/tuffui at `378f3eaac693c693d2ec845baf38bf6c0488cb37`, MIT. A fixed immutable production source closure is compiled in an isolated React 19 realm. `resources/components/tuffui/THIRD_PARTY_LICENSES.txt` includes its original notice and all 83 resolved runtime dependency notices; `bundle-provenance.json` records hashes and the separately retrieved upstream license text for the MIT-declared package whose npm archive omits that file. Generated public assets contain no private owner documents, credentials or account configuration.

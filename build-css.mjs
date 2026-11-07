@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import postcss from 'postcss'
 import prefixer from 'postcss-prefix-selector'
 
@@ -8,6 +9,20 @@ import prefixer from 'postcss-prefix-selector'
 export const openuiCssPlugin = {
   name: 'openui-owned-styles',
   setup(build) {
+    build.onLoad({ filter: /katex[\\/]dist[\\/]katex\.min\.css$/ }, async ({ path }) => {
+      // The client injects CSS as text; relative font URLs would escape the bundle.
+      const root = postcss.parse(await readFile(path, 'utf8'))
+      const fonts = new Map()
+      root.walkAtRules('font-face', rule => rule.walkDecls('src', declaration => {
+        const match = declaration.value.match(/url\(["']?([^()"']+\.woff2)["']?\)\s*format\(["']woff2["']\)/)
+        if (!match) throw new Error('KATEX_WOFF2_SOURCE_MISSING')
+        fonts.set(match[1], resolve(dirname(path), match[1]))
+        declaration.value = `url("__IEXP_KATEX_FONT_${match[1]}__") format("woff2")`
+      }))
+      let css = (await postcss([prefixer({ prefix: '.dsh-experience' })]).process(root, { from: path, map: false })).css
+      for (const [name, fontPath] of fonts) css = css.replaceAll(`__IEXP_KATEX_FONT_${name}__`, `data:font/woff2;base64,${(await readFile(fontPath)).toString('base64')}`)
+      return { contents: css, loader: 'text' }
+    })
     build.onLoad({ filter: /@xyflow[\\/]react[\\/].*\.css$/ }, async ({ path }) => {
       const result = await postcss([prefixer({ prefix: '.dsh-experience .iexp-flow' })]).process(await readFile(path, 'utf8'), { from: path, map: false })
       return { contents: result.css, loader: 'text' }

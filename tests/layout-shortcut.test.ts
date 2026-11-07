@@ -135,6 +135,30 @@ describe('experimental block-layout shortcut lifecycle', () => {
     dispose()
   })
 
+  it('enables the experiment with takeover on while leaving Jev disabled', async () => {
+    const settings: ExperienceSettings = { ...adaptiveFixture(), adaptive: { enabled: false, styleMode: 'automatic', blockLayout: false, blockLayoutShortcut: DEFAULT_BLOCK_LAYOUT_SHORTCUT } }
+    const { store, saveSettings, current } = fixture(settings)
+    const dispose = installBlockLayoutShortcut(store)
+    keydown(window, { code: 'KeyI', key: 'i', altKey: true, metaKey: true })
+    await settle()
+    expect(saveSettings).toHaveBeenCalledOnce()
+    expect(current().takeover).toBe(true)
+    expect(current().adaptive).toEqual({ enabled: false, styleMode: 'automatic', blockLayout: true, blockLayoutShortcut: DEFAULT_BLOCK_LAYOUT_SHORTCUT })
+    dispose()
+  })
+
+  it('always lets an enabled experiment turn off after takeover and Jev are both disabled', async () => {
+    const settings: ExperienceSettings = { ...adaptiveFixture(), takeover: false, adaptive: { enabled: false, styleMode: 'automatic', blockLayout: true, blockLayoutShortcut: DEFAULT_BLOCK_LAYOUT_SHORTCUT } }
+    const { store, saveSettings, current } = fixture(settings)
+    const dispose = installBlockLayoutShortcut(store)
+    keydown(window, { code: 'KeyI', key: 'i', altKey: true, metaKey: true })
+    await settle()
+    expect(saveSettings).toHaveBeenCalledOnce()
+    expect(current().takeover).toBe(false)
+    expect(current().adaptive).toEqual({ enabled: false, styleMode: 'automatic', blockLayout: false, blockLayoutShortcut: DEFAULT_BLOCK_LAYOUT_SHORTCUT })
+    dispose()
+  })
+
   it('rebases separate queued adaptive edits by field rather than overwriting the block toggle', async () => {
     const { store, current } = fixture(adaptiveFixture())
     const settings = current()

@@ -13,6 +13,7 @@ export const MAX_BLOCK_LAYOUT_EVIDENCE = 8
 type MarkdownNode = {
   readonly type: string
   readonly ordered?: boolean
+  readonly depth?: number
   readonly children?: readonly MarkdownNode[]
   readonly position?: { readonly start?: { readonly offset?: number }, readonly end?: { readonly offset?: number } }
 }
@@ -36,7 +37,7 @@ export interface BlockSourceReference {
 /** A compiler-owned unit used by the planner; `value` never comes from a model response. */
 export interface CompiledBlock extends BlockSourceReference {
   readonly value: unknown
-  /** Passive blocks still preserve source coverage but do not create cosmetic questions. */
+  /** Compatibility classification only; planners must not suppress explicit choices because of it. */
   readonly passive: boolean
 }
 
@@ -89,12 +90,22 @@ function containsImage(node: MarkdownNode): boolean {
   return node.type === 'image' || node.type === 'imageReference' || node.children?.some(containsImage) === true
 }
 
+/** Reference and footnote definitions stay document-scoped renderer syntax. */
+function isDocumentScopedDefinition(node: MarkdownNode): boolean {
+  return node.type === 'definition' || node.type === 'footnoteDefinition'
+}
+
 function isArrowFlow(flowKinds: ReadonlyMap<number, 'arrow-chain' | 'ordered-list'>, node: MarkdownNode): boolean {
   const start = node.position?.start?.offset
   return start !== undefined && flowKinds.get(start) === 'arrow-chain'
 }
 
 type PendingNode = { readonly node: MarkdownNode, readonly start: number, readonly end: number }
+
+type MarkdownCompileContext = {
+  readonly root: MarkdownRoot
+  readonly flowKinds: ReadonlyMap<number, 'arrow-chain' | 'ordered-list'>
+}
 
 function markdownBlock(path: readonly number[], markdown: string, start: number, end: number, kind: string, evidence: readonly string[], passive: boolean): CompiledBlock {
   return {
@@ -106,18 +117,65 @@ function markdownBlock(path: readonly number[], markdown: string, start: number,
   }
 }
 
-/**
- * Compiles top-level Markdown structure only. Noninteractive headings, prose,
- * quotations and ordinary lists are coalesced so a long document does not
- * exhaust the bounded program merely because it contains many passive nodes.
- */
-function compileMarkdown(markdown: string, path: readonly number[]): CompiledBlock[] {
+function markdownCompileContext(markdown: string): MarkdownCompileContext {
   let root: MarkdownRoot
   try { root = parser.parse(markdown) as unknown as MarkdownRoot }
   catch (error) { throw new InvalidBlockCompilationError('BLOCK_LAYOUT_MARKDOWN_PARSE_FAILED', error instanceof Error ? error.message : 'Markdown parsing failed.') }
-
   const layout = parseMarkdownLayouts(markdown)
-  const flowKinds = new Map<number, 'arrow-chain' | 'ordered-list'>(layout.flows.map(flow => [flow.start, flow.sourceKind]))
+  return { root, flowKinds: new Map<number, 'arrow-chain' | 'ordered-list'>(layout.flows.map(flow => [flow.start, flow.sourceKind])) }
+}
+
+function isSpecialMarkdownNode(node: MarkdownNode, flowKinds: ReadonlyMap<number, 'arrow-chain' | 'ordered-list'>): boolean {
+  const start = node.position?.start?.offset
+  const flowKind = start === undefined ? undefined : flowKinds.get(start)
+  const specialParagraph = node.type === 'paragraph' && (flowKind === 'arrow-chain' || containsImage(node))
+  const specialList = node.type === 'list' && flowKind === 'ordered-list'
+  return node.type === 'table' || node.type === 'code' || specialParagraph || specialList
+}
+
+/** Count source groups before emitting them, so grouping never silently exceeds the bounded program. */
+function markdownBlockCount(root: MarkdownRoot, flowKinds: ReadonlyMap<number, 'arrow-chain' | 'ordered-list'>, headingDepth: number | undefined): number {
+  let count = 0, pending = false
+  for (const node of root.children) {
+    // Definitions are parser syntax shared by the complete source document,
+    // never independently selectable visual content.
+    if (isDocumentScopedDefinition(node)) continue
+    if (isSpecialMarkdownNode(node, flowKinds)) {
+      if (pending) { count++; pending = false }
+      count++
+      continue
+    }
+    const boundary = headingDepth !== undefined && node.type === 'heading' && typeof node.depth === 'number' && node.depth <= headingDepth
+    if (boundary && pending) { count++; pending = false }
+    pending = true
+  }
+  return count + (pending ? 1 : 0)
+}
+
+/**
+ * Prefer the finest source heading grouping that fits the remaining global
+ * budget. If no heading level fits, use the whole-document group rather than
+ * truncating or inventing per-paragraph blocks.
+ */
+function groupingDepthFor(root: MarkdownRoot, flowKinds: ReadonlyMap<number, 'arrow-chain' | 'ordered-list'>, blockBudget: number): number | undefined {
+  const depths = [...new Set(root.children
+    .filter(node => node.type === 'heading' && typeof node.depth === 'number')
+    .map(node => node.depth!))].sort((left, right) => right - left)
+  for (const depth of depths) {
+    if (markdownBlockCount(root, flowKinds, depth) <= blockBudget) return depth
+  }
+  return undefined
+}
+
+/**
+ * Compiles top-level Markdown structure only. Ordinary nodes are coalesced,
+ * then split at the finest source-heading level that still fits the complete
+ * bounded program. Tables, code and qualified flows remain isolated blocks.
+ */
+function compileMarkdown(markdown: string, path: readonly number[], blockBudget: number): CompiledBlock[] {
+  const { root, flowKinds } = markdownCompileContext(markdown)
+  const headingDepth = groupingDepthFor(root, flowKinds, blockBudget)
+  const groupingEvidence = headingDepth === undefined ? 'grouping:document' : `grouping:heading-depth:${headingDepth}`
   const blocks: CompiledBlock[] = []
   let pending: PendingNode[] = []
 
@@ -126,19 +184,32 @@ function compileMarkdown(markdown: string, path: readonly number[]): CompiledBlo
     const first = pending[0]!, last = pending.at(-1)!
     const nodeKinds = [...new Set(pending.map(item => item.node.type))]
     blocks.push(markdownBlock(path, markdown, first.start, last.end, 'prose', [
-      'source:passive-markdown',
+      'source:ordinary-markdown',
+      groupingEvidence,
       ...nodeKinds.slice(0, 3).map(kind => `contains:${kind}`),
     ], true))
     pending = []
   }
 
   for (const node of root.children) {
+    // Keep a definition within an already-open prose range so its original
+    // source offsets remain associated with that group, but never let a
+    // definition start a visual candidate after a table or code block.
+    if (isDocumentScopedDefinition(node)) {
+      if (pending.length) {
+        const { start, end } = nodeRange(node)
+        pending.push({ node, start, end })
+      }
+      continue
+    }
     const { start, end } = nodeRange(node)
     const flowKind = flowKinds.get(start)
     const specialParagraph = node.type === 'paragraph' && (flowKind === 'arrow-chain' || containsImage(node))
     const specialList = node.type === 'list' && flowKind === 'ordered-list'
     const special = node.type === 'table' || node.type === 'code' || specialParagraph || specialList
+    const groupingBoundary = headingDepth !== undefined && node.type === 'heading' && typeof node.depth === 'number' && node.depth <= headingDepth
     if (!special) {
+      if (groupingBoundary) flushPending()
       pending.push({ node, start, end })
       continue
     }
@@ -162,6 +233,16 @@ function compileMarkdown(markdown: string, path: readonly number[]): CompiledBlo
   return blocks
 }
 
+function markdownMinimumBlockCount(markdown: string): number {
+  const { root, flowKinds } = markdownCompileContext(markdown)
+  return markdownBlockCount(root, flowKinds, undefined)
+}
+
+function markdownHasOnlyDocumentScopedDefinitions(markdown: string): boolean {
+  const { root } = markdownCompileContext(markdown)
+  return root.children.length > 0 && root.children.every(isDocumentScopedDefinition)
+}
+
 function structuredKind(value: unknown): string {
   if (Array.isArray(value)) return 'structured-array'
   if (value && typeof value === 'object') return 'structured-record'
@@ -178,21 +259,21 @@ function structuredBlock(value: unknown, path: readonly number[]): CompiledBlock
   }
 }
 
-function compileValue(value: unknown, path: readonly number[], output: CompiledBlock[]): void {
+type SourceLeaf =
+  | { readonly kind: 'markdown', readonly markdown: string, readonly path: readonly number[] }
+  | { readonly kind: 'structured', readonly value: unknown, readonly path: readonly number[] }
+
+function collectSourceLeaves(value: unknown, path: readonly number[], output: SourceLeaf[]): void {
   assertPath(path)
   const source = normalizeCompositionSource(value)
   if (source.kind === 'empty') return
   if (source.kind === 'blocks') {
-    source.values.forEach((child, index) => compileValue(child, [...path, index], output))
+    source.values.forEach((child, index) => collectSourceLeaves(child, [...path, index], output))
     return
   }
-  const compiled = source.kind === 'markdown'
-    ? compileMarkdown(source.markdown, path)
-    : [structuredBlock(source.value, path)]
-  output.push(...compiled)
-  if (output.length > MAX_BLOCK_LAYOUT_BLOCKS) {
-    throw new InvalidBlockCompilationError('BLOCK_LAYOUT_BLOCK_LIMIT_EXCEEDED', `Block layout supports at most ${MAX_BLOCK_LAYOUT_BLOCKS} source blocks.`)
-  }
+  output.push(source.kind === 'markdown'
+    ? { kind: 'markdown', markdown: source.markdown, path: [...path] }
+    : { kind: 'structured', value: source.value, path: [...path] })
 }
 
 /**
@@ -201,9 +282,36 @@ function compileValue(value: unknown, path: readonly number[], output: CompiledB
  * scoped paths such as `[0]`, `[1]`, and so on.
  */
 export function compileBlockLayout(value: unknown): BlockLayoutCompilation {
+  const leaves: SourceLeaf[] = []
+  collectSourceLeaves(value, [], leaves)
+  if (!leaves.length) throw new InvalidBlockCompilationError('BLOCK_LAYOUT_EMPTY', 'Block layout requires at least one source-owned block.')
+
+  const minimums = leaves.map(leaf => leaf.kind === 'markdown' ? markdownMinimumBlockCount(leaf.markdown) : 1)
+  const totalMinimum = minimums.reduce((total, count) => total + count, 0)
+  if (totalMinimum > MAX_BLOCK_LAYOUT_BLOCKS) {
+    throw new InvalidBlockCompilationError('BLOCK_LAYOUT_BLOCK_LIMIT_EXCEEDED', `Block layout supports at most ${MAX_BLOCK_LAYOUT_BLOCKS} source blocks.`)
+  }
+  const laterMinimum: number[] = Array.from({ length: leaves.length }, () => 0)
+  for (let index = leaves.length - 2; index >= 0; index--) laterMinimum[index] = laterMinimum[index + 1]! + minimums[index + 1]!
+
   const blocks: CompiledBlock[] = []
-  compileValue(value, [], blocks)
-  if (!blocks.length) throw new InvalidBlockCompilationError('BLOCK_LAYOUT_EMPTY', 'Block layout requires at least one source-owned block.')
+  for (let index = 0; index < leaves.length; index++) {
+    const leaf = leaves[index]!
+    const budget = MAX_BLOCK_LAYOUT_BLOCKS - blocks.length - laterMinimum[index]!
+    const compiled = leaf.kind === 'markdown'
+      ? compileMarkdown(leaf.markdown, leaf.path, budget)
+      : [structuredBlock(leaf.value, leaf.path)]
+    if (compiled.length > budget) {
+      throw new InvalidBlockCompilationError('BLOCK_LAYOUT_BLOCK_LIMIT_EXCEEDED', `Block layout supports at most ${MAX_BLOCK_LAYOUT_BLOCKS} source blocks.`)
+    }
+    blocks.push(...compiled)
+  }
+  if (!blocks.length) {
+    if (leaves.every(leaf => leaf.kind === 'markdown' && markdownHasOnlyDocumentScopedDefinitions(leaf.markdown))) {
+      throw new InvalidBlockCompilationError('BLOCK_LAYOUT_MARKDOWN_DEFINITIONS_ONLY', 'Markdown reference and footnote definitions need visible source content before they can receive a block presentation.')
+    }
+    throw new InvalidBlockCompilationError('BLOCK_LAYOUT_EMPTY', 'Block layout requires at least one source-owned block.')
+  }
   const ids = new Set<string>()
   for (const block of blocks) {
     assertPath(block.path)

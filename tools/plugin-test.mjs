@@ -73,6 +73,29 @@ async function themeProbe(ctx) {
     }
     assert(readDenied===2, 'non-owner could access private library/preview RPC')
     result.checks.libraryAndPreviewRpc = true
+    // Exercise built Remote codecs and the fixed public bundles through the
+    // actual published Host Gateway, without a model or current-profile write.
+    const componentSession = 'scratch-component-runtime'
+    for (const library of ['rune', 'tuffui']) {
+      const info = await rpc('componentRuntimeInfo', { sessionId: componentSession, library })
+      assert(info.library === library && /^[a-f0-9]{40}$/.test(info.sourceCommit), 'component runtime RPC lost source identity')
+      const response = await fetch(info.frameUrl)
+      assert(response.status === 200 && response.headers.get('content-security-policy')?.includes("frame-src 'none'"), 'built component entry/CSP is unavailable')
+      if (library === 'tuffui') {
+        const frame = new URL(info.frameUrl); frame.searchParams.set('parentOrigin', 'http://127.0.0.1:4175')
+        assert((await fetch(frame)).status === 200, 'built opaque component bootstrap query was rejected')
+      }
+    }
+    const componentCatalog = await rpc('componentCatalog', { sessionId: componentSession, library: 'tuffui' })
+    assert(componentCatalog.catalog.entries.length === 76 && Object.keys(componentCatalog.typeSchemas.entries).length === 76, 'built component catalog/schema inventory differs')
+    const uiverseComponent = await rpc('uiverseRuntimeComponent', { sessionId: componentSession, componentId: 'Buttons/0x-Sarthak_hungry-penguin-30', includeSharedCss: true })
+    assert(uiverseComponent.component.id === 'Buttons/0x-Sarthak_hungry-penguin-30' && typeof uiverseComponent.sharedCss === 'string', 'built Uiverse source RPC lost exact ID')
+    let componentDenied = 0
+    for (const [method, value] of [['componentRuntimeInfo', {sessionId:componentSession,library:'rune'}], ['componentCatalog', {sessionId:componentSession,library:'tuffui'}], ['uiverseRuntimeComponent', {sessionId:componentSession,componentId:'Buttons/0x-Sarthak_hungry-penguin-30'}]]) {
+      try { await rpc(method, value, observer) } catch (error) { if (/remote-access\/denied|EXPERIENCE_OWNER_REQUIRED/.test(`${error.code ?? ''} ${error.message}`)) componentDenied++ }
+    }
+    assert(componentDenied === 3, 'non-owner component RPC was not denied')
+    result.checks.componentRuntimeRpc = true
     if (phase === 'install-select') {
       assert(state.revision === input.originalRevision, 'theme probe did not begin at the acknowledged original revision')
       let denied
@@ -136,6 +159,7 @@ async function themeProbe(ctx) {
       let featureRegistered = false
       let featureEnabled = true
       let mockRequests = 0
+      const mockQuestionWaves = []
       let mockReceiptWrites = 0
       const hookCalls = { refresh: 0, preflight: 0, interpret: 0, canAdopt: 0 }
       let firstJudgeStartedResolve
@@ -169,6 +193,7 @@ async function themeProbe(ctx) {
             const operationId = `fixture-composition-operation-${mockRequests}`
             const signal = options.signal ?? new AbortController().signal
             const request = await options.refresh(signal)
+            mockQuestionWaves.push({ kind: request.state?.kind, stage: request.state?.round?.stage, ids: request.questions.map(question => question.id) })
             hookCalls.refresh += 1
             options.preflight?.(request)
             hookCalls.preflight += 1
@@ -268,9 +293,17 @@ async function themeProbe(ctx) {
         result.checks.compositionNoReplay = true
         adaptiveState = await rpc('saveSettings', {expectedRevision:adaptiveState.revision,...input.flags,takeover:true,adaptive:{enabled:true,styleMode:'automatic',blockLayout:true,blockLayoutShortcut:'Alt+Meta+KeyI'}})
         state = adaptiveState
+        const compiledWaveStart = mockQuestionWaves.length
         const compiled = await rpc('composition', {...compositionBase,documentId:'scratch-compiled-blocks',requestId:'compiled-blocks',value:'# Source blocks\n\nOriginal prose.\n\n| Year | Count |\n| --- | ---: |\n| 2024 | 12 |\n| 2025 | 18 |\n\nCollect -> Verify -> Render'})
         assert(compiled.status === 'selected' && compiled.selection?.blockLayout?.version === 1 && compiled.selection.blockLayout.blocks.length > 1, `built compiler did not produce source-bound block choices: ${JSON.stringify(compiled)}`)
-        assert(mockRequests === 3, 'compiled source did not use one batched Decisions request')
+        const compiledWaves = mockQuestionWaves.slice(compiledWaveStart)
+        assert(compiledWaves.length >= 3 && compiledWaves[0].ids.every(id => !/^block:.*:(presentation|live|loading|text-motion)$/.test(id)), 'compiled source did not separate frame/style from component choices')
+        const componentWaves = compiledWaves.slice(1)
+        assert(componentWaves.every(wave => wave.kind === 'executable-component-batch-decision' && wave.ids.length > 0 && wave.ids.every(id => id.startsWith('component-batch:'))), 'compiled source component choices were not batched')
+        assert(componentWaves.some(wave => wave.stage === 'family') && componentWaves.some(wave => wave.stage === 'component'), 'compiled source did not execute family and exact-component stages')
+        assert(compiled.selection.blockLayout.blocks.every(block => typeof block.component?.id === 'string' && typeof block.component.rendererKey === 'string'), 'compiled source lost exact executable component bindings')
+        const compiledRequestCount = mockRequests
+        result.componentWaves = compiledWaves
         const savedCompiler = JSON.parse(await readFile(join(process.env.DSH_HOME,'solar','intelligent-experience-platform','settings.json'),'utf8'))
         assert(savedCompiler.adaptive?.blockLayout === true && savedCompiler.adaptive?.blockLayoutShortcut === 'Alt+Meta+KeyI', 'experimental settings were not persisted')
         result.checks.blockLayoutBatched = true
@@ -278,7 +311,7 @@ async function themeProbe(ctx) {
         adaptiveState = await rpc('saveSettings', {expectedRevision:adaptiveState.revision,...input.flags,takeover:true,adaptive:{enabled:true,styleMode:'automatic',blockLayout:false}})
         state = adaptiveState
         const legacy = await rpc('composition', {...selectedInput,requestId:'experiment-off'})
-        assert(legacy.status === 'selected' && legacy.selection?.blockLayout === undefined && mockRequests === 3, 'disabling the experiment did not restore the unchanged legacy cached path')
+        assert(legacy.status === 'selected' && legacy.selection?.blockLayout === undefined && mockRequests === compiledRequestCount, 'disabling the experiment did not restore the unchanged legacy cached path')
         result.checks.blockLayoutDisabled = true
         result.composition = { mockRequests, mockReceiptWrites, hookCalls, selected, cancelled, cancelledResult, catalogRevision: catalog.revision }
       } finally {
@@ -330,7 +363,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
   // from its built lib; neither source TS nor any installed Desktop profile runs.
   await writeFile(join(probeDir, 'package.json'), JSON.stringify({ ...fixture, peerDependencies: { ...fixture.peerDependencies, '@deepseek-ai/dsh-client-connection': '0.2.1-rc.2' } }))
   await writeFile(join(probeDir, 'cordis.patch.yml'), await readFile(join(PROBE, 'cordis.patch.yml')))
-  const code = `import { readFile, writeFile } from 'node:fs/promises'\nimport { join } from 'node:path'\nimport { createHash } from 'node:crypto'\nimport { isDeepStrictEqual } from 'node:util'\nimport { Peer } from '@deepseek-ai/dsh-client-connection'\n${themeProbe.toString()}\nexport const name='intelligent-experience-probe';export const inject=['appReady'];export function apply(ctx){let started=false;return ctx.get('appReady').onReady(()=>{if(started)return;started=true;void themeProbe(ctx).catch(error=>{process.stderr.write(String(error.stack??error));ctx.get('appExit')(1)})})}\n`
+  const code = `import { readFile, writeFile } from 'node:fs/promises'\nimport { join } from 'node:path'\nimport { createHash } from 'node:crypto'\nimport { isDeepStrictEqual } from 'node:util'\nimport { Peer } from '@deepseek-ai/dsh-client-connection'\n${themeProbe.toString()}\nexport const name='intelligent-experience-probe';export const inject=['appReady','solarExperience'];export function apply(ctx){let started=false;return ctx.get('appReady').onReady(()=>{if(started)return;started=true;void themeProbe(ctx).catch(error=>{process.stderr.write(String(error.stack??error));ctx.get('appExit')(1)})})}\n`
   await writeFile(join(probeDir, 'index.mjs'), code)
   const theme = { ...JSON.parse(await readFile(join(PACKAGE, 'theme', 'paper-flow.dsh-theme.json'), 'utf8')), id: 'scratch-theme', name: 'Scratch theme acceptance', appearance: { backgroundColor: '#24262b', translucent: true, backgroundOpacity: 0.43 } }
   const empryo = JSON.parse(await readFile(join(PACKAGE, 'src', 'themes', 'empryo.dsh-theme.json'), 'utf8'))
@@ -352,7 +385,7 @@ async function checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSe
     }
     phases.push(result)
     if (!result.ok || processError) throw Object.assign(new Error(`theme ${phase} failed: ${JSON.stringify(result)}`, { cause: processError }), { themeEvidence: { ok: false, failedPhase: phase, phases, externalModelCalls: 0 } })
-    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback', 'compositionJevAttached', 'compositionMissingJev', 'compositionDisabledJev', 'compositionCatalog', 'compositionOwnerRejected', 'compositionCancelled', 'compositionSelected', 'compositionReceipt', 'compositionReceiptCrossSessionRejected', 'compositionNoReplay', 'blockLayoutBatched', 'blockLayoutSettingsPersisted', 'blockLayoutDisabled', 'compositionSettingsRestored'])]
+    const required = ['ownerRpc', 'libraryAndPreviewRpc', 'componentRuntimeRpc', 'flagsPreserved', 'artifactsPreserved', ...(phase === 'install-select' ? ['nonOwnerRejected', 'importWithoutActivation', 'cas', 'directOpacityRpc', 'selected'] : ['restartRestored', 'nonOwnerRemoveRejected', 'removeActiveFallback', 'durableFallback', 'compositionJevAttached', 'compositionMissingJev', 'compositionDisabledJev', 'compositionCatalog', 'compositionOwnerRejected', 'compositionCancelled', 'compositionSelected', 'compositionReceipt', 'compositionReceiptCrossSessionRejected', 'compositionNoReplay', 'blockLayoutBatched', 'blockLayoutSettingsPersisted', 'blockLayoutDisabled', 'compositionSettingsRestored'])]
     if (required.some(check => result.checks[check] !== true)) throw new Error(`theme ${phase} is missing acceptance evidence: ${JSON.stringify(result)}`)
   }
   if (phases[0].pid === phases[1].pid) throw new Error('theme restart acceptance reused one Host process')
@@ -390,12 +423,12 @@ async function main() {
       await command(dshCli, ['--profile', PROFILE], env)
       marker = JSON.parse(await readFile(env.SOLAR_PLUGIN_PROBE_MARKER, 'utf8'))
       if (marker?.ok !== true) throw new Error(`keyless fixture reported failure: ${JSON.stringify(marker)}`)
-      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'canvasDiscovery', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
+      const required = ['service', 'settingsOff', 'cas', 'settingsOn', 'toolRegistered', 'canvasDiscovery', 'agentToolExecution', 'artifactRead', 'rawAndProvenance', 'dilGate', 'dilCompilePreview', 'dilRuntimeInfo', 'dilStaticRunner', 'dilToolPersistence', 'dilWidgetState', 'dilRunnerClosed', 'settingsRestored', 'registry', 'durableMarker', 'disposed']
       const missing = required.filter((key) => marker.checks?.[key] !== true)
       if (missing.length) throw new Error(`probe missing checks ${missing.join(', ')}: ${JSON.stringify(marker)}`)
       const root = join(scratch, 'solar', 'intelligent-experience-platform')
       const settings = JSON.parse(await readFile(join(root, 'settings.json'), 'utf8'))
-      if (settings.takeover !== false || settings.revision !== 2) throw new Error(`settings restore was not durable: ${JSON.stringify(settings)}`)
+      if (settings.takeover !== false || settings.adaptive?.blockLayout !== false || settings.revision !== 3) throw new Error(`settings restore was not durable: ${JSON.stringify(settings)}`)
       if (!Array.isArray(marker.artifacts) || marker.artifacts.length < 2 || !marker.artifacts.some((entry) => entry.source?.kind === 'generated') || !marker.artifacts.some((entry) => entry.source?.kind === 'assistant')) throw new Error('probe receipt did not include both generated content and standard assistant artifacts for the actual Agent')
       themes = await checkThemeRpc({ dshCli, scratch, env, fixture, marker, originalSettings: settings })
     } catch (error) { failure = error; themes = error.themeEvidence ?? themes }

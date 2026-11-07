@@ -31,7 +31,7 @@ function containsImage(node: Nodes): boolean {
  * Only root headings split the stream; quotations, nested lists and fenced code
  * remain inside their original section. No content is summarized or rewritten.
  */
-export function planContentSections(text: string): ContentSectionsPlan | undefined {
+export function planContentSections(text: string, options: { allowTextOnly?: boolean } = {}): ContentSectionsPlan | undefined {
   const root = processor.parse(text) as Root
   const headings = root.children.flatMap((node, index) => node.type === 'heading' ? [{ node, index }] : [])
   if (!headings.length) return undefined
@@ -49,6 +49,6 @@ export function planContentSections(text: string): ContentSectionsPlan | undefin
     return { start, end, text: text.slice(start, end), title: headingText(node), headingDepth: node.depth, hasTable: nodes.some(child => child.type === 'table'), hasMedia: nodes.some(containsImage) }
   })
   // Ordinary prose, code fences and quoted examples do not manufacture media.
-  if (!sections.some(section => section.hasTable || section.hasMedia)) return undefined
+  if (!options.allowTextOnly && !sections.some(section => section.hasTable || section.hasMedia)) return undefined
   return { intro: text.slice(0, sections[0]!.start), sections }
 }

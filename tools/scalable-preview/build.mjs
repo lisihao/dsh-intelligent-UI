@@ -1,3 +1,4 @@
+import { dilReferencePlugin } from '../dil-reference.mjs'
 import { build } from 'esbuild'
 import { mkdir, readFile, copyFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -13,7 +14,7 @@ await build({
   bundle: true, format: 'esm', platform: 'browser', target: 'es2022',
   define: { 'process.env.NODE_ENV': '"production"', __IEXP_ELK_WORKER_SOURCE__: JSON.stringify(await readFile(resolve(root, 'node_modules/elkjs/lib/elk-worker.min.js'), 'utf8')) },
   loader: { '.css': 'text', '.woff2': 'dataurl' },
-  plugins: [openuiCssPlugin, { name: 'scalable-preview-remotes', setup(b) { b.onResolve({ filter: /^\.\/remote\.js$/ }, () => ({ path: resolve(root, 'tools/browser-experience/remote-stub.ts') })) } }],
+  plugins: [openuiCssPlugin, dilReferencePlugin(), { name: 'scalable-preview-remotes', setup(b) { b.onResolve({ filter: /^\.\/remote\.js$/ }, () => ({ path: resolve(root, 'tools/browser-experience/remote-stub.ts') })) } }],
 })
 await copyFile(resolve(root, 'tools/scalable-preview/index.html'), resolve(output, 'index.html'))
 console.log(`Scalable preview built: ${output}`)

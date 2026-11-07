@@ -1,3 +1,4 @@
+import { MAX_CANVAS_CAPTURE_ELEMENTS } from './canvas-capture-limits.js'
 import { createContext, destroyContext, domToCanvas } from 'modern-screenshot'
 
 /**
@@ -62,7 +63,6 @@ export interface CanvasHtmlTextureBridge {
 const ELEMENTS = new Set(['DIV', 'SECTION', 'ARTICLE', 'P', 'SPAN', 'STRONG', 'EM', 'B', 'I', 'SMALL', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BR', 'PRE', 'CODE'])
 const INTERACTIVE_ROLES = new Set(['button', 'checkbox', 'combobox', 'link', 'menuitem', 'option', 'radio', 'searchbox', 'slider', 'spinbutton', 'switch', 'tab', 'textbox'])
 const RESOURCE_STYLE = /(?:url\s*\(|image-set\s*\(|(?:^|[\s,(])src\s*\(|@import|expression\s*\()/iu
-const MAX_ELEMENTS = 128
 const MAX_TEXT_LENGTH = 16_384
 const MAX_TEXT_NODES = 512
 const MAX_TEXT_RECTS = 512
@@ -148,7 +148,7 @@ export function readCanvasHtmlTextureSource(root: HTMLElement): SnapshotTree {
   let count = 0
   let textLength = 0
   const read = (element: Element): SnapshotNode => {
-    if (++count > MAX_ELEMENTS) throw new CanvasHtmlTextureError('too-large', 'The visual source has too many elements.')
+    if (++count > MAX_CANVAS_CAPTURE_ELEMENTS) throw new CanvasHtmlTextureError('too-large', 'The visual source has too many elements.')
     if (!ELEMENTS.has(element.tagName) || element.namespaceURI !== 'http://www.w3.org/1999/xhtml'
       || element.shadowRoot || element.hasAttribute('contenteditable') || element.hasAttribute('tabindex')
       || element.hasAttribute('draggable') || [...element.attributes].some(attribute => /^on/iu.test(attribute.name))) {

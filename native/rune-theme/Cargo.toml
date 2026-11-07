@@ -1,0 +1,31 @@
+[package]
+name = "dsh-rune-theme"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "DSH intelligent UI's Rust/WASM Rune material layer."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Keep the visual renderer upstream-owned. Cargo resolves the workspace members
+# below from this exact Rune revision; the adapter contains only data validation,
+# lifecycle glue and the DSH surface contract.
+[dependencies]
+rune = { git = "https://github.com/anomalyco/rune", rev = "4ca683561a100e16b1ce32f3576f4ade61bd2924", default-features = false }
+rune-fx = { git = "https://github.com/anomalyco/rune", rev = "4ca683561a100e16b1ce32f3576f4ade61bd2924" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Rune-fx's upstream lazy pipeline helper currently requires its WebGPU device to be `Sync` even
+# though the actual wasm branch remains single-threaded. This official wgpu feature provides that
+# marker only for non-atomic wasm; wgpu deliberately disables it when wasm atomics are enabled.
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl", "fragile-send-sync-non-atomic-wasm"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+js-sys = "0.3"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
