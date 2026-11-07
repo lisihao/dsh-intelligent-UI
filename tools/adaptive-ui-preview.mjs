@@ -267,7 +267,7 @@ function plannerBundleFromRequest(request) {
   const composition = asRecord(state.composition, 'SYNTHETIC_REQUEST_COMPOSITION_INVALID')
   const fixture = fixtureDocuments.get(source.documentId)
   const experimentalProjection = fixture?.blockLayout === true
-  if (experimentalProjection && composition.inputFormat !== 'block-design-context@2') throw new Error('SYNTHETIC_BLOCK_CONTEXT_FORMAT_INVALID')
+  if (experimentalProjection && composition.inputFormat !== 'block-design-context@6') throw new Error('SYNTHETIC_BLOCK_CONTEXT_FORMAT_INVALID')
   if (experimentalProjection && composition.styleMode !== blockLayoutServerSettings.adaptive.styleMode) throw new Error('SYNTHETIC_BLOCK_CONTEXT_STYLE_MODE_INVALID')
   const rebuilt = buildCompositionCandidates({
     value: source.value,
