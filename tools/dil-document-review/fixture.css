@@ -262,7 +262,7 @@ html, body { overflow-x: clip; background: var(--review-shell); color: var(--rev
   .dil-review-library > button { min-height: 78px; }
   .dil-review-reading-toolbar { align-items: flex-start; min-height: 80px; }
   .dil-review-reading-toolbar > button { min-height: 44px; }
-  .dil-review-document-surface.dsh-experience.iexp-content { padding: 16px; border-radius: 8px; }
+  .dil-review-document-surface.dsh-experience.iexp-content { padding: 12px; border-radius: 8px; }
   .dil-review-block-actions { opacity: 1; }
   .dil-review-block-actions button { min-height: 36px; }
   .dil-review-reader-block { margin-bottom: 20px; }

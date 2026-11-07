@@ -6,6 +6,7 @@ import { resolve, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { startDilDocumentReview } from './preview.mjs'
+import { presentationIssues, summarizeIssues } from './presentation-checks.mjs'
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url))
 const defaultEvidenceDirectory = resolve(projectRoot, '.acceptance/dil-document-review')
@@ -282,6 +283,8 @@ async function reviewReadyViewport(browser, origin, manifest, width, outputDirec
         const current = await snapshot(page)
         return current.renderStates.every(state => state === 'ready' || state === 'failed') ? current : undefined
       }, sleep, 60_000)
+      const presentation = await page.eval(presentationIssues)
+      assert.equal(presentation.length, 0, `presentation issues in document ${String(documentIndex)} at ${String(width)}px: ${JSON.stringify(summarizeIssues(presentation))}`)
       const listShape = await page.eval(() => {
         const rows = [...document.querySelectorAll('[data-review-inspector] [data-review-block-index]')]
         return {

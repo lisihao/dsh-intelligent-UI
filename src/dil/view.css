@@ -420,6 +420,35 @@
   padding: calc(16px * var(--iexp-density));
 }
 
+/* A program's card is a visible container. Without a material adapter it takes the theme's own
+   card surface, so its inset reads as a box instead of a misaligned text edge. A nested card steps
+   down to the sunken tone rather than stacking a second raised surface. */
+.dsh-experience .iexp-dil-card:not(.iexp-uiv-card) {
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-card-radius);
+  background: var(--iexp-card);
+  box-shadow: var(--iexp-shadow-card);
+}
+
+.dsh-experience .iexp-dil-card:not(.iexp-uiv-card) .iexp-dil-card:not(.iexp-uiv-card) {
+  border: 0;
+  border-radius: var(--iexp-list-radius);
+  background: var(--iexp-soft);
+  box-shadow: none;
+}
+
+/* Narrow screens tighten program-declared card insets (an inline style) so nested cards keep a
+   readable measure; wider screens retain the declared value. */
+@media (max-width: 560px) {
+  .dsh-experience .iexp-dil-card:not(.iexp-uiv-card) {
+    padding: 12px !important;
+  }
+
+  .dsh-experience .iexp-dil-card:not(.iexp-uiv-card) .iexp-dil-card:not(.iexp-uiv-card) {
+    padding: 8px 10px !important;
+  }
+}
+
 .dsh-experience .iexp-dil-chart {
   padding: calc(12px * var(--iexp-density));
 }
