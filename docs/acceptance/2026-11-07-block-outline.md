@@ -92,3 +92,20 @@ Verification (MacBook, no model calls):
 | md-4 | 139 (unchanged) | 0 of 38 | 26 | 35,590 |
 
 md-4's 26 blocks predate this change. All 32 of md-4's prose blocks carry `grouping:heading-depth:1`, while the document has 106 depth-2 and 7 depth-3 headings, so one block can contain several sections. The outline records only the section at each block's start.
+
+## Outline removed from the frame request (2026-11-07)
+
+**Why.** Live runs with `gpt-6-luna` compared base (`c2e8f4a`) with base plus the outline. In those runs, the frame request's outline lowered md-1's soft-relief material choices from 25 of 111 to 7 of 111. The details are in the [shared-guidance record](2026-11-07-shared-option-guidance.md). The frame request no longer carries the outline (`block-design-context@6`); the component requests still do.
+
+**Offline check (run).** For md-1 and md-3, the new frame request is byte-identical to base's except the `inputFormat` string.
+
+**Live check (run).** Base against this layout, interleaved in one session, md-1 and md-3, 3 repeats each. 36 requests, all HTTP 200, 1,740,692 input tokens. Every run ended `selected`. The rule, fixed before the run: soft-relief share of at least half of base's share in the same session, and above 5%.
+
+| Document | soft-relief, base | soft-relief, this layout | Rule |
+|---|---|---|---|
+| md-1 | 24 of 111 | 28 of 111 | passed |
+| md-3 | 18 of 93 | 30 of 93 | passed |
+
+**Tokens.** The frame call matches base (md-1 about 56,580, md-3 about 60,075). A whole composition costs about 4% (md-1) and 2% (md-3) more than base, because the outline goes into calls 2 and 3.
+
+**Component choices.** No component-choice effect of the outline was measured. Its component-stage differences in earlier runs were within run-to-run variation.
