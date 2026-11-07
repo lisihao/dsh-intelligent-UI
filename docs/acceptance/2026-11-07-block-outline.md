@@ -64,7 +64,7 @@ Probe receipts are under `.acceptance/claude-unified-description-20261107/` (not
 
 ## Follow-up: numbered bold paragraphs (`block-outline@2`)
 
-The owner chose to reuse the existing recognizer. `isStandaloneNumberedBoldHeading` in `src/content-analysis.ts` is now exported. It accepts a paragraph whose only child is bold text, with a numeric prefix, and whose title does not refer to table data. Before this change it was used only for table-note context.
+After the owner answered "合并，执行，你干" to a list that included this option, this change reuses the existing recognizer. `isStandaloneNumberedBoldHeading` in `src/content-analysis.ts` is now exported. It accepts a paragraph whose only child is bold text, with a numeric prefix, and whose title does not refer to table data. Before this change it was used only for table-note context.
 
 - **Sections.** Each top-level paragraph that the recognizer accepts becomes a section with evidence `source:numbered-bold-paragraph`.
 - **Depth.** The source gives no level, so the depth is derived: one level below the nearest open Markdown heading, or 1 when there is none. The evidence records this as `depth:derived-from-enclosing-heading`.
@@ -91,4 +91,4 @@ Verification (MacBook, no model calls):
 | md-3 | 15 (all depth 1) | 1 of 31 (before the first bold heading) | 0 | 6,293 |
 | md-4 | 139 (unchanged) | 0 of 38 | 26 | 35,590 |
 
-md-4's 26 blocks predate this change: the compiler groups md-4 at a coarser heading level than its finest headings, so one block can contain several sections. The outline records only the section at each block's start.
+md-4's 26 blocks predate this change. All 32 of md-4's prose blocks carry `grouping:heading-depth:1`, while the document has 106 depth-2 and 7 depth-3 headings, so one block can contain several sections. The outline records only the section at each block's start.
