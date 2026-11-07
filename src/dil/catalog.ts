@@ -33,7 +33,7 @@ export const DIL_COMPONENT_CATALOG: readonly DilCatalogEntry[] = [
   entry('caption', ['tone', 'hidden']),
   entry('bold', ['hidden']),
   entry('label', ['hidden']),
-  entry('code', ['language', 'hidden'], undefined, 'Renders through the host MarkdownCodeBlock adapter.'),
+  entry('code', ['language', 'hidden'], undefined, 'Code children are literal text: {body} displays the characters {body}, not a variable. For source-bound or computed code, use <markdown source={data.source}/> with the original fenced Markdown. Literal code renders through the host MarkdownCodeBlock adapter.'),
   entry('markdown', ['source', 'hidden'], undefined, 'Renders this explicit source string through the host renderMarkdown adapter. It has no children, events, DOM, style, or URL props; unavailable host rendering shows a visible source fallback.'),
   entry('component', ['id', 'input', 'hidden'], ['onChange'], 'Renders one exact host-owned external component. id is a fixed library-qualified component ID and input is bounded JSON already bound to source data. The host validates the exact catalog ID and input contract. JSON fields such as source code, URLs, image src values, actions, and protocol examples stay data; DIL never evaluates or interprets them. Do not pass demo data. onChange only updates local DIL state through an owned handler.'),
   entry('icon', ['name', 'label', 'size', 'tone', 'hidden'], undefined, 'size is a bounded number.'),

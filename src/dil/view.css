@@ -178,6 +178,10 @@
 
 .dsh-experience .iexp-dil-badge {
   display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  justify-self: start;
+  align-self: flex-start;
   align-items: center;
   min-block-size: 20px;
   padding-inline: 7px;

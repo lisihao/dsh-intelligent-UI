@@ -2,8 +2,10 @@ import { Fragment, createElement as h, useEffect, useRef, useState, type CSSProp
 import { flushSync } from 'react-dom'
 import { BarChart, IconWrapper, LineChart, PieChart } from '@openuidev/react-ui'
 
+import { useCompositionSelection } from '../adaptive-ui/scope.js'
 import { MarkdownCodeBlock } from '../markdown-code.js'
-import { ThemeButton, ThemeCard, ThemeInput, ThemeToggle } from '../theme-components.js'
+import { ThemeButton, ThemeCard, ThemeInput, ThemeToggle, themeComponentSet } from '../theme-components.js'
+import { usePresentationTheme } from '../theme-runtime.js'
 import type { CompiledDil } from './compiler.js'
 import type { DilIntrinsicTag, DilJson } from './protocol.js'
 import { validateDilComponentInput, validateDilExternalComponentId, validateDilTree } from './protocol.js'
@@ -43,6 +45,10 @@ export type DilProgramViewProps = Readonly<{
   initialState?: Readonly<Record<string, unknown>>
   onStateChange?: (state: Record<string, unknown>) => void
   onSubmit?: (action: string, input: DilSubmitInput) => void | Promise<void>
+  /** Receives the validated native tree emitted by one local DIL run. */
+  onSnapshot?: (tree: DilTreeNode) => void
+  /** Receives real compilation, runtime, or renderer failures outside render. */
+  onRuntimeFailure?: (reason: string) => void
   /** Host-owned Markdown renderer; the native view never imports presentation. */
   renderMarkdown?: (source: string) => ReactNode
   /** Host-owned external library bridge; DIL never resolves foreign components itself. */
@@ -82,6 +88,7 @@ type Props = Readonly<Record<string, unknown>>
 type ChartRow = Record<string, string | number>
 type CartesianChartKind = 'line' | 'bar'
 type CartesianChartSpec = Readonly<{ categoryKey: string, dataKeys: readonly string[], kind: CartesianChartKind }>
+type DilComponentSet = ReturnType<typeof themeComponentSet>
 
 const MAX_NATIVE_DEPTH = 48
 const MAX_NATIVE_NODES = 512
@@ -418,6 +425,7 @@ function fallbackView(source: string, compiled: CompiledDil, reason: string | un
 }
 
 type RenderContext = Readonly<{
+  componentSet: DilComponentSet
   trigger: (handler: unknown, args: readonly unknown[]) => void
   submit: (action: unknown, form: HTMLFormElement) => void
   reportFailure?: (error: unknown) => void
@@ -471,7 +479,7 @@ function buttonProps(props: Props, context: RenderContext) {
   }
 }
 
-function renderChart(node: DilElementNode, key: string, pie = false): ReactElement {
+function renderChart(node: DilElementNode, key: string, context: RenderContext, pie = false): ReactElement {
   const props = node.p ?? {}
   const data = Array.isArray(props.data) ? props.data as ChartRow[] : []
   const height = finite(props.height, 220, 120, 480)
@@ -488,7 +496,7 @@ function renderChart(node: DilElementNode, key: string, pie = false): ReactEleme
           ? h(LineChart, { data: projected, categoryKey: spec.categoryKey, height, width: '100%', grid: true, legend: spec.dataKeys.length > 1, showDots: projected.length <= 40, isAnimationActive: false } as never)
           : h(BarChart, { data: projected, categoryKey: spec.categoryKey, height, width: '100%', grid: true, legend: spec.dataKeys.length > 1, orientation: 'horizontal', isAnimationActive: false } as never)
       })()
-  return h(ThemeCard, { key, as: 'figure', renderRole: 'chart', className: 'iexp-dil-chart', hidden: boolean(props.hidden) || undefined, 'data-dil-tag': node.t },
+  return h(ThemeCard, { key, componentSet: context.componentSet, as: 'figure', renderRole: 'chart', className: 'iexp-dil-chart', hidden: boolean(props.hidden) || undefined, 'data-dil-tag': node.t },
     text(props.title) && h('figcaption', null, text(props.title)),
     h('div', { className: 'iexp-dil-chart-plot' }, chart))
 }
@@ -511,7 +519,7 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
     case 'grid-item':
       return h('div', { ...common, className: 'iexp-dil-grid-item', style: { gridColumn: 'span ' + String(finite(props.span, 1, 1, 6)) } }, ...children)
     case 'card':
-      return h(ThemeCard, { ...common, as: 'article', renderRole: 'content', className: 'iexp-dil-card', style: inline }, text(props.title) && h('h3', null, text(props.title)), ...children)
+      return h(ThemeCard, { ...common, componentSet: context.componentSet, as: 'article', renderRole: 'content', className: 'iexp-dil-card', style: inline }, text(props.title) && h('h3', null, text(props.title)), ...children)
     case 'divider':
       return h('hr', { ...common, className: 'iexp-dil-divider' })
     case 'spacer':
@@ -575,10 +583,10 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
     case 'badge':
       return h('span', { ...common, className: 'iexp-dil-badge' + (tone(props) ? ' is-' + tone(props) : '') }, ...children)
     case 'button':
-      return h(ThemeButton, { ...common, ...buttonProps(props, context), className: 'iexp-dil-button' + (text(props.variant) ? ' is-' + text(props.variant) : '') }, children.length ? children : text(props.label))
+      return h(ThemeButton, { ...common, componentSet: context.componentSet, ...buttonProps(props, context), className: 'iexp-dil-button' + (text(props.variant) ? ' is-' + text(props.variant) : '') }, children.length ? children : text(props.label))
     case 'input':
       return h(ThemeInput, {
-        ...common, className: 'iexp-dil-input', name: text(props.name) || undefined,
+        ...common, componentSet: context.componentSet, className: 'iexp-dil-input', name: text(props.name) || undefined,
         type: ['text', 'number', 'email', 'search', 'date', 'time'].includes(text(props.type, 'text')) ? text(props.type, 'text') : 'text',
         value: props.value === undefined ? '' : String(props.value),
         placeholder: text(props.placeholder), disabled: boolean(props.disabled), required: boolean(props.required),
@@ -597,17 +605,17 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
     case 'checkbox':
     case 'switch':
       return h('label', { ...common, className: 'iexp-dil-toggle-row is-' + node.t },
-        h(ThemeToggle, { name: text(props.name) || undefined, checked: boolean(props.checked), disabled: boolean(props.disabled), onChange: (event: { currentTarget: HTMLInputElement }) => context.trigger(props.onChange, [event.currentTarget.checked]) }),
+        h(ThemeToggle, { componentSet: context.componentSet, name: text(props.name) || undefined, checked: boolean(props.checked), disabled: boolean(props.disabled), onChange: (event: { currentTarget: HTMLInputElement }) => context.trigger(props.onChange, [event.currentTarget.checked]) }),
         ...children)
     case 'radio':
       return h('label', { ...common, className: 'iexp-dil-radio' },
-        h(ThemeInput, { type: 'radio', name: text(props.name) || undefined, value: String(props.value ?? ''), checked: boolean(props.checked), disabled: boolean(props.disabled), onChange: (event: { currentTarget: HTMLInputElement }) => { if (event.currentTarget.checked) context.trigger(props.onChange, [props.value]) } }),
+        h(ThemeInput, { componentSet: context.componentSet, type: 'radio', name: text(props.name) || undefined, value: String(props.value ?? ''), checked: boolean(props.checked), disabled: boolean(props.disabled), onChange: (event: { currentTarget: HTMLInputElement }) => { if (event.currentTarget.checked) context.trigger(props.onChange, [props.value]) } }),
         ...children)
     case 'radio-group': {
       const options = normalizedOptions(props.options)
       return h('fieldset', { ...common, className: 'iexp-dil-radio-group', disabled: boolean(props.disabled) },
         ...options.map(option => h('label', { key: String(option.value), className: 'iexp-dil-radio' },
-          h(ThemeInput, { type: 'radio', name: text(props.name) || undefined, value: String(option.value), checked: Object.is(props.value, option.value), onChange: (event: { currentTarget: HTMLInputElement }) => { if (event.currentTarget.checked) context.trigger(props.onChange, [option.value]) } }),
+          h(ThemeInput, { componentSet: context.componentSet, type: 'radio', name: text(props.name) || undefined, value: String(option.value), checked: Object.is(props.value, option.value), onChange: (event: { currentTarget: HTMLInputElement }) => { if (event.currentTarget.checked) context.trigger(props.onChange, [option.value]) } }),
           option.label)),
         ...children)
     }
@@ -620,7 +628,7 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
     }
     case 'slider':
       return h(ThemeInput, {
-        ...common, className: 'iexp-dil-slider', type: 'range', name: text(props.name) || undefined,
+        ...common, componentSet: context.componentSet, className: 'iexp-dil-slider', type: 'range', name: text(props.name) || undefined,
         min: finite(props.min, 0, -10_000, 10_000), max: finite(props.max, 100, -10_000, 10_000), step: finite(props.step, 1, 0.0001, 10_000), value: finite(props.value, finite(props.min, 0), -10_000, 10_000),
         disabled: boolean(props.disabled),
         onChange: (event: { currentTarget: HTMLInputElement }) => context.trigger(props.onChange, [Number(event.currentTarget.value)]),
@@ -629,7 +637,7 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
     case 'segmented-control': {
       const options = normalizedOptions(props.options)
       return h('div', { ...common, className: 'iexp-dil-segmented', role: 'group' },
-        ...options.map(option => h(ThemeButton, { key: String(option.value), type: 'button', disabled: boolean(props.disabled), 'aria-pressed': Object.is(props.value, option.value), onClick: () => context.trigger(props.onChange, [option.value]) }, option.label)))
+        ...options.map(option => h(ThemeButton, { key: String(option.value), componentSet: context.componentSet, type: 'button', disabled: boolean(props.disabled), 'aria-pressed': Object.is(props.value, option.value), onClick: () => context.trigger(props.onChange, [option.value]) }, option.label)))
     }
     case 'table':
       return h('div', { ...common, className: 'iexp-dil-table-wrap', 'aria-label': text(props.label) || undefined }, h('table', { className: 'iexp-dil-table' }, h('tbody', null, ...children)))
@@ -652,9 +660,9 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
         boolean(props.showValue) && h('output', null, String(Math.round(value / max * 100)) + '%'))
     }
     case 'chart':
-      return renderChart(node, key)
+      return renderChart(node, key, context)
     case 'pie-chart':
-      return renderChart(node, key, true)
+      return renderChart(node, key, context, true)
     case 'image':
       return h('img', { ...common, className: 'iexp-dil-image', src: safeImageDataUrl(props.src), alt: text(props.alt), width: finite(props.width, 0, 0, 2_000) || undefined, height: finite(props.height, 0, 0, 2_000) || undefined })
     case 'link':
@@ -670,7 +678,7 @@ function renderNode(node: DilTreeNode, context: RenderContext, key: string): Rea
     case 'tabs':
       return h('div', { ...common, className: 'iexp-dil-tabs', role: 'tablist' }, ...children)
     case 'tab':
-      return h(ThemeButton, { ...common, type: 'button', role: 'tab', disabled: boolean(props.disabled), 'aria-selected': boolean(props.selected), onClick: () => context.trigger(props.onChange ?? props.onClick, [props.value]) }, ...children)
+      return h(ThemeButton, { ...common, componentSet: context.componentSet, type: 'button', role: 'tab', disabled: boolean(props.disabled), 'aria-selected': boolean(props.selected), onClick: () => context.trigger(props.onChange ?? props.onClick, [props.value]) }, ...children)
     case 'tab-panel':
       return h('section', { ...common, className: 'iexp-dil-tab-panel', role: 'tabpanel', hidden: props.active === false || boolean(props.hidden) || undefined }, ...children)
     default:
@@ -741,6 +749,9 @@ function nativeTreeFallback(children: ReactNode, reason: string): ReactElement {
  * neither handler nor form port is invoked until a DOM event actually occurs.
  */
 export function DilNativeTreeView({ tree: rawTree, artifactId, sessionId, ownedHandlerIds, ownedFormActionIds, onHandler, onSubmit, renderMarkdown, renderComponent, children }: DilNativeTreeViewProps): ReactElement {
+  const composition = useCompositionSelection()
+  const theme = usePresentationTheme()
+  const componentSet = composition?.componentSet ?? themeComponentSet(theme)
   const [eventFailure, setEventFailure] = useState<Readonly<{ tree: unknown, message: string }>>()
   const submitting = useRef(false)
   const mounted = useRef(true)
@@ -768,6 +779,7 @@ export function DilNativeTreeView({ tree: rawTree, artifactId, sessionId, ownedH
     if (mounted.current) setEventFailure({ tree: rawTree, message: error instanceof Error ? error.message : String(error) })
   }
   const context: RenderContext = {
+    componentSet,
     renderMarkdown,
     renderComponent,
     reportFailure: failForCurrentTree,
@@ -821,7 +833,10 @@ export function DilNativeTreeView({ tree: rawTree, artifactId, sessionId, ownedH
         : nativeTreeFallback(children, '没有可用的 DIL 原生树。'))
 }
 
-export function DilProgramView({ source, compiled, enabled, artifactId, sessionId, frameUrl, initialState = {}, onStateChange, onSubmit, renderMarkdown, renderComponent, renderFallback }: DilProgramViewProps): ReactElement {
+export function DilProgramView({ source, compiled, enabled, artifactId, sessionId, frameUrl, initialState = {}, onStateChange, onSubmit, onSnapshot, onRuntimeFailure, renderMarkdown, renderComponent, renderFallback }: DilProgramViewProps): ReactElement {
+  const composition = useCompositionSelection()
+  const theme = usePresentationTheme()
+  const componentSet = composition?.componentSet ?? themeComponentSet(theme)
   const sandboxHost = useRef<HTMLDivElement>(null)
   const runner = useRef<DilRunner>()
   const runnerReady = useRef<DilRunner>()
@@ -830,11 +845,16 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
   const stateRef = useRef<Record<string, unknown>>({ ...initialState })
   const onStateChangeRef = useRef(onStateChange)
   const onSubmitRef = useRef(onSubmit)
+  const onSnapshotRef = useRef(onSnapshot)
+  const onRuntimeFailureRef = useRef(onRuntimeFailure)
+  const reportedFailureRef = useRef<string>()
   const renderMarkdownRef = useRef(renderMarkdown)
   const renderComponentRef = useRef(renderComponent)
   const submitInFlight = useRef(false)
   onStateChangeRef.current = onStateChange
   onSubmitRef.current = onSubmit
+  onSnapshotRef.current = onSnapshot
+  onRuntimeFailureRef.current = onRuntimeFailure
   renderMarkdownRef.current = renderMarkdown
   renderComponentRef.current = renderComponent
   latestCompiled.current = compiled
@@ -842,6 +862,21 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
   const [tree, setTree] = useState<DilTreeNode>()
   const [state, setState] = useState<Record<string, unknown>>({ ...initialState })
   const [failure, setFailure] = useState<string>()
+
+  const compilationFailure = compiled.ok ? undefined : 'DIL 编译未通过，未执行界面程序。' + (compiled.diagnosticSummary ? ' ' + compiled.diagnosticSummary : '')
+  const markdownFailure = treeUsesMarkdown(tree) && !renderMarkdown ? 'DIL Markdown 组件需要宿主 Markdown 渲染器。' : undefined
+  const componentFailure = treeUsesExternalComponent(tree) && !renderComponent ? 'DIL 外部组件需要宿主组件渲染器。' : undefined
+  const runtimeFailure = enabled ? failure ?? componentFailure ?? markdownFailure ?? compilationFailure : undefined
+
+  useEffect(() => {
+    if (!runtimeFailure) {
+      reportedFailureRef.current = undefined
+      return
+    }
+    if (reportedFailureRef.current === runtimeFailure) return
+    reportedFailureRef.current = runtimeFailure
+    onRuntimeFailureRef.current?.(runtimeFailure)
+  }, [runtimeFailure])
 
   const receiveState = (next: Record<string, unknown>): void => {
     try {
@@ -901,6 +936,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
           if (treeUsesExternalComponent(nativeTree) && !renderComponentRef.current) {
             throw new DilNativeViewError('DIL_COMPONENT_RENDERER_UNAVAILABLE', 'DIL 外部组件需要宿主组件渲染器。')
           }
+          onSnapshotRef.current?.(nativeTree)
           setTree(nativeTree)
           setFailure(undefined)
         } catch (error) {
@@ -960,6 +996,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
   }, [compiled, enabled])
 
   const context: RenderContext = {
+    componentSet,
     renderMarkdown: renderMarkdownRef.current,
     renderComponent: renderComponentRef.current,
     reportFailure(error) { setFailure(error instanceof Error ? error.message : String(error)) },
@@ -1009,10 +1046,7 @@ export function DilProgramView({ source, compiled, enabled, artifactId, sessionI
     },
   }
 
-  const compilationFailure = compiled.ok ? undefined : 'DIL 编译未通过，未执行界面程序。' + (compiled.diagnosticSummary ? ' ' + compiled.diagnosticSummary : '')
   const diagnostics = compiled.ok ? compilerDiagnosticText(compiled) : undefined
-  const markdownFailure = treeUsesMarkdown(tree) && !renderMarkdown ? 'DIL Markdown 组件需要宿主 Markdown 渲染器。' : undefined
-  const componentFailure = treeUsesExternalComponent(tree) && !renderComponent ? 'DIL 外部组件需要宿主组件渲染器。' : undefined
   const fallback = !enabled || compilationFailure !== undefined || markdownFailure !== undefined || componentFailure !== undefined || failure !== undefined
   return h('section', { className: 'dsh-experience iexp-dil', 'data-dil-enabled': String(enabled), 'data-dil-artifact-id': artifactId, 'data-dil-session-id': sessionId },
     h('div', { ref: sandboxHost, className: 'iexp-dil-runner-host', 'aria-hidden': true }),

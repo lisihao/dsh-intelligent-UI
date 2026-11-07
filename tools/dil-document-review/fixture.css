@@ -1,5 +1,5 @@
-/* Hallmark: the private document review fixture uses established DSH content tokens. */
-/* Critique: review metadata remains secondary to the source and its actual DIL output. */
+/* Hallmark · app screen · genre: modern-minimal · theme: existing DSH · signature: real model documents · v2.0.0 */
+/* Critique: continuous actual output leads; source code and decision evidence remain in the inspector. */
 :root {
   --dil-review-ground: #e9edf1;
   --dil-review-ink: #1a2028;
@@ -7,6 +7,8 @@
   --dil-review-line: #cdd5dc;
   --dil-review-card: #fbfcfd;
   --dil-review-accent: #4a6a80;
+  --dil-review-failed: #8b5263;
+  --dil-review-waiting: #6f511f;
 }
 
 html,
@@ -100,7 +102,7 @@ body {
   color: var(--iexp-text, var(--dil-review-ink));
   cursor: pointer;
   font: inherit;
-  padding: 6px 9px;
+  padding: 8px 12px;
   text-align: start;
 }
 
@@ -126,7 +128,7 @@ body {
   background: var(--iexp-card, var(--dil-review-card));
   color: var(--iexp-text, var(--dil-review-ink));
   font: inherit;
-  padding: 6px 9px;
+  padding: 8px 12px;
 }
 
 .dil-review-block {
@@ -139,8 +141,8 @@ body {
   font-weight: 600;
 }
 
-.dil-review-status[data-status='failed'] { color: #8b5263; }
-.dil-review-status[data-status='pending'] { color: #6f511f; }
+.dil-review-status[data-status='failed'] { color: var(--dil-review-failed); }
+.dil-review-status[data-status='pending'] { color: var(--dil-review-waiting); }
 
 .dil-review-block details,
 .dil-review-raw details {
@@ -166,3 +168,126 @@ body {
   .dil-review-block-toolbar button,
   .dil-review-search { min-block-size: 44px; }
 }
+
+/* Reader correction: application chrome is outside the content-theme scope.
+   At 1440: 48px outer gutters + 216px library + 24px gap + flexible reading area.
+   The evidence rail occupies 304px only when opened; below 1100px it is a sheet. */
+:root {
+  --review-shell: #101214;
+  --review-panel: #191c20;
+  --review-hover: #24282d;
+  --review-ink: #edf0f2;
+  --review-muted: #aeb6bf;
+  --review-line: #30363e;
+  --review-focus: #b7ccdf;
+  --review-negative: #e5a8a8;
+  --review-font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --review-code: 'DSH Recursive', 'SF Mono', Consolas, monospace;
+}
+html, body { overflow-x: clip; background: var(--review-shell); color: var(--review-ink); font: 14px/1.6 var(--review-font); color-scheme: dark; }
+.dil-review-app { max-inline-size: 1560px; padding: 0 24px 40px; gap: 0; font: 14px/1.6 var(--review-font); }
+.dil-review-app-header { display: flex; align-items: center; gap: 16px; min-block-size: 68px; border-bottom: 1px solid var(--review-line); }
+.dil-review-app-header h1 { margin: 0; font: 600 18px/1.4 var(--review-font); letter-spacing: 0; }
+.dil-review-app-header > span { color: var(--review-muted); }
+.dil-review-app-header .dil-review-provenance { margin-inline-start: auto; font-size: 12px; }
+.dil-review-app-grid { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 24px; align-items: start; }
+.dil-review-library { position: sticky; top: 16px; display: grid; gap: 8px; padding-block: 24px; }
+.dil-review-library h2 { margin: 0 12px 12px; font: 500 13px/1.5 var(--review-font); color: var(--review-muted); }
+.dil-review-app button, .dil-review-app input { font: inherit; color: inherit; }
+.dil-review-app button { cursor: pointer; }
+.dil-review-library > button { display: grid; gap: 4px; width: 100%; min-width: 0; padding: 12px; border: 0; border-radius: 6px; text-align: start; background: transparent; }
+.dil-review-library > button:hover { background: var(--review-panel); }
+.dil-review-library > button[aria-pressed='true'] { background: var(--review-hover); }
+.dil-review-document-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.6; overflow-wrap: break-word; }
+.dil-review-app .dil-review-meta { font: 12px/1.6 var(--review-font); color: var(--review-muted); }
+.dil-review-library-note { margin: 24px 12px 0; font-size: 12px; color: var(--review-muted); }
+.dil-review-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; align-items: start; }
+.dil-review-workspace[data-inspector-open='true'] { grid-template-columns: minmax(0, 1fr) 304px; }
+.dil-review-reading-column { min-width: 0; }
+.dil-review-reading-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 76px; padding: 12px 0; box-sizing: border-box; }
+.dil-review-reading-caption { display: grid; min-width: 0; gap: 4px; }
+.dil-review-reading-caption > span:first-child { font-size: 13px; overflow-wrap: anywhere; }
+.dil-review-reading-toolbar > button, .dil-review-inspector-heading button, .dil-review-unavailable button { flex: none; min-height: 36px; padding: 8px 12px; background: transparent; border: 1px solid var(--review-line); border-radius: 6px; }
+.dil-review-document-surface.dsh-experience.iexp-content { box-sizing: border-box; width: 100%; max-width: 1040px; min-width: 0; margin-inline: auto; padding: clamp(20px, 3vw, 40px); background: var(--iexp-bg); color: var(--iexp-text); border-radius: 12px; box-shadow: none; backdrop-filter: none; }
+.dil-review-reader-block { position: relative; min-width: 0; scroll-margin-top: 24px; margin: 0 0 24px; }
+.dil-review-reader-block:last-child { margin-bottom: 0; }
+.dil-review-block-actions { display: flex; justify-content: flex-end; gap: 8px; min-height: 24px; margin-bottom: 4px; opacity: 0; }
+.dil-review-reader-block:hover > .dil-review-block-actions, .dil-review-reader-block:focus-within > .dil-review-block-actions { opacity: 1; }
+.dil-review-block-actions button { border: 0; padding: 2px 4px; font-size: 12px; background: transparent; color: var(--iexp-muted); }
+.dil-review-reader-block .iexp-dil { min-width: 0; }
+.dil-review-reader-block .iexp-dil-title { overflow-wrap: anywhere; }
+.dil-review-reader-block .iexp-dil-pending { margin: 0; color: var(--iexp-muted); }
+.dil-review-reader-block > button { min-height: 36px; padding: 8px 12px; background: var(--iexp-soft); border: 1px solid var(--iexp-line); border-radius: 6px; }
+.dil-review-runtime-error { color: var(--review-negative); font-size: 13px; }
+.dil-review-document-footer { display: grid; gap: 8px; padding: 24px 0; color: var(--review-muted); font-size: 12px; }
+.dil-review-document-footer p { margin: 0; }
+.dil-review-raw { border: 0; border-radius: 0; padding: 0; background: transparent; color: inherit; }
+.dil-review-raw pre, .dil-review-evidence pre { box-sizing: border-box; max-width: 100%; max-height: 400px; margin: 12px 0; padding: 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--review-shell); color: var(--review-ink); font: 12px/1.7 var(--review-code); border-radius: 6px; }
+.dil-review-inspector { position: sticky; top: 16px; max-height: calc(100dvh - 32px); min-width: 0; box-sizing: border-box; overflow: auto; padding: 24px 0 24px 20px; border-left: 1px solid var(--review-line); background: var(--review-shell); }
+.dil-review-inspector[hidden] { display: none; }
+.dil-review-inspector-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.dil-review-inspector h2 { margin: 0; font: 600 15px/1.5 var(--review-font); }
+.dil-review-inspector h3 { margin: 0 0 8px; font: 500 13px/1.6 var(--review-font); color: var(--review-muted); }
+.dil-review-inspector .dil-review-search { width: 100%; min-height: 36px; background: var(--review-panel); border: 1px solid var(--review-line); font: 13px/1.5 var(--review-font); color: var(--review-ink); }
+.dil-review-inspector .dil-review-meta { margin: 8px 0; }
+.dil-review-block-list { display: grid; gap: 2px; max-height: 240px; margin: 12px 0 24px; overflow: auto; }
+.dil-review-block-list button { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; min-height: 42px; width: 100%; padding: 8px; border: 0; border-radius: 4px; background: transparent; color: var(--review-muted); font-size: 12px; }
+.dil-review-block-list button[aria-pressed='true'] { background: var(--review-hover); color: var(--review-ink); }
+.dil-review-block-list button:hover { background: var(--review-panel); }
+.dil-review-block-number { font-variant-numeric: tabular-nums; }
+.dil-review-selected-evidence { display: grid; gap: 16px; }
+.dil-review-evidence { display: grid; gap: 16px; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.dil-review-evidence p { margin: 0; }
+.dil-review-components { color: var(--review-muted); }
+.dil-review-evidence summary, .dil-review-raw summary { padding-block: 8px; cursor: pointer; }
+.dil-review-app :is(button, input, summary, a):focus-visible { outline: 2px solid var(--review-focus); outline-offset: 3px; }
+.dil-review-app button:active { transform: translateY(1px); }
+.dil-review-library button:disabled, .dil-review-reading-toolbar button:disabled, .dil-review-inspector button:disabled { cursor: not-allowed; opacity: 1; background: var(--review-panel); color: var(--review-muted); border-color: var(--review-line); }
+.dil-review-unavailable { display: grid; gap: 20px; padding-block: 48px; max-width: 720px; }
+@media (max-width: 1100px) {
+  .dil-review-app { padding: 0 20px 24px; }
+  .dil-review-app-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .dil-review-library { position: static; grid-template-columns: repeat(5, minmax(150px, 1fr)); overflow-x: auto; gap: 8px; padding-block: 16px; }
+  .dil-review-library h2, .dil-review-library-note { display: none; }
+  .dil-review-library > button { min-height: 84px; padding: 8px; }
+  .dil-review-workspace[data-inspector-open='true'] { grid-template-columns: minmax(0, 1fr); }
+  .dil-review-inspector { position: fixed; inset: 0 0 0 auto; z-index: 30; width: min(380px, 100%); max-height: 100dvh; padding: 20px; border-left: 1px solid var(--review-line); box-shadow: none; }
+}
+@media (max-width: 560px) {
+  .dil-review-app { padding-inline: 16px; }
+  .dil-review-app-header { min-height: 58px; gap: 12px; }
+  .dil-review-app-header h1 { font-size: 17px; }
+  .dil-review-provenance { display: none; }
+  .dil-review-library { grid-template-columns: repeat(5, 168px); }
+  .dil-review-library > button { min-height: 78px; }
+  .dil-review-reading-toolbar { align-items: flex-start; min-height: 80px; }
+  .dil-review-reading-toolbar > button { min-height: 44px; }
+  .dil-review-document-surface.dsh-experience.iexp-content { padding: 16px; border-radius: 8px; }
+  .dil-review-block-actions { opacity: 1; }
+  .dil-review-block-actions button { min-height: 36px; }
+  .dil-review-reader-block { margin-bottom: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .dil-review-app button:active { transform: none; } }
+
+/* Reader finish: the document is the focal point; navigation remains compact. */
+.dil-review-document-select-label { display: none; }
+.dil-review-document-surface .openui-markdown-renderer h1 { max-width: 100%; }
+.dil-review-document-surface .iexp-dil { font-family: var(--iexp-font); font-size: 15px; line-height: 1.75; }
+.dil-review-document-surface :is(table, output) { font-variant-numeric: tabular-nums; }
+@media (max-width: 1100px) {
+  .dil-review-library { display: block; padding-block: 16px 0; overflow: visible; }
+  .dil-review-library > button { display: none; }
+  .dil-review-document-select-label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; color: var(--review-muted); }
+  .dil-review-document-select-label select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--review-line); border-radius: 6px; background: var(--review-panel); color: var(--review-ink); font: 14px/1.5 var(--review-font); }
+  .dil-review-document-select-label select:focus-visible { outline: 2px solid var(--review-focus); outline-offset: 3px; }
+}
+
+.dil-review-workspace[data-inspector-open='true'] .dil-review-reader-block[data-review-active-block] { outline: 1px solid var(--review-focus); outline-offset: 8px; }
+.dil-review-reader-block .dil-review-block-actions { opacity: 1; }
+
+.dil-review-app-header h1, .dil-review-inspector h2 { text-wrap: balance; }
+@media (max-width: 1100px) {
+  .dil-review-inspector button, .dil-review-inspector .dil-review-search { min-height: 44px; }
+}
+
+.dil-review-reader-block[data-review-recovery='source-code'] .dil-review-runtime-error { color: var(--iexp-muted); }

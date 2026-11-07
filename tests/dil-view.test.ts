@@ -177,6 +177,41 @@ describe('DilProgramView', () => {
     expect(view.host.querySelector('label input[name="seats"]')).not.toBeNull()
   })
 
+  it('emits only validated snapshots, keeps the runner across callback replacement, and reports the actual failure reason', async () => {
+    let callbacks: Callbacks | undefined
+    const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+    mocks.createDilRunner.mockImplementation((options: Callbacks) => {
+      callbacks = options
+      return runner
+    })
+    const firstSnapshot = vi.fn()
+    const secondSnapshot = vi.fn()
+    const onRuntimeFailure = vi.fn()
+    const view = await mount({ onSnapshot: firstSnapshot, onRuntimeFailure })
+
+    await act(async () => callbacks!.onSnapshot(tree))
+    expect(firstSnapshot).toHaveBeenCalledOnce()
+    expect(firstSnapshot).toHaveBeenCalledWith(expect.objectContaining({ t: 'form' }))
+    const emittedTree = firstSnapshot.mock.calls[0]?.[0] as { t: string, c?: readonly { t: string, c?: readonly unknown[] }[] }
+    expect(emittedTree).toMatchObject({ t: 'form' })
+    expect(emittedTree.c?.[0]).toMatchObject({ t: 'input', c: [] })
+
+    await view.rerender({ onSnapshot: secondSnapshot })
+    expect(mocks.createDilRunner).toHaveBeenCalledOnce()
+    await act(async () => callbacks!.onSnapshot(updatedTree))
+    expect(firstSnapshot).toHaveBeenCalledOnce()
+    expect(secondSnapshot).toHaveBeenCalledOnce()
+    expect(secondSnapshot).toHaveBeenCalledWith(expect.objectContaining({ t: 'form' }))
+
+    await act(async () => callbacks!.onSnapshot({ t: 'script', p: { src: 'https://invalid.example/script.js' }, c: [] }))
+    expect(secondSnapshot).toHaveBeenCalledOnce()
+    expect(onRuntimeFailure).toHaveBeenCalledWith(expect.stringContaining('不支持 DIL 组件'))
+
+    await act(async () => callbacks!.onFailure(new Error('worker disconnected')))
+    expect(onRuntimeFailure).toHaveBeenLastCalledWith('worker disconnected')
+    expect(view.host.querySelector('[data-dil-fallback]')).not.toBeNull()
+  })
+
   it('delegates an explicit markdown source unchanged to the host Markdown renderer', async () => {
     let callbacks: Callbacks | undefined
     const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
