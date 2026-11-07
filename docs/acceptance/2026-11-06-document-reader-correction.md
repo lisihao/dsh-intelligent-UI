@@ -55,7 +55,7 @@ The owner had not yet approved the corrected reader's visual design. This follow
 All three were observed on `ad31147` with the new presentation check described below. Counts are per document at 1440px; the 390px counts are identical.
 
 - **Card inset.** A DIL `card` without a material adapter had no edge, fill or shadow, but kept its program-declared inline padding (for example `padding={4}`, which renders as 16px). It therefore showed no box, yet shifted text inward: up to eight distinct text left edges per document. Counts: 31 (md-1), 82 (md-2), 61 (md-3), 16 (md-4) and 123 (md-5) such cards.
-- **Body font.** OpenUI's layered Markdown rules (`@layer openui`, a `font:` shorthand on `p`, `li` and `strong`) set body text in Inter instead of the theme typeface. Headings already used the theme typeface. Examples: 60 Inter paragraphs in md-1 and 587 in md-3.
+- **Body font.** OpenUI's layered Markdown rules (`@layer openui`, a `font:` shorthand on `p`, `li` and `strong`) set body text in Inter instead of the theme typeface. Headings used the theme typeface only in default-theme documents (see the next item). Examples: 60 Inter paragraph and list items in md-1 and 587 in md-3.
 - **Theme tokens.** The default-token rule `.dsh-experience.iexp-content{…}` also matched nested embedded-Markdown roots. Inside the `paper-flow` documents (md-2, md-3, md-4), it reset `--iexp-font` from the document's platform sans to the default Empryo typeface. Headings therefore used DSH Recursive while DIL text used the system font.
 
 ### Changes
@@ -67,6 +67,7 @@ All three were observed on `ad31147` with the new presentation check described b
 - `src/style.ts` (production): Markdown body elements (`p`, lists, `blockquote`, `strong`, `a`) now inherit the theme `font-family` and `font-variation-settings`. Inline code uses `--iexp-code-font`.
   - Embedded-Markdown roots are excluded from the default-token rule, so they inherit the enclosing theme.
   - In a CDP check, the production appearance rule shape (`.dsh-experience,.dsh-experience.iexp-content[data-experience-theme]`, from `src/appearance-style.ts`) still set the token on embedded roots. A mono `--iexp-font` plus `--iexp-font-mono: 1` on the surface propagated to body text, including the `MONO 1` axis. The ASCII and Paper built-in themes themselves were not rendered.
+- `src/ascii-style.ts` (production): the ASCII grammar keeps data cards flat at rest; native DIL cards were added to that list. A CDP check injected the ASCII grammar block over an md-5 card: box shadow went from present to `none`, while the solid 1px border and fill remained. The full ASCII theme was not rendered.
 - `tools/dil-document-review/fixture.css`: the narrow-screen document surface inset changed from 16px to 12px.
 - `tools/dil-document-review/presentation-checks.mjs`, called by `review.mjs` for every settled document: asserts no embedded-Markdown theme-token mismatch, no Markdown body font that differs from the document typeface, and no invisible card with an inline inset.
 
@@ -84,6 +85,7 @@ Not changed: `appearance-style.ts` writes the global theme onto every nested `.d
 - **Opt-in DIL browser interaction test** (`DIL_BROWSER_E2E=1`): 1 passed (about 39 seconds).
 - **Unit and integration tests:** `pnpm typecheck` passed. The full Vitest suite passed: 159 files, 1529 tests passed, 5 skipped.
 - **Build and plugin acceptance:** `pnpm build` passed. `pnpm test:plugin` passed against a scratch profile: `scratchRemoved: true`, `liveModels: 0`.
+- **After the ASCII selector change:** `pnpm typecheck` passed; the eight ASCII test files passed (106 tests); `pnpm build` and `pnpm test:plugin` passed again (`scratchRemoved: true`, `liveModels: 0`). The browser matrix above ran before this one-selector change; the change only applies under the ASCII grammar, which none of the five documents use.
 - **Not run:** the taste/Hallmark linters. Their house rules (no borders, no shadows at rest) conflict with the locked DESIGN.md card material, so their warnings would not decide this change.
 - **No user feedback yet:** the owner has not reviewed the revised screenshots, so this is not a claim of owner visual approval.
 

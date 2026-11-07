@@ -26,7 +26,7 @@ export const asciiThemeCss = `
 .dsh-experience.iexp-content .openui-markdown-renderer :is(h4,h5,h6) { font-size:16px; }
 .dsh-experience.iexp-content .openui-markdown-renderer :is(p,ul,ol,blockquote) { max-width:74ch; }
 .dsh-experience.iexp-content :is(.iexp-card-title,.iexp-card-basis,.iexp-flow-node,.iexp-task,.iexp-object-detail,table) { font-variation-settings:'MONO' 1,'CASL' 0; }
-.dsh-experience.iexp-content :is(.iexp-chart-card,.iexp-source-table,.iexp-task,.iexp-object-detail,.iexp-heading-index,.iexp-flow-viewport) { box-shadow:none; }
+.dsh-experience.iexp-content :is(.iexp-chart-card,.iexp-source-table,.iexp-task,.iexp-object-detail,.iexp-heading-index,.iexp-flow-viewport,.iexp-dil-card:not(.iexp-uiv-card)) { box-shadow:none; }
 .dsh-experience.iexp-content :is(.iexp-card-head,.iexp-disclosure,.iexp-full-table) { border-style:dashed; border-width:0; border-top-width:1px; border-color:var(--iexp-line); }
 .dsh-experience.iexp-content .iexp-card-head { border-top:0; border-bottom:1px dashed var(--iexp-line); }
 .dsh-experience.iexp-content .iexp-card-title { font-weight:600; }
