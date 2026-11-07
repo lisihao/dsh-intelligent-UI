@@ -386,7 +386,7 @@ Original/source tables fit their actual parent width with a measured CSS transfo
 
 ## DIL program cards (2026-11-06)
 
-A `card` written by a DIL program is a visible container. With no material adapter it takes the theme's own card material (line border, card radius, card fill, card shadow), matching the explicit native card presentation; a card nested in a card uses the sunken tone without border or shadow. At 560px and below card insets cap at 12px (nested 8/10px). Cards with a material adapter keep that material. Markdown body text inherits the theme typeface; nested embedded Markdown inherits the enclosing theme tokens.
+The owner approved this direction on 2026-11-07 from reader screenshots. A `card` written by a DIL program is a visible container. With no material adapter it takes the theme's own card material (line border, card radius, card fill, card shadow), matching the explicit native card presentation; a card nested in a card uses the sunken tone without border or shadow. At 560px and below card insets cap at 12px (nested 8/10px). Cards with a material adapter keep that material. Markdown body text inherits the theme typeface; nested embedded Markdown inherits the enclosing theme tokens.
 
 ## Data browser and Insight preview
 
