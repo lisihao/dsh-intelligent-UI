@@ -7,7 +7,7 @@ import { installExperienceStyles } from '../../src/style.js'
 import type { CompiledDil } from '../../src/dil/compiler.js'
 import fixtureCss from './fixture.css'
 
-type ProgramName = 'initial' | 'updated' | 'invalid' | 'timeout'
+type ProgramName = 'initial' | 'updated' | 'invalid' | 'timeout' | 'static' | 'ticker'
 type Program = Readonly<{ label: string, source: string, compiled: CompiledDil }>
 type PreviewConfig = Readonly<{ frameUrl: string, programs: Record<ProgramName, Program> }>
 type Submission = Readonly<{
@@ -18,6 +18,8 @@ type Submission = Readonly<{
 
 type BrowserEvidence = {
   readonly modelCalls: number
+  peakFrames: number
+  peakPooledFrames: number
   readonly submissions: Submission[]
   readonly stateSnapshots: Record<string, unknown>[]
 }
@@ -39,8 +41,29 @@ installExperienceStyles()
 const response = await fetch('/api/config', { cache: 'no-store' })
 if (!response.ok) throw new Error(`DIL_BROWSER_CONFIG_FAILED:${String(response.status)}`)
 const config = await response.json() as PreviewConfig
-const evidence: BrowserEvidence = { modelCalls: 0, submissions: [], stateSnapshots: [] }
+const evidence: BrowserEvidence = { modelCalls: 0, peakFrames: 0, peakPooledFrames: 0, submissions: [], stateSnapshots: [] }
 window.__dilBrowser = evidence
+const countFrames = () => {
+  evidence.peakFrames = Math.max(evidence.peakFrames, document.querySelectorAll('iframe').length)
+  evidence.peakPooledFrames = Math.max(evidence.peakPooledFrames, document.querySelectorAll('[data-dil-runner="pool"] iframe').length)
+}
+new MutationObserver(countFrames).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-dil-runner'] })
+
+/** Many DIL pages on one long page: the shared runner pool bounds live sandboxes. */
+function CrowdFixture(): ReactElement {
+  const names: ProgramName[] = ['initial', 'static', 'static', 'initial', 'static', 'initial', 'static', 'initial']
+  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: 'dark' }, h('main', { className: 'dil-browser-shell', 'data-dil-browser-crowd': names.length },
+    ...names.map((name, index) => h('section', { key: index, className: 'dil-browser-surface dsh-experience iexp-content', 'data-crowd-index': index, 'data-crowd-program': name, style: { minHeight: '760px' } },
+      h(DilProgramView, {
+        source: config.programs[name].source,
+        compiled: config.programs[name].compiled,
+        enabled: true,
+        artifactId: `dil-browser-crowd-${String(index)}`,
+        sessionId: 'dil-browser-crowd-session',
+        frameUrl: config.frameUrl,
+        onStateChange: state => { evidence.stateSnapshots.push(clone({ index, ...state })) },
+      })))))
+}
 
 function BrowserDilFixture(): ReactElement {
   const [programName, setProgramName] = useState<ProgramName>('initial')
@@ -80,4 +103,19 @@ function BrowserDilFixture(): ReactElement {
 
 const root = document.querySelector('#root')
 if (!root) throw new Error('DIL_BROWSER_ROOT_MISSING')
-createRoot(root).render(h(BrowserDilFixture))
+/** A program that re-renders itself from an effect, with no user event. */
+function TickerFixture(): ReactElement {
+  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: 'dark' }, h('main', { className: 'dil-browser-shell', 'data-dil-browser-ticker': true },
+    h('section', { className: 'dil-browser-surface dsh-experience iexp-content' }, h(DilProgramView, {
+      source: config.programs.ticker.source, compiled: config.programs.ticker.compiled, enabled: true,
+      artifactId: 'dil-browser-ticker', sessionId: 'dil-browser-ticker-session', frameUrl: config.frameUrl,
+    }))))
+}
+
+const search = new URLSearchParams(location.search)
+createRoot(root).render(h(search.has('crowd') ? CrowdFixture : search.has('ticker') ? TickerFixture : BrowserDilFixture))
+// A chat opens at its latest messages: the crowd's last section is the visible one.
+if (search.has('bottom')) {
+  const toBottom = () => document.documentElement.scrollHeight > window.innerHeight * 2 ? window.scrollTo(0, document.documentElement.scrollHeight) : requestAnimationFrame(toBottom)
+  requestAnimationFrame(toBottom)
+}

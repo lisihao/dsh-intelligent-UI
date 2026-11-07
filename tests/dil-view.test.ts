@@ -31,7 +31,8 @@ vi.mock('@openuidev/react-ui', async importOriginal => ({
   PieChart: (props: unknown) => { chartMocks.pie(props); return null },
 }))
 
-import { DilProgramView } from '../src/dil/view.js'
+import { DilProgramView, clearDilSnapshotCache } from '../src/dil/view.js'
+import { createSlotPool } from '../src/slot-pool.js'
 
 type Callbacks = {
   onSnapshot(value: unknown): void
@@ -134,6 +135,7 @@ afterEach(async () => {
   for (const item of mounted) await act(async () => item.root.unmount())
   mounted = []
   document.body.replaceChildren()
+  clearDilSnapshotCache()
   vi.clearAllMocks()
 })
 
@@ -597,5 +599,260 @@ describe('DilProgramView', () => {
     await act(async () => callbacks!.onSnapshot({ t: 'image', p: { src: 'https://invalid.example/image.png', alt: '不能加载' }, c: [] }))
     expect(view.host.querySelector('img')).toBeNull()
     expect(view.host.querySelector('[role="alert"]')?.textContent).toContain('data: URL')
+  })
+})
+
+describe('DilProgramView runner slots', () => {
+  const staticTree = { t: 'card', c: [{ t: 'text', c: [{ t: '#text', v: '静态快照' }] }] }
+  type Runner = { start: ReturnType<typeof vi.fn>, update: ReturnType<typeof vi.fn>, trigger: ReturnType<typeof vi.fn>, captureState: ReturnType<typeof vi.fn>, dispose: ReturnType<typeof vi.fn> }
+  function lanes(size: number) { const pool = createSlotPool(size); return { onScreen: pool, background: pool } }
+  function observeEach() {
+    const observers = new Map<Element, (entries: Array<{ isIntersecting: boolean }>) => void>()
+    vi.stubGlobal('IntersectionObserver', class {
+      callback: (entries: Array<{ isIntersecting: boolean }>) => void
+      constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) { this.callback = callback }
+      observe(target: Element) { observers.set(target, this.callback) }
+      disconnect() {}
+    })
+    return (host: HTMLElement, isIntersecting: boolean) => act(async () => observers.get(host.querySelector('[data-dil-artifact-id]')!)!([{ isIntersecting }]))
+  }
+  function recordRunners() {
+    const runners: Array<{ runner: Runner, callbacks: Callbacks & { initialState?: Record<string, unknown> } }> = []
+    mocks.createDilRunner.mockImplementation((options: Callbacks & { initialState?: Record<string, unknown> }) => {
+      const runner = { start: vi.fn(async () => undefined), update: vi.fn(), trigger: vi.fn(), captureState: vi.fn(async () => ({})), dispose: vi.fn() }
+      runners.push({ runner, callbacks: options })
+      return runner
+    })
+    return runners
+  }
+
+  it('starts at most the pool size of runners and starts the next one when a view unmounts', async () => {
+    const runners = recordRunners()
+    const runnerSlots = lanes(1)
+    const first = await mount({ artifactId: 'a', runnerSlots })
+    const second = await mount({ artifactId: 'b', runnerSlots })
+    expect(runners).toHaveLength(1)
+    expect(second.host.querySelector('[data-dil-queued]')).not.toBeNull()
+    expect(second.host.textContent).toContain('可读回退')
+    await unmount(first)
+    expect(runners).toHaveLength(2)
+    expect(second.host.querySelector('[data-dil-queued]')).toBeNull()
+  })
+
+  it('disposes the runner after a non-interactive snapshot settles, keeps the tree and hands the slot on', async () => {
+    vi.useFakeTimers()
+    try {
+      const runners = recordRunners()
+      const runnerSlots = lanes(1)
+      const first = await mount({ artifactId: 'static-a', runnerSlots })
+      await mount({ artifactId: 'static-b', runnerSlots })
+      await act(async () => runners[0]!.callbacks.onSnapshot(staticTree))
+      expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+      await act(async () => { vi.advanceTimersByTime(1100) })
+      expect(runners[0]!.runner.dispose).toHaveBeenCalled()
+      expect(first.host.textContent).toContain('静态快照')
+      expect(runners).toHaveLength(2)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('updates the same runner for streamed revisions of a read-only tree', async () => {
+    const runners = recordRunners()
+    const view = await mount({ artifactId: 'streamed' })
+    await act(async () => runners[0]!.callbacks.onSnapshot(staticTree))
+    const next = { ...compiled, code: 'revision-2' } as CompiledDil
+    await view.rerender({ compiled: next })
+    expect(runners).toHaveLength(1)
+    expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+    expect(runners[0]!.runner.update).toHaveBeenCalledWith(next)
+  })
+
+  it('moves a visible interactive view out of the pool so the next view can start', async () => {
+    const runners = recordRunners()
+    const runnerSlots = lanes(1)
+    await mount({ artifactId: 'form-a', runnerSlots })
+    await mount({ artifactId: 'form-b', runnerSlots })
+    expect(runners).toHaveLength(1)
+    await act(async () => runners[0]!.callbacks.onSnapshot(tree))
+    expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+    expect(runners).toHaveLength(2)
+  })
+
+  it('releases the slot when the runner itself fails', async () => {
+    const runners = recordRunners()
+    const runnerSlots = lanes(1)
+    const first = await mount({ artifactId: 'fail-a', runnerSlots })
+    await mount({ artifactId: 'fail-b', runnerSlots })
+    await act(async () => runners[0]!.callbacks.onFailure(new Error('DIL_RUNNER_TIMEOUT')))
+    expect(runners[0]!.runner.dispose).toHaveBeenCalled()
+    expect(first.host.querySelector('[data-dil-fallback]')).not.toBeNull()
+    expect(runners).toHaveLength(2)
+  })
+
+  it('reuses one runner for a read-only preview that keeps streaming off screen', async () => {
+    const report = observeEach()
+    try {
+      const runners = recordRunners()
+      const view = await mount({ artifactId: 'streaming-off-screen' })
+      await report(view.host, false)
+      await act(async () => runners[0]!.callbacks.onSnapshot(staticTree))
+      const second = { ...compiled, code: 'revision-2' } as CompiledDil
+      await view.rerender({ compiled: second })
+      expect(runners).toHaveLength(2)
+      await act(async () => runners[1]!.callbacks.onSnapshot(staticTree))
+      const third = { ...compiled, code: 'revision-3' } as CompiledDil
+      await view.rerender({ compiled: third })
+      expect(runners).toHaveLength(2)
+      expect(runners[1]!.runner.update).toHaveBeenCalledWith(third)
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('never parks a form that was on screen when its program holds unkeyed state', async () => {
+    vi.useFakeTimers()
+    const report = observeEach()
+    try {
+      const runners = recordRunners()
+      const unkeyed = { ...compiled, code: 'DIL.useState(1); DIL.useState(2, { key: "a" })', stateKeys: ['a'] } as unknown as CompiledDil
+      const view = await mount({ artifactId: 'unkeyed-form', compiled: unkeyed })
+      await report(view.host, true)
+      await act(async () => runners[0]!.callbacks.onSnapshot(tree))
+      await report(view.host, false)
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals(); vi.useRealTimers() }
+  })
+
+  it('keeps the runner of a program that can update itself, and never caches its tree', async () => {
+    vi.useFakeTimers()
+    try {
+      const runners = recordRunners()
+      const ticking = { ...compiled, code: 'DIL.useEffect(function () { setInterval(function () {}, 1000) }, [])' } as CompiledDil
+      const first = await mount({ artifactId: 'clock', compiled: ticking })
+      await act(async () => runners[0]!.callbacks.onSnapshot(staticTree))
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+      await unmount(first)
+      await mount({ artifactId: 'clock', compiled: ticking })
+      expect(runners).toHaveLength(2)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('reuses a non-interactive snapshot on remount without starting a runner', async () => {
+    const runners = recordRunners()
+    const first = await mount({ artifactId: 'remount', compiled: { ...compiled, code: 'remount-code' } as CompiledDil })
+    await act(async () => runners[0]!.callbacks.onSnapshot(staticTree))
+    await unmount(first)
+    const again = await mount({ artifactId: 'remount', compiled: { ...compiled, code: 'remount-code' } as CompiledDil })
+    expect(again.host.textContent).toContain('静态快照')
+    expect(runners).toHaveLength(1)
+  })
+
+  it('starts an on-screen view without waiting behind views off screen', async () => {
+    const report = observeEach()
+    try {
+      const runners = recordRunners()
+      const runnerSlots = { onScreen: createSlotPool(1), background: createSlotPool(1) }
+      const above = [await mount({ artifactId: 'above-1', runnerSlots }), await mount({ artifactId: 'above-2', runnerSlots })]
+      const latest = await mount({ artifactId: 'latest', runnerSlots })
+      for (const view of above) await report(view.host, false)
+      await report(latest.host, true)
+      const started = runners.map(entry => (entry.callbacks as unknown as { container: HTMLElement }).container.closest('[data-dil-artifact-id]')!.getAttribute('data-dil-artifact-id'))
+      expect(started).toContain('latest')
+      expect(started).toHaveLength(2)
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('releases an off-screen read-only runner as soon as its tree renders', async () => {
+    const report = observeEach()
+    try {
+      const runners = recordRunners()
+      const view = await mount({ artifactId: 'far-static' })
+      await report(view.host, false)
+      expect(runners).toHaveLength(1)
+      await act(async () => runners[0]!.callbacks.onSnapshot(staticTree))
+      expect(runners[0]!.runner.dispose).toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('parks a form that was never on screen as soon as it renders', async () => {
+    vi.useFakeTimers()
+    const report = observeEach()
+    try {
+      const runners = recordRunners()
+      const view = await mount({ artifactId: 'never-seen-form' })
+      await report(view.host, false)
+      await act(async () => runners[0]!.callbacks.onSnapshot(tree))
+      await act(async () => { vi.advanceTimersByTime(10) })
+      expect(runners[0]!.runner.dispose).toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals(); vi.useRealTimers() }
+  })
+
+  it('parks an off-screen form once its pending submit finishes', async () => {
+    vi.useFakeTimers()
+    const report = observeEach()
+    try {
+      const runners = recordRunners()
+      let finishCapture: ((state: Record<string, unknown>) => void) | undefined
+      const view = await mount({ artifactId: 'late-submit', onSubmit: vi.fn() })
+      await report(view.host, true)
+      await act(async () => runners[0]!.callbacks.onSnapshot(tree))
+      runners[0]!.runner.captureState.mockImplementation(() => new Promise(resolve => { finishCapture = resolve }))
+      await act(async () => view.host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+      await report(view.host, false)
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+      await act(async () => { finishCapture!({}); await Promise.resolve(); await Promise.resolve() })
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      expect(runners[0]!.runner.dispose).toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals(); vi.useRealTimers() }
+  })
+
+  it('keeps a form that just left the screen on its own runner while a submit is pending, even with the pool full', async () => {
+    vi.useFakeTimers()
+    const observers: Array<(entries: Array<{ isIntersecting: boolean }>) => void> = []
+    vi.stubGlobal('IntersectionObserver', class { constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) { observers.push(callback) } observe() {} disconnect() {} })
+    try {
+      const runners = recordRunners()
+      const runnerSlots = lanes(1)
+      const form = await mount({ artifactId: 'leaving-form', runnerSlots, onSubmit: vi.fn() })
+      await act(async () => observers[0]!([{ isIntersecting: true }]))
+      await act(async () => runners[0]!.callbacks.onSnapshot(tree))
+      await mount({ artifactId: 'warming', runnerSlots })
+      expect(runners).toHaveLength(2)
+      runners[0]!.runner.captureState.mockImplementation(() => new Promise(() => undefined))
+      const element = form.host.querySelector('form')!
+      await act(async () => element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+      expect(runners[0]!.runner.captureState).toHaveBeenCalledOnce()
+      await act(async () => observers[0]!([{ isIntersecting: false }]))
+      expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      expect(runners[0]!.runner.dispose).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+      vi.useRealTimers()
+    }
+  })
+
+  it('parks an interactive runner off screen and restarts it from the latest state on return', async () => {
+    vi.useFakeTimers()
+    const observers: Array<(entries: Array<{ isIntersecting: boolean }>) => void> = []
+    vi.stubGlobal('IntersectionObserver', class { constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) { observers.push(callback) } observe() {} disconnect() {} })
+    try {
+      const runners = recordRunners()
+      const view = await mount({ artifactId: 'park', initialState: { count: 1 } })
+      await act(async () => observers.forEach(callback => callback([{ isIntersecting: true }])))
+      expect(runners).toHaveLength(1)
+      await act(async () => { runners[0]!.callbacks.onSnapshot(tree); runners[0]!.callbacks.onStateChange({ count: 4 }) })
+      await act(async () => observers.forEach(callback => callback([{ isIntersecting: false }])))
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      expect(runners[0]!.runner.dispose).toHaveBeenCalledOnce()
+      expect(runners[0]!.runner.dispose).toHaveBeenCalled()
+      expect(view.host.querySelector('input[name="name"]')).not.toBeNull()
+      await act(async () => observers.forEach(callback => callback([{ isIntersecting: true }])))
+      expect(runners).toHaveLength(2)
+      expect(runners[1]!.callbacks.initialState).toEqual({ count: 4 })
+    } finally {
+      vi.unstubAllGlobals()
+      vi.useRealTimers()
+    }
   })
 })

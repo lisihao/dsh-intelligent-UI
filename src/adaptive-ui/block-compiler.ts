@@ -276,6 +276,13 @@ function collectSourceLeaves(value: unknown, path: readonly number[], output: So
     : { kind: 'structured', value: source.value, path: [...path] })
 }
 
+/** Markdown leaves at the exact source paths the compiler uses, for consumers that describe the same source. */
+export function blockLayoutMarkdownLeaves(value: unknown): readonly { readonly path: readonly number[], readonly markdown: string }[] {
+  const leaves: SourceLeaf[] = []
+  collectSourceLeaves(value, [], leaves)
+  return leaves.flatMap(leaf => leaf.kind === 'markdown' ? [{ path: leaf.path, markdown: leaf.markdown }] : [])
+}
+
 /**
  * Compile source references only; this does not alter the source or ask a
  * model to segment it. A normalized tool-text array becomes independently

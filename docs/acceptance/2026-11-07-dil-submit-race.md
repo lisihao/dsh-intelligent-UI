@@ -34,3 +34,17 @@ Explanation from reading React 18.3.1's `react-dom` development build, not obser
 | Installed official Desktop app | not run | Not requested; no install was authorized. |
 
 No model calls were made. Logs stay in the ignored `.acceptance/dil-submit-race/` directory.
+
+## Merged with the runner-slot change (2026-11-07)
+
+`codex/experimental-block-layout-20261105` gained the DIL runner-slot change (lisihao/dsh-intelligent-UI#19), which initializes the view's tree from a cached snapshot. Merging that branch into this one conflicted in `src/dil/view.ts`. The resolution keeps both changes, and `latestTree` now starts from the same cached snapshot as the rendered tree. A cached snapshot is stored only for programs without handlers or forms, so a view that can submit always starts without one.
+
+| Check (on the merge) | Status | Result |
+| --- | --- | --- |
+| `tests/dil-view.test.ts`, `tests/dil-material-scope.test.ts` | run | 42 passed |
+| Same test with the tree re-apply removed | run | the new case failed (1 of 38) |
+| `pnpm typecheck`, `pnpm build` | run | passed |
+| Browser acceptance | run | 5 of 5 consecutive runs passed, each printing the `DIL_BROWSER_RECEIPT` line |
+| Full suite | run | 1556 passed, 5 skipped |
+| `pnpm test:plugin` | run | passed, `liveModels: 0` |
+| Installed official Desktop app | not run | no install was authorized |
