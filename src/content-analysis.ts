@@ -241,7 +241,7 @@ function numberedBoldTitle(node: AstNode): string | undefined {
   const text = plainText(only).trim()
   return numberedBoldPrefix.test(text) ? text.replace(numberedBoldPrefix, '').trim() : undefined
 }
-function isStandaloneNumberedBoldHeading(node: AstNode): boolean {
+export function isStandaloneNumberedBoldHeading(node: AstNode): boolean {
   const title = numberedBoldTitle(node)
   return !!title && !tableNoteReference.test(title)
 }
