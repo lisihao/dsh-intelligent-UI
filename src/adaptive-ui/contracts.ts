@@ -210,4 +210,10 @@ export interface AdaptiveCompositionCoordinatorOptions {
   maxSourceBytes?: number
   maxCacheEntries?: number
   now?: () => Date
+  /** Optional store of adopted decisions that outlives this process (Host side only). */
+  decisions?: {
+    get(key: string, sourceVersion: string): Omit<CompositionResult, 'requestId'> | undefined
+    put(key: string, result: Omit<CompositionResult, 'requestId'>): void
+    flush(): void
+  }
 }
