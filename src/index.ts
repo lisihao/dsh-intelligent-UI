@@ -1,4 +1,5 @@
 import {AdaptiveCompositionCoordinator} from './adaptive-ui/host.js'
+import {PersistedDecisionStore} from './adaptive-ui/decision-store.js'
 import type {JevCompositionPort} from './adaptive-ui/contracts.js'
 import {getCompositionCatalog} from './adaptive-ui/catalog.js'
 import {builtInThemes} from './theme-contracts.js'
@@ -111,7 +112,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const [tuffSource,tuffTypes]=await Promise.all([components.getCatalog('tuffui'),components.getTypeSchemas('tuffui')])
   const tuffCatalog=createTuffUiCatalog(tuffSource),tuffTypeSchemas=validateTuffUiTypeSchemaManifest(tuffTypes)
   ctx.effect(()=>registerTuffUiComponents(executableComponents,tuffCatalog,{typeSchemas:tuffTypeSchemas}),'intelligent-experience: source-bound TuffUI components')
-  const adaptive = new AdaptiveCompositionCoordinator({getSettings:()=>store.settings(),maxSourceBytes:config.maxArtifactBytes,getExecutableComponents:()=>executableComponents})
+  const decisions = PersistedDecisionStore.open(join(root, 'composition-decisions.json'), { warn: message => ctx.logger('solar-experience').warn('%s', message) })
+  const adaptive = new AdaptiveCompositionCoordinator({getSettings:()=>store.settings(),maxSourceBytes:config.maxArtifactBytes,getExecutableComponents:()=>executableComponents,decisions})
   ctx.effect(()=>()=>adaptive.dispose(), 'intelligent-experience: adaptive decisions')
   // Jev is an optional peer; no UI dependency starts or enables its other consumers.
   ctx.inject(['jev' as never], child => child.effect(()=>adaptive.attachJev(child.get('jev' as never) as unknown as JevCompositionPort),'intelligent-experience: Jev composition consumer'))

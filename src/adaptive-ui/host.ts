@@ -135,6 +135,20 @@ function digest(value: unknown): string {
   return createHash('sha256').update(stableJson(value)).digest('hex')
 }
 
+/**
+ * Key of a saved decision: the cache fingerprint plus the choices Jev would be
+ * offered (catalog revision, identity, question and option ids, defaults).
+ */
+export function decisionKey(fingerprint: string, bundle: Pick<CandidateBundle, 'revision' | 'identity' | 'questions' | 'defaultAnswers'>): string {
+  return `sha256:${digest({
+    fingerprint,
+    revision: bundle.revision,
+    identity: bundle.identity,
+    questions: bundle.questions.map(question => ({ id: question.id, options: question.options.map(option => option.id) })),
+    defaultAnswers: bundle.defaultAnswers,
+  })}`
+}
+
 function cloneJson<T>(value: unknown): T {
   return JSON.parse(stableJson(value)) as T
 }
@@ -375,12 +389,17 @@ export class AdaptiveCompositionCoordinator {
     operation.fingerprint = fingerprint
     const cached = this.cache.get(fingerprint)
     if (cached) return cached
+    // The saved key also covers the exact choices offered, so changed candidates ask Jev again.
+    const savedKey = this.options.decisions ? decisionKey(fingerprint, bundle) : undefined
+    const restored = savedKey ? this.options.decisions!.get(savedKey, sourceVersion) : undefined
+    if (restored) { this.putCache(fingerprint, restored); return restored }
     if (!this.isCurrent(operation)) return this.base('stale', this.currentAbortReason(operation), sourceVersion)
 
     this.inFlight.set(fingerprint, operation)
     const active: ActiveRequest = Object.assign(operation, { fingerprint, snapshot, bundle, localSelection, port, connection })
     const result = await this.runDecision(active)
     if (result.status !== 'stale') this.putCache(fingerprint, result)
+    if (savedKey && result.status === 'selected') this.options.decisions!.put(savedKey, result)
     return result
   }
 
@@ -451,6 +470,7 @@ export class AdaptiveCompositionCoordinator {
     this.detachJev('COMPOSITION_COORDINATOR_DISPOSED')
     this.cache.clear()
     this.operations.clear()
+    this.options.decisions?.flush()
   }
 
   private sourceVersion(input: ComposeInput): string {
