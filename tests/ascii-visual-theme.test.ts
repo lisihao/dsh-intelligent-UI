@@ -9,7 +9,7 @@ vi.mock('../src/ascii-gpu-effect.js', () => ({ createAsciiGpuEffect: mocks.creat
 vi.mock('../src/ascii-visual-capture.js', () => ({ captureAsciiVisual: mocks.capture, measureAsciiVisualBounds: (source: Element) => source.getBoundingClientRect() }))
 vi.mock('../src/canvas-runtime-client.js', () => ({ acquireCanvasSlot: (start: () => void) => { start(); return mocks.release } }))
 
-import { installAsciiVisualTheme } from '../src/ascii-visual-theme.js'
+import { asciiFailureCode, installAsciiVisualTheme } from '../src/ascii-visual-theme.js'
 
 const rect = (left = 10, top = 10, width = 200, height = 100) => ({
   x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({}),
@@ -264,13 +264,21 @@ describe('ASCII visual theme lifecycle', () => {
 
   it('does not hide the original when the graphics loader fails', async () => {
     const { svg, line } = source(), before = svg.outerHTML
-    mocks.createEffect.mockRejectedValueOnce(new Error('WebGL unavailable'))
+    mocks.createEffect.mockRejectedValueOnce(new Error('ASCII_GLYPH_CONTEXT: WebGL 2 is unavailable.'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const stop = installAsciiVisualTheme(store(asciiSettings())); cleanup.push(stop)
     await vi.waitFor(() => expect(document.querySelector('[data-iexp-ascii-status]')?.textContent).toContain('已保留原图'))
     expect(line.getAttribute('data-iexp-ascii-paint')).toBe('existing')
     expect(svg.outerHTML).toBe(before)
     expect((document.querySelector('[data-iexp-ascii-overlay]') as HTMLElement).style.visibility).toBe('hidden')
+    expect(document.querySelector('[data-iexp-ascii-status]')?.textContent).toContain('（代码：ASCII_GLYPH_CONTEXT）')
+  })
+
+  it('names the failure with a message code or the error name, and nothing else', () => {
+    expect(asciiFailureCode(new Error('ASCII_GLYPH_OPERATION: Frame draw failed (1282).'))).toBe('ASCII_GLYPH_OPERATION')
+    expect(asciiFailureCode(new DOMException('The canvas has been tainted.', 'SecurityError'))).toBe('SecurityError')
+    expect(asciiFailureCode(new Error('plain message'))).toBe('Error')
+    expect(asciiFailureCode({ secret: 'value' })).toBeUndefined()
   })
 
   it('cancels outstanding captures when a graphics failure releases its resources', async () => {

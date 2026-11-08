@@ -19,6 +19,16 @@ const ADAPTIVE_GPU = 'data-iexp-adaptive-gpu'
 const ADAPTIVE_THEME = 'data-iexp-adaptive-theme'
 const SHAPES = 'path,rect,circle,ellipse,line,polyline,polygon,use,image'
 
+/** `CODE: reason` messages give their code; other errors give their name (for example `SecurityError`). */
+export function asciiFailureCode(error: unknown): string | undefined {
+  const record = typeof error === 'object' && error !== null ? error as { message?: unknown, name?: unknown } : undefined
+  const message = typeof record?.message === 'string' ? record.message : typeof error === 'string' ? error : ''
+  const prefixed = /^([A-Z][A-Z0-9_]{2,63}):/.exec(message)?.[1]
+  if (prefixed) return prefixed
+  const name = typeof record?.name === 'string' ? record.name : ''
+  return /^[A-Za-z][A-Za-z0-9]{1,63}$/.test(name) ? name : undefined
+}
+
 /** A disposable graphics projection. Native text, data, DOM hit targets and source state stay owned by their original renderer. */
 export function installAsciiVisualTheme(store: Store, options: { document?: Document } = {}): () => void {
   const doc = options.document ?? document, win = doc.defaultView
@@ -128,7 +138,10 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       failed = true; abort.abort(); clearTimeout(refreshTimer)
       for (const entry of entries.values()) restore(entry)
       committed = []; pending = undefined; clip([])
-      status.textContent = 'ASCII 图形渲染暂不可用，已保留原图。可切换风格后重试。'; status.style.display = 'block'
+      // A short code lets someone report the cause without opening the console.
+      const code = asciiFailureCode(error)
+      status.textContent = `ASCII 图形渲染暂不可用，已保留原图。可切换风格后重试。${code ? `（代码：${code}）` : ''}`; status.style.display = 'block'
+      if (code) overlay.dataset.asciiFailure = code
       try { effect?.dispose() } catch (cleanupError) { console.error('Intelligent UI ASCII cleanup:', cleanupError) }
       releaseSlot?.(); releaseSlot = undefined; unsubscribeFrames()
       console.error('Intelligent UI ASCII:', error)
