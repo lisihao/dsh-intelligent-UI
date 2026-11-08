@@ -10,6 +10,7 @@ import paper from '../../theme/paper-flow.dsh-theme.json' with { type: 'json' }
 const cases = {
   "paragraphs": "第一段：保留全部文字。\n\n\n\n\n\n\n\n\n\n第二段：多余空白不应放大段间距。\n\n\n\n\n\n\n\n\n\n第三段：正常段落结束。",
   "softLines": "第一行\n第二行\n第三行",
+  "looseTable": "### 核心判断\n\n| 研究维度 | 当前判断 | 证据状态 |\n\n| --- | --- | --- |\n\n| Persistent Engine 与热重载 | 明确的系统贡献 | 论文实现及计时数据 |\n\n| Workload-Aware Cost Model | 具备部署价值 | 特定模型配置结果 |\n\n结论段落。",
   "hardBreaks": "第一行  \n第二行\\\n第三行",
   "fencedCode": "```python\nif True:\n    print(\"A  B\")\n\n\n    print(\"end\")\n```",
   "indentedCode": "    first\n\n\n    second",
@@ -47,6 +48,7 @@ for(const [id,raw] of Object.entries(cases)){
   row[mode]={height:e.getBoundingClientRect().height,width:e.clientWidth,scrollWidth:e.scrollWidth,text:e.textContent,paragraphs:e.querySelectorAll('p').length,paragraphWhitespace:p?getComputedStyle(p).whiteSpace:null,paragraphHeight:p?.getBoundingClientRect().height??0,lineHeight:p?parseFloat(getComputedStyle(p).lineHeight):0,code:code?.textContent??null,jsonCode:e.querySelector('code[data-iexp-code-language="json"]')?.textContent??null,codeWhitespace:code?getComputedStyle(code).whiteSpace:null,cards:e.querySelectorAll('.iexp-reply-surface').length,iframes:e.querySelectorAll('iframe').length}
  }
  measurements[id]=row
+ ;(row.after as Record<string,unknown>).tableRows=document.querySelectorAll(`[data-case="${id}"] [data-mode="after"] table tbody tr`).length
 }
 const result={ready:true,width:innerWidth,theme:selected?'paper':'empryo',cases:measurements}
 document.getElementById('metrics')!.textContent=JSON.stringify(result)
