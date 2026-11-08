@@ -1,0 +1,123 @@
+/* Hallmark: locked DESIGN.md — source-backed code remains a compact, readable preformatted region. */
+/* Critique: preserve every source character; syntax color is supplementary and never replaces the code string. */
+.dsh-experience .iexp-markdown-code {
+  min-width: 0;
+  max-width: 100%;
+  margin-block: calc(12px * var(--iexp-density));
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-code-radius, var(--iexp-control-radius));
+  background: var(--iexp-soft);
+  color: var(--iexp-text);
+}
+
+.dsh-experience .iexp-markdown-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--iexp-density));
+  min-width: 0;
+  padding: calc(6px * var(--iexp-density)) calc(10px * var(--iexp-density));
+  border-block-end: 1px solid var(--iexp-line);
+  background: var(--iexp-card);
+}
+
+.dsh-experience .iexp-markdown-code-language,
+.dsh-experience .iexp-markdown-code-status {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dsh-experience .iexp-markdown-code-language {
+  color: var(--iexp-muted);
+}
+
+.dsh-experience .iexp-markdown-code-copy {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-control-radius);
+  background: transparent;
+  color: var(--iexp-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dsh-experience .iexp-markdown-code-copy:hover {
+  border-color: var(--iexp-accent);
+  color: var(--iexp-accent);
+}
+
+.dsh-experience .iexp-markdown-code-copy:focus-visible {
+  outline: 2px solid var(--iexp-accent);
+  outline-offset: 2px;
+}
+
+.dsh-experience .iexp-markdown-code-status {
+  padding: calc(6px * var(--iexp-density)) calc(10px * var(--iexp-density)) 0;
+  color: var(--iexp-muted);
+}
+
+.dsh-experience .iexp-markdown-code-status[role='alert'] {
+  color: var(--iexp-error);
+}
+
+.dsh-experience .iexp-markdown-code pre {
+  max-width: 100%;
+  margin: 0;
+  padding: calc(10px * var(--iexp-density)) calc(12px * var(--iexp-density));
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: transparent;
+  color: inherit;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.dsh-experience .iexp-markdown-code pre > code {
+  display: block;
+  min-width: max-content;
+  font-family: var(--iexp-code-font);
+  font-size: 13px;
+  line-height: 1.65;
+  font-variation-settings: 'MONO' 1, 'CASL' 0;
+}
+
+.dsh-experience .iexp-markdown-code .token.comment,
+.dsh-experience .iexp-markdown-code .token.prolog,
+.dsh-experience .iexp-markdown-code .token.doctype,
+.dsh-experience .iexp-markdown-code .token.cdata {
+  color: var(--iexp-muted);
+}
+
+.dsh-experience .iexp-markdown-code .token.keyword,
+.dsh-experience .iexp-markdown-code .token.operator,
+.dsh-experience .iexp-markdown-code .token.punctuation {
+  color: var(--iexp-accent);
+}
+
+.dsh-experience .iexp-markdown-code .token.string,
+.dsh-experience .iexp-markdown-code .token.boolean,
+.dsh-experience .iexp-markdown-code .token.number {
+  color: var(--iexp-success);
+}
+
+.dsh-experience .iexp-markdown-code .token.function,
+.dsh-experience .iexp-markdown-code .token.class-name {
+  color: var(--iexp-warning);
+}
+
+@media (max-width: 560px) {
+  .dsh-experience .iexp-markdown-code-header {
+    align-items: flex-start;
+  }
+
+  .dsh-experience .iexp-markdown-code pre {
+    padding-inline: calc(10px * var(--iexp-density));
+  }
+}

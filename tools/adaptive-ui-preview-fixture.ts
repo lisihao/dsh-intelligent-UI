@@ -2,7 +2,8 @@ import { createElement as h, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { compositionCancelResultSchema, compositionReceiptResultSchema, compositionResultSchema, type CompositionCancelInput, type CompositionReceiptInput, type ComposeInput } from '../src/adaptive-ui/contracts.js'
 import { CompositionRuntimeContext, type CompositionApi } from '../src/adaptive-ui/view.js'
-import type { ExperienceSettings } from '../src/contracts.js'
+import { saveSettingsSchema, settingsSchema, type ExperienceSettings } from '../src/contracts.js'
+import { ExperienceStore, Settings, installBlockLayoutShortcut } from '../src/client.js'
 import { OutputView, ContentView, DisplayModeControl } from '../src/presentation.js'
 import { installExperienceStyles } from '../src/style.js'
 import { installAppearanceStyles } from '../src/appearance-style.js'
@@ -15,7 +16,9 @@ type PreviewEvent = {
   documentId: string
   operationId?: string
   status?: string
+  reason?: string
   observed?: boolean
+  decisionCalls?: number
   schema?: { revision: number; questionIds: string[]; optionIds?: Record<string, string[]> }
   selection?: Record<string, unknown>
 }
@@ -121,6 +124,58 @@ const citedReportSource = `# 合成方案比较报告
 [^1]: 资料 A：固定本地来源记录，版本 synthetic-2026-11-05。
 [^2]: 资料 B：合成验收约束；该引用不请求外部网络。`
 
+const mixedBlockLayoutSource = `# 混合区块编排验收
+
+这段普通说明必须保留在完整文档中，并保留[本地资料][mixed-source]与脚注[^mixed-note]。它不提供额外指标，也不改变相邻区块的来源边界。
+
+## 历史数值
+
+下面的表格是固定的历史数值序列，单位和日期来自原文。
+
+| 日期 | 延迟（ms） |
+| --- | ---: |
+| 2026-11-01 | 8.2 |
+| 2026-11-02 | 7.6 |
+| 2026-11-03 | 9.1 |
+| 2026-11-04 | 7.9 |
+
+## 任务状态
+
+| 任务 | 状态 | 说明 |
+| --- | --- | --- |
+| 核对来源 | queued | 保留原始任务与说明。 |
+| 渲染布局 | running | 只使用已验证的候选项。 |
+| 确认回执 | done | 挂载后才记录观察结果。 |
+
+## 来源流程
+
+读取来源 → 核对证据 -> 记录结果
+
+## 实现片段
+
+\`\`\`ts
+const presentation = 'source-bound'
+\`\`\`
+
+[mixed-source]: https://sources.example.invalid/mixed-source "固定本地来源"
+[^mixed-note]: 固定本地脚注；该脚注不请求外部网络。`
+
+// Fixed public fixture only: it gives the real block compiler an ordinary
+// labelled source list without claiming that any Jev service or external URL
+// was contacted. The two scenarios below intentionally reuse this exact
+// source while selecting different registered source-preserving recipes.
+const sourceOrganizationFixtureSource = `# 公开条目组织验收
+
+这是固定公开夹具，用于验证来源中的明确标签、限定语、链接、脚注和代码在不同来源组织呈现中仍可回溯。它不构成真实 Jev5、模型、付费调用、外部服务或生产效果证据。[公开范围说明](https://sources.example.invalid/public-source-organization)[^organization-note]
+
+- **适用范围：** 只组织同级、非任务的无序条目；原始顺序来自来源，不能推出优先级、因果或执行顺序。
+- **核对材料：** [公开资料链接](https://sources.example.invalid/public-jev5-reference)只作为来源文本保留；此夹具不读取该 URL、不使用凭据，也不调用模型。
+- **代码边界：** \`const route = 'fixture-only'\` 是来源中的代码；它不是连接配置，也不表示已执行。
+- **限制条件：** 本地选择只证明候选、指定配方和已挂载 DOM；不能证明真实模型质量、外部服务效果或生产使用。
+
+[organization-reference]: https://sources.example.invalid/public-source-organization "固定公开夹具引用"
+[^organization-note]: 该脚注保留来源限定；测试不会抓取链接、创建真实会话或产生付费调用。`
+
 const scenarios = [
   { id: 'board-soft', label: '相同任务源：柔和浮雕看板', documentId: 'synthetic-task-board-soft', value: taskSource },
   { id: 'table-mechanical', label: '相同任务源：机械描边原表', documentId: 'synthetic-task-table-mechanical', value: taskSource },
@@ -131,6 +186,9 @@ const scenarios = [
   { id: 'strategy-flow', label: '明确 nodes/edges：策略流程图', documentId: 'synthetic-strategy-flow', value: strategyGraphSource },
   { id: 'comparison-records', label: '方案比较记录：Clear glass 详情', documentId: 'synthetic-comparison-records', value: comparisonRecordsSource },
   { id: 'cited-report-index', label: '多节有引文报告：章节目录', documentId: 'synthetic-cited-report-index', value: citedReportSource },
+  { id: 'mixed-block-layout', label: '混合区块：图表、看板与流程并存', documentId: 'synthetic-mixed-block-layout', value: mixedBlockLayoutSource, blockLayout: true },
+  { id: 'source-organization-grid', label: '同一公开条目源：Clear glass 网格', documentId: 'synthetic-source-organization-grid', value: sourceOrganizationFixtureSource, blockLayout: true },
+  { id: 'source-organization-label-table', label: '同一公开条目源：机械描边标签详情', documentId: 'synthetic-source-organization-label-table', value: sourceOrganizationFixtureSource, blockLayout: true },
 ] as const
 
 type Scenario = typeof scenarios[number]
@@ -142,7 +200,7 @@ function initialSettings(): ExperienceSettings {
     takeover: true,
     openui: true,
     mcpApps: false,
-    adaptive: { enabled: true, styleMode: 'automatic' },
+    adaptive: { enabled: true, styleMode: 'automatic', blockLayout: false, blockLayoutShortcut: 'Alt+Meta+KeyI' },
     theme: { activeId: 'empryo', installed: [] },
     appearance: { backgroundColor: '#24262b', translucent: true },
   }
@@ -156,6 +214,44 @@ const appearanceSource = {
     settingsListeners.add(listener)
     return () => settingsListeners.delete(listener)
   },
+}
+
+let productionSettings = initialSettings()
+const productionSettingsApi = {
+  settings: async () => productionSettings,
+  saveSettings: async (input: unknown) => {
+    const parsed = saveSettingsSchema.parse(input)
+    if (parsed.expectedRevision !== productionSettings.revision) throw new Error('SYNTHETIC_SETTINGS_REVISION_CONFLICT')
+    productionSettings = settingsSchema.parse({
+      ...productionSettings,
+      takeover: parsed.takeover,
+      openui: parsed.openui,
+      mcpApps: parsed.mcpApps,
+      ...(parsed.appearance === undefined ? {} : { appearance: parsed.appearance }),
+      ...(parsed.themeId === undefined ? {} : { theme: { activeId: parsed.themeId, installed: productionSettings.theme?.installed ?? [] } }),
+      ...(parsed.adaptive === undefined ? {} : { adaptive: parsed.adaptive }),
+      ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }),
+      revision: productionSettings.revision + 1,
+    })
+    productionStore.update({ api: productionSettingsApi as never, settings: productionSettings })
+    return productionSettings
+  },
+  artifacts: async () => [],
+  publish: async (input: unknown) => input,
+}
+const productionStore = new ExperienceStore()
+productionStore.update({ api: productionSettingsApi as never, settings: productionSettings })
+
+async function setProductionBlockLayout(enabled: boolean): Promise<void> {
+  const current = productionStore.snapshot().settings
+  if (!current || current.adaptive?.blockLayout === enabled) return
+  await productionStore.save({
+    expectedRevision: current.revision,
+    takeover: current.takeover,
+    openui: current.openui,
+    mcpApps: current.mcpApps,
+    adaptive: { ...(current.adaptive ?? { enabled: true, styleMode: 'automatic' }), blockLayout: enabled },
+  } as never)
 }
 
 function publishSettings(next: ExperienceSettings): void {
@@ -201,15 +297,17 @@ function createCompositionApi(): CompositionApi {
         documentId: input.documentId,
         operationId: result.operationId,
         status: result.status,
+        reason: result.reason,
         schema: responseSchema(response),
         selection: result.selection,
       })
       return result
     },
     async compositionReceipt(input: CompositionReceiptInput) {
-      const { value } = await postJson('/api/compositionReceipt', input)
+      const { response, value } = await postJson('/api/compositionReceipt', input)
       const result = compositionReceiptResultSchema.parse(value)
-      publishPreviewEvent({ type: 'receipt', documentId: input.documentId, operationId: result.operationId, status: result.status, observed: true })
+      const decisionCalls = Number(response.headers.get('x-adaptive-decision-calls'))
+      publishPreviewEvent({ type: 'receipt', documentId: input.documentId, operationId: result.operationId, status: result.status, decisionCalls: Number.isSafeInteger(decisionCalls) ? decisionCalls : undefined, observed: true })
       return result
     },
     async compositionCancel(input: CompositionCancelInput) {
@@ -234,6 +332,16 @@ function Preview(): ReturnType<typeof h> {
 
   useEffect(() => { publishSettings(settings) }, [settings])
   useEffect(() => {
+    const unsubscribe = productionStore.subscribe(() => {
+      if (scenario.blockLayout !== true) return
+      const next = productionStore.snapshot().settings
+      if (next) setSettings(next)
+    })
+    return unsubscribe
+  }, [scenario.blockLayout])
+  useEffect(() => installBlockLayoutShortcut(productionStore, window), [])
+  useEffect(() => { void setProductionBlockLayout(scenario.blockLayout === true) }, [scenario.blockLayout])
+  useEffect(() => {
     const rerender = () => setEventRevision(value => value + 1)
     window.addEventListener('adaptive-preview-event', rerender)
     return () => window.removeEventListener('adaptive-preview-event', rerender)
@@ -249,21 +357,26 @@ function Preview(): ReturnType<typeof h> {
   const toggleAdaptive = () => setSettings(current => ({
     ...current,
     revision: current.revision + 1,
-    adaptive: { enabled: current.adaptive?.enabled !== true, styleMode: 'automatic' },
+    adaptive: { ...(current.adaptive ?? { styleMode: 'automatic' }), enabled: current.adaptive?.enabled !== true },
   }))
+  const updateScenario = (nextId: Scenario['id']) => {
+    setScenarioId(nextId)
+  }
 
   return h('main', {
     className: 'dsh-experience',
     'data-adaptive-preview': 'synthetic',
     'data-paid-model-calls': '0',
     'data-preview-adaptive-enabled': String(adaptiveEnabled),
+    'data-preview-block-layout': String(settings.adaptive?.blockLayout === true),
+    'data-preview-block-layout-shortcut': settings.adaptive?.blockLayoutShortcut ?? '',
     style: { minWidth: 0, maxWidth: 1280, margin: '0 auto', padding: 16 },
   },
   h('header', { style: { display: 'grid', gap: 12, marginBottom: 16 } },
     h('h1', null, '自适应界面：合成浏览器验收'),
     h('p', { 'data-preview-notice': true }, '固定本地样例；模拟公开 Jev 选择接口；零真实模型、付费调用、凭据或真实会话。'),
     h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' } },
-      h('label', null, '合成场景 ', h('select', { 'aria-label': '合成场景', value: scenario.id, onChange: (event: { currentTarget: HTMLSelectElement }) => setScenarioId(event.currentTarget.value as Scenario['id']) },
+      h('label', null, '合成场景 ', h('select', { 'aria-label': '合成场景', value: scenario.id, onChange: (event: { currentTarget: HTMLSelectElement }) => updateScenario(event.currentTarget.value as Scenario['id']) },
         ...scenarios.map(item => h('option', { key: item.id, value: item.id }, item.label)))),
       h('label', null, '共享主题 ', h('select', { 'aria-label': '共享主题', value: activeTheme, onChange: (event: { currentTarget: HTMLSelectElement }) => updateActiveTheme(event.currentTarget.value) },
         h('option', { value: 'empryo' }, 'Empryo（本地回退）'),
@@ -273,6 +386,8 @@ function Preview(): ReturnType<typeof h> {
       h('button', { type: 'button', 'data-adaptive-toggle': true, 'aria-pressed': adaptiveEnabled, onClick: toggleAdaptive }, adaptiveEnabled ? '停用智能编排' : '启用智能编排'),
       h(DisplayModeControl, { sessionId })),
     h('p', null, '稳定文档 ID：', h('code', { 'data-preview-document-id': true }, scenario.documentId))),
+  scenario.blockLayout === true && h('section', { 'data-block-layout-settings-panel': true, 'aria-label': '生产智能编排设置', style: { marginBottom: 16 } },
+    h(Settings, { store: productionStore })),
   h('p', { 'data-global-ascii-probe': true }, '相邻外层段落：当共享主题为 Classic ASCII 时，保留全局 ASCII 字距规则。'),
   h('section', { id: 'preview-output', 'aria-label': '生产 ContentView 合成输出' },
     h(CompositionRuntimeContext.Provider, { value: { api, settings, sessionId } },

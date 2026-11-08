@@ -1,0 +1,5 @@
+.dsh-experience .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: .5em; }
+.dsh-experience .katex-error { color: var(--iexp-error); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dsh-experience .iexp-source-toc { border-inline-start: 2px solid var(--iexp-line); padding-inline: 1em; margin-block: 1em; }
+.dsh-experience .iexp-source-toc a { color: var(--iexp-accent); text-underline-offset: .2em; }
+.dsh-experience .iexp-source-toc a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

@@ -1,0 +1,54 @@
+{
+  "adapter": {
+    "name": "dsh-rune-theme",
+    "sourceDigest": "d7b39410c4539f9c929b5431e5584a45de3175c3cb513d67d333c48d4b28a0ba",
+    "sourceFiles": [
+      {
+        "bytes": 1313,
+        "path": "Cargo.toml",
+        "sha256": "4627b5c7b9d260e2b2e847028ad7fbeebfc3d16cd3a93ce443d0eadb1ac5d965"
+      },
+      {
+        "bytes": 86654,
+        "path": "Cargo.lock",
+        "sha256": "103729912adbfe869aa9437257df6b9dacdee211773d4d1aa272d0049293ac49"
+      },
+      {
+        "bytes": 88,
+        "path": "rust-toolchain.toml",
+        "sha256": "60c5407645e5d56f600e6ae713f0afc4aebbb858c5ceeef4a79c22b7dd2b51c9"
+      },
+      {
+        "bytes": 32821,
+        "path": "src/lib.rs",
+        "sha256": "c635b8d037354a0e04610a8cdeb7329d83f067e58a2dfc1907c0d96717091fba"
+      },
+      {
+        "bytes": 666,
+        "path": "runtime/frame.html",
+        "sha256": "92a32bc0741351e839e1bbf18c52d01718bab1cd2aa5c6d8a03ce7a7856968f3"
+      },
+      {
+        "bytes": 6782,
+        "path": "runtime/frame.mjs",
+        "sha256": "b3ebdad38320b69a1f76662cae97fcb34e0a0c0622b8eb9c3c0337201617853c"
+      },
+      {
+        "bytes": 2632,
+        "path": "scripts/build-wasm.sh",
+        "sha256": "0e8288ce9133ebf9a892f9b6a7d8d8dc0b30ed2c5f59598edd7a6a7a6e2c1413"
+      }
+    ],
+    "version": "0.1.0"
+  },
+  "formatVersion": 1,
+  "toolchain": {
+    "rust": "1.99.1",
+    "wasmBindgen": "0.2.129"
+  },
+  "upstream": {
+    "commit": "4ca683561a100e16b1ce32f3576f4ade61bd2924",
+    "license": "MIT",
+    "repository": "https://github.com/anomalyco/rune"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "dsh-experience-theme",
+  "version": "1.0.0",
+  "author": "Rune contributors; Solar adapter",
+  "license": "MIT",
+  "id": "rune",
+  "name": "Rune · Rust 材质",
+  "description": "使用原 Rune Rust/WASM 渲染不透明深色内容区域、弹簧材质、液态金属和条纹玻璃。文字、代码和公式保留宿主语义；需要 WebGPU，玻璃只采样 Rune 自绘背景。",
+  "appearance": {
+    "backgroundColor": "#0b0b0d",
+    "translucent": false
+  },
+  "tokens": {
+    "accentDark": "#54b3fd",
+    "accentLight": "#315d7d",
+    "success": "#3f9165",
+    "warning": "#b27d2b",
+    "error": "#be3a48",
+    "paletteDark": [
+      "#a7c7e7",
+      "#d4bd86",
+      "#d6a6b4",
+      "#9ac6b0"
+    ],
+    "paletteLight": [
+      "#315d7d",
+      "#85652f",
+      "#83465c",
+      "#346650"
+    ],
+    "panelRadius": 18,
+    "cardRadius": 20,
+    "nodeRadius": 20,
+    "controlRadius": 14,
+    "density": "compact",
+    "font": "system",
+    "translucentAlpha": 0.86,
+    "blur": 0,
+    "hoverLift": 0,
+    "shadow": "none",
+    "comparison": "standard"
+  }
+}

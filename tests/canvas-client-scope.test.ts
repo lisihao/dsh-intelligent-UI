@@ -290,6 +290,23 @@ describe('Canvas UI public client lifetime', () => {
     expect(dispose).toHaveBeenCalledOnce()
   })
 
+  it('loads a visible decorative host hidden only from assistive technology, while requiring an exposed source', async () => {
+    const load = vi.fn().mockResolvedValue(() => null)
+    const htmlEffect = vi.fn().mockResolvedValue({ refresh: async () => {}, resize() {}, setOptions() {}, splash() {}, melt() {}, burst() {}, dispose() {} })
+    const scope = createCanvasClientScope({ load, htmlEffect })
+    const options = htmlOptions()
+    options.host.setAttribute('aria-hidden', 'true')
+    options.content.setAttribute('aria-hidden', 'true')
+    const pending = scope.createCanvasHtmlEffect(options)
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(load).not.toHaveBeenCalled()
+    options.content.removeAttribute('aria-hidden')
+    await pending
+    expect(load).toHaveBeenCalledWith('ripple')
+    expect(options.host.getAttribute('aria-hidden')).toBe('true')
+    scope.dispose()
+  })
+
   it('cancels an HTML effect while its factory is still loading', async () => {
     const load = vi.fn(() => new Promise(() => {})), htmlEffect = vi.fn()
     const scope = createCanvasClientScope({ load: load as never, htmlEffect: htmlEffect as never })

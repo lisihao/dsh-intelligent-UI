@@ -1,3 +1,4 @@
+import { dilReferencePlugin } from '../dil-reference.mjs'
 import { build } from 'esbuild'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
@@ -15,4 +16,4 @@ const actualLayouts = process.env.EXPERIENCE_LAYOUT_OUTPUTS ? Object.fromEntries
   }),
 )) : null
 if (actualLayouts) actualLayouts.commands = await readFile(resolve(process.env.EXPERIENCE_LAYOUT_OUTPUTS, 'commands.md'), 'utf8')
-await build({ absWorkingDir: root, entryPoints: ['tools/browser-experience/fixture.ts'], bundle: true, format: 'esm', platform: 'browser', define: { 'process.env.NODE_ENV': '"production"', __IEXP_ELK_WORKER_SOURCE__: JSON.stringify(await readFile(resolve(root, 'node_modules/elkjs/lib/elk-worker.min.js'), 'utf8')), REAL_REPORT_MARKDOWN: JSON.stringify(markdown), ACTUAL_LAYOUT_OUTPUTS: JSON.stringify(actualLayouts), REPORT_KIND: JSON.stringify(process.env.EXPERIENCE_MARKDOWN_REPORT ? 'research' : bytes ? 'test' : 'synthetic') }, outfile: 'tools/browser-experience/fixture.js', loader: { '.css': 'text', '.woff2': 'dataurl' }, plugins: [openuiCssPlugin, { name: 'fixture-remote', setup(b) { b.onResolve({ filter: /^\.\/remote\.js$/ }, () => ({ path: resolve(root, 'tools/browser-experience/remote-stub.ts') })) } }] })
+await build({ absWorkingDir: root, entryPoints: ['tools/browser-experience/fixture.ts'], bundle: true, format: 'esm', platform: 'browser', define: { 'process.env.NODE_ENV': '"production"', __IEXP_ELK_WORKER_SOURCE__: JSON.stringify(await readFile(resolve(root, 'node_modules/elkjs/lib/elk-worker.min.js'), 'utf8')), REAL_REPORT_MARKDOWN: JSON.stringify(markdown), ACTUAL_LAYOUT_OUTPUTS: JSON.stringify(actualLayouts), REPORT_KIND: JSON.stringify(process.env.EXPERIENCE_MARKDOWN_REPORT ? 'research' : bytes ? 'test' : 'synthetic') }, outfile: 'tools/browser-experience/fixture.js', loader: { '.css': 'text', '.woff2': 'dataurl' }, plugins: [openuiCssPlugin, dilReferencePlugin(), { name: 'fixture-remote', setup(b) { b.onResolve({ filter: /^\.\/remote\.js$/ }, () => ({ path: resolve(root, 'tools/browser-experience/remote-stub.ts') })) } }] })

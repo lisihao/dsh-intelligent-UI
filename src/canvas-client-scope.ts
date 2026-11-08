@@ -55,7 +55,10 @@ function htmlVisibilityGate(host: HTMLElement, content: HTMLElement, signal: Abo
     let opacity = 1
     for (let element: HTMLElement | null = root; element; element = element.parentElement) {
       const style = win.getComputedStyle(element), value = Number(style.opacity || 1)
-      if (element.hidden || element.hasAttribute('inert') || element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true'
+      // The decorative visual host is deliberately hidden from assistive
+      // technology. Its painted visibility is independent of aria-hidden;
+      // the retained semantic source must still be exposed.
+      if (element.hidden || element.hasAttribute('inert') || (root === content && element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true')
         || style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse'
         || style.contentVisibility === 'hidden' || !Number.isFinite(value)) return false
       opacity *= value

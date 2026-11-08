@@ -11,6 +11,11 @@ import { layoutViewCss } from './layout-views.js'
 import { settingsCss } from './settings-style.js'
 import { continuousCss } from './continuous-view.js'
 import { surfaceCss } from './surface-style.js'
+import blockPresentationsCss from './block-presentations.css'
+import katexCss from 'katex/dist/katex.min.css'
+import markdownMathCss from './markdown-math.css'
+import markdownCodeCss from './markdown-code.css'
+import dilViewCss from './dil/view.css'
 import { themeStyleTokens } from './theme-runtime.js'
 import { appearanceTokens } from './appearance.js'
 import { resolveTheme } from './theme-contracts.js'
@@ -54,6 +59,8 @@ export function installExperienceStyles(): () => void {
 }
 .iexp-content ::selection { background: var(--iexp-accent); color: var(--iexp-bg); }
 .iexp-content .openui-markdown-renderer { color: inherit; font: inherit; }
+.iexp-content .openui-markdown-renderer :is(p, ul, ol, li, blockquote, strong, a) { font-family: inherit; font-variation-settings: inherit; }
+.iexp-content .openui-markdown-renderer :not(pre) > code { font-family: var(--iexp-code-font); font-variation-settings: 'MONO' 1, 'CASL' 0; }
 .iexp-content .openui-markdown-renderer > :is(p, ul, ol, blockquote) { max-width: 74ch; }
 .iexp-content .openui-markdown-renderer > p { margin: calc(10px * var(--iexp-density)) 0; }
 .iexp-content .openui-markdown-renderer :is(h1,h2,h3,h4,h5,h6) { color: var(--iexp-text); line-height: 1.4; text-wrap: balance; font-family: inherit; letter-spacing: -.02em; font-weight: 360; scroll-margin-top: 90px; }
@@ -129,10 +136,15 @@ export function installExperienceStyles(): () => void {
 @media (prefers-reduced-motion: reduce) { .iexp-chart-card { transition: none; } }
 .dsh-experience .openui-markdown-renderer { overflow-wrap: anywhere; }
 .dsh-experience .openui-markdown-renderer-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.iexp-user-message-text { white-space: normal; }
+.iexp-user-message-text .openui-markdown-renderer { white-space: normal; }
+.iexp-user-message-text .openui-markdown-renderer :is(p, li) { white-space: normal; }
+.iexp-user-message-text .openui-markdown-renderer :is(pre, code) { white-space: pre-wrap; }
+.iexp-user-message-whitespace { white-space: normal; }
 .iexp-content .iexp-markdown-illustration-original { display:flex; align-items:center; justify-content:center; width:100%; height:auto; max-height:260px; min-height:0; }
 .iexp-content .iexp-markdown-illustration-original img { display:block; max-width:100%; max-height:260px; width:auto; height:auto; object-fit:contain; }
 .dsh-experience :is(button, select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-` + `.dsh-experience.iexp-content{${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss + executionFlowCss
+` + `.dsh-experience.iexp-content:not(.iexp-embedded-markdown){${defaults}}` + flowViewCss + chartViewportCss + layoutViewCss + surfaceCss + settingsCss + continuousCss + themeComponentsCss + executionFlowCss + blockPresentationsCss + katexCss + markdownMathCss + markdownCodeCss + dilViewCss
   document.head.append(element)
   return () => element.remove()
 }

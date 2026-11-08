@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "purpose": "Synthetic local browser-acceptance fixtures only. They contain no user, session, provider, tool, or model data.",
+  "scenarios": {
+    "data-table": {
+      "selection": {
+        "id": "tuffui:data-table",
+        "family": "content-evidence",
+        "rendererKey": "tuffui-v1",
+        "actionIds": ["host-opaque-row"],
+        "input": {
+          "protocolVersion": 1,
+          "mountId": "react18-opaque-data-table",
+          "componentId": "data-table",
+          "binding": {
+            "exportName": "DataTable",
+            "props": {
+              "title": "Opaque React 18 host data",
+              "subtitle": "Synthetic source-bound browser fixture.",
+              "pageSize": 3,
+              "searchable": true,
+              "data": [
+                { "id": "opaque-a", "task": "Alpha via opaque port", "state": "queued", "score": 4 },
+                { "id": "opaque-b", "task": "Beta via opaque port", "state": "running", "score": 9 }
+              ],
+              "columns": [
+                { "key": "task", "label": "Task", "sortable": true, "priority": 1 },
+                { "key": "state", "label": "State", "sortable": true, "priority": 1 },
+                { "key": "score", "label": "Score", "sortable": true, "priority": 2 }
+              ]
+            },
+            "actions": [{ "prop": "onRowClick", "actionId": "host-opaque-row" }]
+          }
+        }
+      },
+      "original": "| Task | State | Score |\n| --- | --- | ---: |\n| Alpha via opaque port | queued | 4 |\n| Beta via opaque port | running | 9 |"
+    },
+    "chart-card": {
+      "selection": {
+        "id": "tuffui:chart-card",
+        "family": "data-visualization",
+        "rendererKey": "tuffui-v1",
+        "actionIds": [],
+        "input": {
+          "protocolVersion": 1,
+          "mountId": "react18-opaque-chart-card",
+          "componentId": "chart-card",
+          "binding": {
+            "exportName": "ChartCard",
+            "props": {
+              "title": "Revenue (USD) / Cost (USD)",
+              "subtitle": "Unit: USD · Synthetic source-backed period series.",
+              "type": "line",
+              "data": {
+                "labels": ["2025-01", "2025-02", "2025-03"],
+                "series": [
+                  { "id": "source-column-1", "label": "Revenue (USD)", "values": [12, 16, 18] },
+                  { "id": "source-column-2", "label": "Cost (USD)", "values": [7, 9, 10] }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "original": "| Period | Revenue (USD) | Cost (USD) |\n| --- | ---: | ---: |\n| 2025-01 | 12 | 7 |\n| 2025-02 | 16 | 9 |\n| 2025-03 | 18 | 10 |"
+    }
+  }
+}

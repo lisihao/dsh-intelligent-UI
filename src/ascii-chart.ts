@@ -2,7 +2,7 @@ import { createElement as h, useEffect, useMemo, useRef, useState, type ReactEle
 import type { AutoChartPlan } from './content-analysis.js'
 
 const INITIAL_COLUMNS = 21
-const MAX_COLUMNS = 64
+const MAX_COLUMNS = 120
 const PROBE = '################'
 
 /** This adapter is for categorical data with a single, shared measurement unit. */
@@ -22,11 +22,27 @@ function extent(plan: AutoChartPlan): { min: number, max: number, magnitude: num
   return { min, max, magnitude: Math.max(-min, max) }
 }
 
+/** Left-aligned eighth blocks; index n is n/8 of a cell. */
+const EIGHTHS = ['', '\u258f', '\u258e', '\u258d', '\u258c', '\u258b', '\u258a', '\u2589']
+/** A 7/8 block keeps a thin gap between cells, so a bar reads as a run of characters. */
+const FULL = '\u2589', RIGHT_HALF = '\u2590', TRACK = '\u00b7'
+
+/**
+ * Positive bars grow right from the zero line in 1/8-cell steps. Negative bars
+ * grow left; Unicode has no right-aligned eighths, so they use half cells.
+ * A nonzero value always shows at least the smallest step.
+ */
 function characters(value: number, maximum: number, leftSlots: number, rightSlots: number): { leftTrack: string, leftBar: string, rightBar: string, rightTrack: string } {
-  const slots = value < 0 ? leftSlots : rightSlots
-  const length = value === 0 || maximum === 0 ? 0 : Math.max(1, Math.round(Math.abs(value) / maximum * slots))
-  const left = value < 0 ? length : 0, right = value > 0 ? length : 0
-  return { leftTrack: '-'.repeat(leftSlots - left), leftBar: '#'.repeat(left), rightBar: '#'.repeat(right), rightTrack: '-'.repeat(rightSlots - right) }
+  const share = value === 0 || maximum === 0 ? 0 : Math.abs(value) / maximum
+  if (value > 0) {
+    const eighths = Math.max(1, Math.round(share * rightSlots * 8)), full = Math.floor(eighths / 8), part = eighths % 8
+    return { leftTrack: TRACK.repeat(leftSlots), leftBar: '', rightBar: FULL.repeat(full) + EIGHTHS[part]!, rightTrack: TRACK.repeat(rightSlots - full - (part ? 1 : 0)) }
+  }
+  if (value < 0) {
+    const halves = Math.max(1, Math.round(share * leftSlots * 2)), full = Math.floor(halves / 2), half = halves % 2
+    return { leftTrack: TRACK.repeat(leftSlots - full - half), leftBar: (half ? RIGHT_HALF : '') + FULL.repeat(full), rightBar: '', rightTrack: TRACK.repeat(rightSlots) }
+  }
+  return { leftTrack: TRACK.repeat(leftSlots), leftBar: '', rightBar: '', rightTrack: TRACK.repeat(rightSlots) }
 }
 
 /**
@@ -73,7 +89,7 @@ export function AsciiChart({ plan, scalePlan = plan }: { plan: AutoChartPlan, sc
   return h('div', { ref: container, className: 'iexp-ascii-chart', 'data-ascii-chart': 'bar' },
     h('style', null, asciiChartCss),
     h('span', { className: 'iexp-ascii-chart-probe', 'aria-hidden': true, ref: probe }, PROBE),
-    h('p', { className: 'iexp-ascii-chart-guide' }, `全图（含各分页）统一尺度，零线${zero}；字符长度按最大绝对值离散近似，非零值至少显示一格。精确数值见原文及数据表。`),
+    h('p', { className: 'iexp-ascii-chart-guide' }, `全图（含各分页）统一尺度，零线${zero}；条长按最大绝对值近似，正值精确到 1/8 格、负值精确到半格，非零值总能看到。精确数值见原文及数据表。`),
     h('ol', { className: 'iexp-ascii-chart-categories', role: 'list' }, ...plan.labels.map((label, row) =>
       h('li', { key: row, className: 'iexp-ascii-chart-category' },
         h('div', { className: 'iexp-ascii-chart-label' }, label),

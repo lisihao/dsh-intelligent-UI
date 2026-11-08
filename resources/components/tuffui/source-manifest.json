@@ -1,0 +1,5937 @@
+{
+  "formatVersion": 1,
+  "repository": "https://github.com/yurigdesigner/tuffui.git",
+  "commit": "378f3eaac693c693d2ec845baf38bf6c0488cb37",
+  "license": "MIT",
+  "registrySha256": "a0e14d31f00a521147b81230483aa6ff365a647700957b6e373b802e707925f4",
+  "entries": [
+    {
+      "id": "surface",
+      "kind": "ui",
+      "title": "Surface",
+      "description": "Shell, Panel, Inset, IconTile and ShellHeader — the borderless layers every component is framed with.",
+      "sourcePath": "registry/surface/surface.tsx",
+      "sha256": "4dd565feb8fd23d22432146b30ea804feb15f7f9204a0e77f991c8c5c32366e7",
+      "exports": [
+        {
+          "name": "Shell",
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "Panel",
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "Inset",
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "IconTile",
+          "props": [
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "ShellHeader",
+          "props": [
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "aside",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "as",
+              "optional": true,
+              "sourceType": "\"h2\" | \"h3\" | \"h4\"",
+              "wireType": "unsupported",
+              "literals": [
+                "h2",
+                "h3",
+                "h4"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "action-button",
+      "kind": "ui",
+      "title": "Action Button",
+      "description": "Silver primary, secondary, quiet and danger buttons in two sizes, with icons, loading and icon-only buttons.",
+      "sourcePath": "registry/action-button/action-button.tsx",
+      "sha256": "278fa3891c34e73d63528ffcb0bf6b7ee976cff842acd49014a1bce21c68e8b6",
+      "exports": [
+        {
+          "name": "Button",
+          "props": [
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "ButtonVariant",
+              "wireType": "string",
+              "literals": [
+                "primary",
+                "secondary",
+                "quiet",
+                "danger"
+              ]
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "ButtonSize",
+              "wireType": "string",
+              "literals": [
+                "sm",
+                "md"
+              ]
+            },
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "iconWeight",
+              "optional": true,
+              "sourceType": "\"fill\" | \"bold\"",
+              "wireType": "string",
+              "literals": [
+                "fill",
+                "bold"
+              ]
+            },
+            {
+              "name": "loading",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "type",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "IconButton",
+          "props": [
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "icon",
+              "optional": false,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "iconWeight",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "tooltip",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "tooltipSide",
+              "optional": true,
+              "sourceType": "\"top\" | \"bottom\"",
+              "wireType": "string",
+              "literals": [
+                "top",
+                "bottom"
+              ]
+            },
+            {
+              "name": "tooltipAlign",
+              "optional": true,
+              "sourceType": "\"start\" | \"center\" | \"end\"",
+              "wireType": "string",
+              "literals": [
+                "start",
+                "center",
+                "end"
+              ]
+            },
+            {
+              "name": "loading",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "type",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "choice-controls",
+      "kind": "ui",
+      "title": "Choice Controls",
+      "description": "Switch, borderless Checkbox with a mixed state, and a RadioGroup with arrow-key navigation.",
+      "sourcePath": "registry/choice-controls/choice-controls.tsx",
+      "sha256": "6f33a66e29b1a25281a1237a92cce8dd4c6cc21f550581db388c1c20964edd95",
+      "exports": [
+        {
+          "name": "Switch",
+          "props": [
+            {
+              "name": "checked",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultChecked",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onCheckedChange",
+              "optional": true,
+              "sourceType": "(checked: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "Checkbox",
+          "props": [
+            {
+              "name": "checked",
+              "optional": true,
+              "sourceType": "boolean | \"mixed\"",
+              "wireType": "unknown"
+            },
+            {
+              "name": "defaultChecked",
+              "optional": true,
+              "sourceType": "boolean | \"mixed\"",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onCheckedChange",
+              "optional": true,
+              "sourceType": "(checked: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "RadioGroup",
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "Radio",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "status-pill",
+      "kind": "ui",
+      "title": "Status Pill",
+      "description": "Tinted status pills in five tones with icon or dot, plus a mono Tag for models, branches and transports.",
+      "sourcePath": "registry/status-pill/status-pill.tsx",
+      "sha256": "c008cb1c5885668c64b9b6b42a71bf70187ae7d5fd2d446b9471ad15095fcf72",
+      "exports": [
+        {
+          "name": "StatusPill",
+          "props": [
+            {
+              "name": "tone",
+              "optional": true,
+              "sourceType": "StatusTone",
+              "wireType": "string",
+              "literals": [
+                "neutral",
+                "brand",
+                "positive",
+                "negative",
+                "warning"
+              ]
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof sizes",
+              "wireType": "unknown"
+            },
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "iconWeight",
+              "optional": true,
+              "sourceType": "\"fill\" | \"bold\"",
+              "wireType": "string",
+              "literals": [
+                "fill",
+                "bold"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "Tag",
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "segmented-control",
+      "kind": "ui",
+      "title": "Segmented Control",
+      "description": "Radio-style segmented switch with a sliding active pill that jumps instantly from the keyboard.",
+      "sourcePath": "registry/segmented-control/segmented-control.tsx",
+      "sha256": "d0b8e2be4fee3adcc706aa97f5485930fdc02aa9db67d60b155184fce832c35c",
+      "exports": [
+        {
+          "name": "Segmented",
+          "props": [
+            {
+              "name": "options",
+              "optional": false,
+              "sourceType": "SegmentedOption<T>[]",
+              "wireType": "object"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "T",
+              "wireType": "unknown"
+            },
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "sourceType": "T",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: T) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "\"sm\" | \"md\"",
+              "wireType": "string",
+              "literals": [
+                "sm",
+                "md"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "progress-bar",
+      "kind": "ui",
+      "title": "Progress Bar",
+      "description": "Progress and meter bars in five tones with optional stripes, plus a stacked SegmentedBar.",
+      "sourcePath": "registry/progress-bar/progress-bar.tsx",
+      "sha256": "99d964a8de5691403a320f3fc52262cdf76aa265f4e2329860434e39e47216ac",
+      "exports": [
+        {
+          "name": "ProgressBar",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "max",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "tone",
+              "optional": true,
+              "sourceType": "BarTone",
+              "wireType": "string",
+              "literals": [
+                "brand",
+                "positive",
+                "negative",
+                "warning",
+                "neutral"
+              ]
+            },
+            {
+              "name": "color",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof heights",
+              "wireType": "unknown"
+            },
+            {
+              "name": "striped",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "kind",
+              "optional": true,
+              "sourceType": "\"progress\" | \"meter\"",
+              "wireType": "string",
+              "literals": [
+                "progress",
+                "meter"
+              ]
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "valueText",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "SegmentedBar",
+          "props": [
+            {
+              "name": "segments",
+              "optional": false,
+              "sourceType": "BarSegment[]",
+              "wireType": "array"
+            },
+            {
+              "name": "max",
+              "optional": false,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof heights",
+              "wireType": "unknown"
+            },
+            {
+              "name": "striped",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "valueText",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rolling-number",
+      "kind": "ui",
+      "title": "Rolling Number",
+      "description": "Odometer-style number: each digit rolls to its new value, units and separators stay put.",
+      "sourcePath": "registry/rolling-number/rolling-number.tsx",
+      "sha256": "d0b0fb6240c21581cae0c80717bd96f462b2a5994e1a184cde7c770c97cc162a",
+      "exports": [
+        {
+          "name": "RollingNumber",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "sourceType": "number | string",
+              "wireType": "unknown"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "stagger",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text-field",
+      "kind": "ui",
+      "title": "Text Field",
+      "description": "Borderless TextField, SearchField with clear and TextArea, with label, description and error wiring.",
+      "sourcePath": "registry/text-field/text-field.tsx",
+      "sha256": "d956f4fd91cc4fa1bffb1a4b69073011ab481a8b344cb837880db8e0d3bc839a",
+      "exports": [
+        {
+          "name": "TextField",
+          "props": [
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "error",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SearchField",
+          "props": [
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "error",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onClear",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            },
+            {
+              "name": "placeholder",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "TextArea",
+          "props": [
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "error",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "rows",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tooltip-hint",
+      "kind": "ui",
+      "title": "Tooltip",
+      "description": "Hint anchored to its trigger: scales in from the trigger side, opens instantly once one is warm.",
+      "sourcePath": "registry/tooltip-hint/tooltip-hint.tsx",
+      "sha256": "84a591ea9c4a48fbbe3fbbf54b028f24abbc49b20fa1fde12a19d456d4fe3ff9",
+      "exports": [
+        {
+          "name": "Tooltip",
+          "props": [
+            {
+              "name": "content",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactElement<{ \"aria-describedby\"?: string; title?: string }>",
+              "wireType": "renderable"
+            },
+            {
+              "name": "side",
+              "optional": true,
+              "sourceType": "\"top\" | \"bottom\"",
+              "wireType": "string",
+              "literals": [
+                "top",
+                "bottom"
+              ]
+            },
+            {
+              "name": "align",
+              "optional": true,
+              "sourceType": "\"start\" | \"center\" | \"end\"",
+              "wireType": "string",
+              "literals": [
+                "start",
+                "center",
+                "end"
+              ]
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "action-menu",
+      "kind": "ui",
+      "title": "Action Menu",
+      "description": "Dropdown and right-click menus — items with icons and shortcuts, submenus, checkable items and a destructive group.",
+      "sourcePath": "registry/action-menu/action-menu.tsx",
+      "sha256": "d3ca90f9e85eb24f9ef6649febad662f23af9a974b70c18120e1d6279d576298",
+      "exports": [
+        {
+          "name": "Menu",
+          "props": [
+            {
+              "name": "trigger",
+              "optional": false,
+              "sourceType": "React.ReactElement",
+              "wireType": "renderable"
+            },
+            {
+              "name": "groups",
+              "optional": false,
+              "sourceType": "MenuGroup[]",
+              "wireType": "array"
+            },
+            {
+              "name": "side",
+              "optional": true,
+              "sourceType": "\"top\" | \"right\" | \"bottom\" | \"left\"",
+              "wireType": "string",
+              "literals": [
+                "top",
+                "right",
+                "bottom",
+                "left"
+              ]
+            },
+            {
+              "name": "align",
+              "optional": true,
+              "sourceType": "\"start\" | \"center\" | \"end\"",
+              "wireType": "string",
+              "literals": [
+                "start",
+                "center",
+                "end"
+              ]
+            },
+            {
+              "name": "open",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ContextMenu",
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactElement",
+              "wireType": "renderable"
+            },
+            {
+              "name": "groups",
+              "optional": false,
+              "sourceType": "MenuGroup[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "popover-panel",
+      "kind": "ui",
+      "title": "Popover Panel",
+      "description": "A panel anchored to its trigger — grows from it, closes on outside click or Esc, keeps focus inside.",
+      "sourcePath": "registry/popover-panel/popover-panel.tsx",
+      "sha256": "63a1ed5eb7d5ee7c9e3aa29f46946d79903e6589c10dea0c10611aee338593ef",
+      "exports": [
+        {
+          "name": "Popover",
+          "props": [
+            {
+              "name": "trigger",
+              "optional": false,
+              "sourceType": "React.ReactElement",
+              "wireType": "renderable"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "showClose",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "side",
+              "optional": true,
+              "sourceType": "\"top\" | \"right\" | \"bottom\" | \"left\"",
+              "wireType": "string",
+              "literals": [
+                "top",
+                "right",
+                "bottom",
+                "left"
+              ]
+            },
+            {
+              "name": "align",
+              "optional": true,
+              "sourceType": "\"start\" | \"center\" | \"end\"",
+              "wireType": "string",
+              "literals": [
+                "start",
+                "center",
+                "end"
+              ]
+            },
+            {
+              "name": "open",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modal-sheet",
+      "kind": "ui",
+      "title": "Modal Sheet",
+      "description": "Centered dialog and edge sheet (drawer) — focus trap, scroll lock, Esc and backdrop to close.",
+      "sourcePath": "registry/modal-sheet/modal-sheet.tsx",
+      "sha256": "e05ee551b6ae62053ef9ac55a6f8499f0a99ef471a56f08f27f092ed42830660",
+      "exports": [
+        {
+          "name": "Dialog",
+          "props": [
+            {
+              "name": "open",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "trigger",
+              "optional": true,
+              "sourceType": "React.ReactElement",
+              "wireType": "renderable"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "footer",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof sizes",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Sheet",
+          "props": [
+            {
+              "name": "open",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "trigger",
+              "optional": true,
+              "sourceType": "React.ReactElement",
+              "wireType": "renderable"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "footer",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "side",
+              "optional": true,
+              "sourceType": "keyof typeof sides",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toast-stack",
+      "kind": "ui",
+      "title": "Toast Stack",
+      "description": "Notifications that stack, expand on hover, pause while hovered, swipe or click to dismiss, with actions.",
+      "sourcePath": "registry/toast-stack/toast-stack.tsx",
+      "sha256": "58e729a79a7b753f855fc54bbe42bc89fadaa31a4a4c53efb3e31962dd8236b8",
+      "exports": [
+        {
+          "name": "Toaster",
+          "props": [
+            {
+              "name": "visible",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "position",
+              "optional": true,
+              "sourceType": "\"bottom-right\" | \"bottom-center\"",
+              "wireType": "string",
+              "literals": [
+                "bottom-right",
+                "bottom-center"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "select-field",
+      "kind": "ui",
+      "title": "Select Field",
+      "description": "Select and searchable combobox — options with icons and hints, groups, keyboard typeahead.",
+      "sourcePath": "registry/select-field/select-field.tsx",
+      "sha256": "7918f59dac4464dac03b0c8b4822af2f8c6b532cbf64bb749f7548da2c4db865",
+      "exports": [
+        {
+          "name": "Select",
+          "props": [
+            {
+              "name": "options",
+              "optional": false,
+              "sourceType": "SelectOption[] | SelectGroup[]",
+              "wireType": "object"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "placeholder",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "name",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "required",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "error",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Combobox",
+          "props": [
+            {
+              "name": "options",
+              "optional": false,
+              "sourceType": "SelectOption[]",
+              "wireType": "array"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "string | null",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: string | null) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onQueryChange",
+              "optional": true,
+              "sourceType": "(query: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "loading",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "emptyText",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "placeholder",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "error",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tab-panels",
+      "kind": "ui",
+      "title": "Tab Panels",
+      "description": "Tabs with panels — sliding indicator, keyboard navigation, lazy panels and counts.",
+      "sourcePath": "registry/tab-panels/tab-panels.tsx",
+      "sha256": "16f4e07277882fee74074224196fc10c8e290ff554a6f2d48850384af8c5d5a4",
+      "exports": [
+        {
+          "name": "Tabs",
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "defaultValue",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"default\" | \"pills\"",
+              "wireType": "string",
+              "literals": [
+                "default",
+                "pills"
+              ]
+            },
+            {
+              "name": "activation",
+              "optional": true,
+              "sourceType": "\"automatic\" | \"manual\"",
+              "wireType": "string",
+              "literals": [
+                "automatic",
+                "manual"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "TabList",
+          "props": [
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "Tab",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "count",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "TabPanel",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "lazy",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "disclosure",
+      "kind": "ui",
+      "title": "Disclosure",
+      "description": "Accordion and single collapsible sections with smooth height animation.",
+      "sourcePath": "registry/disclosure/disclosure.tsx",
+      "sha256": "b97d2a434360801a01a9b39f75ed10a25e69e607957edf497c3c00f943142d33",
+      "exports": [
+        {
+          "name": "Accordion",
+          "props": [
+            {
+              "name": "items",
+              "optional": false,
+              "sourceType": "AccordionItem[]",
+              "wireType": "array"
+            },
+            {
+              "name": "type",
+              "optional": true,
+              "sourceType": "\"single\" | \"multiple\"",
+              "wireType": "string",
+              "literals": [
+                "single",
+                "multiple"
+              ]
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(open: string[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Collapsible",
+          "props": [
+            {
+              "name": "open",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent-avatar",
+      "kind": "ui",
+      "title": "Agent Avatar",
+      "description": "Avatars for agents and people — initials or image, presence and activity state, stacked groups.",
+      "sourcePath": "registry/agent-avatar/agent-avatar.tsx",
+      "sha256": "f81a6c22bf9815b3cda5a77c90e3f93c5a9815a08d0561c127548edcf5862061",
+      "exports": [
+        {
+          "name": "Avatar",
+          "props": [
+            {
+              "name": "name",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "src",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "AvatarSize",
+              "wireType": "string",
+              "literals": [
+                "xs",
+                "sm",
+                "md",
+                "lg"
+              ]
+            },
+            {
+              "name": "kind",
+              "optional": true,
+              "sourceType": "\"agent\" | \"person\"",
+              "wireType": "string",
+              "literals": [
+                "agent",
+                "person"
+              ]
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "AvatarStatus",
+              "wireType": "string",
+              "literals": [
+                "online",
+                "away",
+                "busy",
+                "working"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "AvatarGroup",
+          "props": [
+            {
+              "name": "people",
+              "optional": false,
+              "sourceType": "Omit<AvatarProps, \"size\" | \"className\">[]",
+              "wireType": "object"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "AvatarSize",
+              "wireType": "string",
+              "literals": [
+                "xs",
+                "sm",
+                "md",
+                "lg"
+              ]
+            },
+            {
+              "name": "max",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loading-skeleton",
+      "kind": "ui",
+      "title": "Loading Skeleton",
+      "description": "Placeholders for answers, lists and cards while they load.",
+      "sourcePath": "registry/loading-skeleton/loading-skeleton.tsx",
+      "sha256": "3cb2a1a6963964fed35f19d01708dad251f0a45a2962366d0488981b62c74075",
+      "exports": [
+        {
+          "name": "Skeleton",
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "SkeletonGroup",
+          "props": [
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            }
+          ]
+        },
+        {
+          "name": "MessageSkeleton",
+          "props": [
+            {
+              "name": "lines",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "CardSkeleton",
+          "props": [
+            {
+              "name": "media",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "range-slider",
+      "kind": "ui",
+      "title": "Range Slider",
+      "description": "Single and range sliders with steps, marks and value labels — for temperature, length, budgets.",
+      "sourcePath": "registry/range-slider/range-slider.tsx",
+      "sha256": "68c6019eca69d75e3a3ffc9a9b3e7644264feb32b1d862d6be98f9362a82823c",
+      "exports": [
+        {
+          "name": "Slider",
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "V",
+              "wireType": "unknown"
+            },
+            {
+              "name": "defaultValue",
+              "optional": false,
+              "sourceType": "V",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: V) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onValueCommit",
+              "optional": true,
+              "sourceType": "(value: V) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "min",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "max",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "step",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "marks",
+              "optional": true,
+              "sourceType": "SliderMark[]",
+              "wireType": "array"
+            },
+            {
+              "name": "striped",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "key-hint",
+      "kind": "ui",
+      "title": "Key Hint",
+      "description": "Keyboard shortcut hints that adapt to the platform — Cmd on Mac, Ctrl elsewhere.",
+      "sourcePath": "registry/key-hint/key-hint.tsx",
+      "sha256": "364b07a51429ceb64abc65961a2ecd5c19e7d4c5a4f59d6cb8bee2af2c11ea97",
+      "exports": [
+        {
+          "name": "Kbd",
+          "props": [
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof sizes",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "KeyCombo",
+          "props": [
+            {
+              "name": "keys",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof sizes",
+              "wireType": "unknown"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loader",
+      "kind": "ui",
+      "title": "Loader",
+      "description": "Spinner and thinking indicators in a few sizes, with an accessible label.",
+      "sourcePath": "registry/loader/loader.tsx",
+      "sha256": "7bf8dd03ac3687b9eb4cdfcf289923c50b573db490e684702b4593ea5dbe689c",
+      "exports": [
+        {
+          "name": "Spinner",
+          "props": [
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof spinnerSizes",
+              "wireType": "unknown"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "showLabel",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Thinking",
+          "props": [
+            {
+              "name": "size",
+              "optional": true,
+              "sourceType": "keyof typeof dotSizes",
+              "wireType": "unknown"
+            },
+            {
+              "name": "words",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "interval",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "empty-state",
+      "kind": "ui",
+      "title": "Empty State",
+      "description": "Empty, no-results and error states with an icon, message and actions.",
+      "sourcePath": "registry/empty-state/empty-state.tsx",
+      "sha256": "5b4eb8cb5ae79dd4edb58b0a1f39014bfd302e5657caec6827b67d7e48ed41f1",
+      "exports": [
+        {
+          "name": "EmptyState",
+          "props": [
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "description",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "action",
+              "optional": true,
+              "sourceType": "EmptyStateAction",
+              "wireType": "object"
+            },
+            {
+              "name": "secondaryAction",
+              "optional": true,
+              "sourceType": "EmptyStateAction",
+              "wireType": "object"
+            },
+            {
+              "name": "tone",
+              "optional": true,
+              "sourceType": "\"neutral\" | \"error\"",
+              "wireType": "string",
+              "literals": [
+                "neutral",
+                "error"
+              ]
+            },
+            {
+              "name": "onRetry",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "compact",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "date-field",
+      "kind": "ui",
+      "title": "Date Field",
+      "description": "Calendar and date picker — month grid, ranges, keyboard navigation and min / max.",
+      "sourcePath": "registry/date-field/date-field.tsx",
+      "sha256": "1e15713a4d1404cbaa393964cd3dc1a8e90e21cef01eab970e7a401661f4eb33",
+      "exports": [
+        {
+          "name": "DatePicker",
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "Date | null",
+              "wireType": "date"
+            },
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "sourceType": "Date | null",
+              "wireType": "date"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(date: Date) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "label",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "placeholder",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "formatOptions",
+              "optional": true,
+              "sourceType": "Intl.DateTimeFormatOptions",
+              "wireType": "unknown"
+            },
+            {
+              "name": "locale",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "calendar",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop-zone",
+      "kind": "ui",
+      "title": "Drop Zone",
+      "description": "Drag-and-drop file target for a chat — accepts types and size limits, shows why a file was rejected.",
+      "sourcePath": "registry/drop-zone/drop-zone.tsx",
+      "sha256": "82c3192be83649bf81951d74f55fd0ec4193acc82ac645b8d039bf5d3f0277bf",
+      "exports": [
+        {
+          "name": "DropZone",
+          "props": [
+            {
+              "name": "onFiles",
+              "optional": false,
+              "sourceType": "(accepted: File[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onReject",
+              "optional": true,
+              "sourceType": "(rejected: RejectedFile[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "hint",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "disabled",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "rules",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        },
+        {
+          "name": "DropOverlay",
+          "props": [
+            {
+              "name": "onFiles",
+              "optional": false,
+              "sourceType": "(accepted: File[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onReject",
+              "optional": true,
+              "sourceType": "(rejected: RejectedFile[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "show",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "rules",
+              "optional": true,
+              "sourceType": "unknown",
+              "wireType": "unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ai-chat",
+      "kind": "block",
+      "title": "AI Chat",
+      "description": "A complete chat app screen — history sidebar, a thread with tool calls, cited answers and feedback, follow-up chips and a composer with a context meter.",
+      "sourcePath": "registry/ai-chat/ai-chat.tsx",
+      "sha256": "697b690e0e3b95e4925eaab8245d1f2f9940cdf440ec6838c62118780d3b5d9c",
+      "exports": [
+        {
+          "name": "AIChat",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "AIChatData",
+              "wireType": "object"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "\"idle\" | \"streaming\"",
+              "wireType": "string",
+              "literals": [
+                "idle",
+                "streaming"
+              ]
+            },
+            {
+              "name": "onSend",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onNewChat",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelectConversation",
+              "optional": true,
+              "sourceType": "(conversation: Conversation) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onShare",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "sidebarOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultSidebarOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onSidebarOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coding-agent",
+      "kind": "block",
+      "title": "Coding Agent",
+      "description": "An agent working in a repo — chat with plan and permission requests on one side, file changes, terminal and a live preview on the other.",
+      "sourcePath": "registry/coding-agent/coding-agent.tsx",
+      "sha256": "85af789e9b912fbe902d8a3774314e74d09ae9a02746d1342b867ac69d594fb8",
+      "exports": [
+        {
+          "name": "CodingAgent",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "CodingAgentData",
+              "wireType": "object"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "\"idle\" | \"streaming\"",
+              "wireType": "string",
+              "literals": [
+                "idle",
+                "streaming"
+              ]
+            },
+            {
+              "name": "tab",
+              "optional": true,
+              "sourceType": "WorkTab",
+              "wireType": "string",
+              "literals": [
+                "changes",
+                "terminal",
+                "preview"
+              ]
+            },
+            {
+              "name": "onTabChange",
+              "optional": true,
+              "sourceType": "(tab: WorkTab) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSend",
+              "optional": true,
+              "sourceType": "(message: ComposerMessage) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onApply",
+              "optional": true,
+              "sourceType": "(selection: HunkSelection) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onDiscard",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "applying",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onRestore",
+              "optional": true,
+              "sourceType": "(checkpoint: Checkpoint) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "data-answer",
+      "kind": "block",
+      "title": "Data Answer",
+      "description": "An analytics question answered with KPI cards, a chart and a table, plus follow-up questions to dig further.",
+      "sourcePath": "registry/data-answer/data-answer.tsx",
+      "sha256": "af2215ec8ccd973597c331d355c7e2bc67ae0fbad8e5cdda99b07bf0016bb34c",
+      "exports": [
+        {
+          "name": "DataAnswer",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "DataAnswerData",
+              "wireType": "object"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "\"idle\" | \"streaming\"",
+              "wireType": "string",
+              "literals": [
+                "idle",
+                "streaming"
+              ]
+            },
+            {
+              "name": "onSend",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "sidebarOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onSidebarOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "booking-assistant",
+      "kind": "block",
+      "title": "Booking Assistant",
+      "description": "An assistant that acts — compares options, picks a time, fills a form and confirms before it books.",
+      "sourcePath": "registry/booking-assistant/booking-assistant.tsx",
+      "sha256": "76ebad92027b3243640ec38b29ecdc050c9dd96ec485ac5d92c6b993938a8f8d",
+      "exports": [
+        {
+          "name": "BookingAssistant",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "BookingAssistantData",
+              "wireType": "object"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "\"idle\" | \"streaming\"",
+              "wireType": "string",
+              "literals": [
+                "idle",
+                "streaming"
+              ]
+            },
+            {
+              "name": "onSend",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "summaryOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onSummaryOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent-console",
+      "kind": "block",
+      "title": "Agent Console",
+      "description": "A team view of agents in production — background runs, a trace, eval results, usage and rate limits.",
+      "sourcePath": "registry/agent-console/agent-console.tsx",
+      "sha256": "f585c06fcdb1293c495d480abca8911caf8ff2302b835d20287c596e3b2dcf97",
+      "exports": [
+        {
+          "name": "AgentConsole",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "AgentConsoleData",
+              "wireType": "object"
+            },
+            {
+              "name": "section",
+              "optional": true,
+              "sourceType": "ConsoleSection",
+              "wireType": "string",
+              "literals": [
+                "agents",
+                "runs",
+                "evals",
+                "usage",
+                "settings"
+              ]
+            },
+            {
+              "name": "onSectionChange",
+              "optional": true,
+              "sourceType": "(section: ConsoleSection) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelectAgent",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onDecide",
+              "optional": true,
+              "sourceType": "ToolApprovalQueueProps[\"onDecide\"]",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRetryLimits",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onAcknowledge",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "support-widget",
+      "kind": "block",
+      "title": "Support Widget",
+      "description": "A support bot embedded on a website — launcher bubble, quick replies, order lookup, handoff to a human and a rating at the end.",
+      "sourcePath": "registry/support-widget/support-widget.tsx",
+      "sha256": "de1026a6ee02af5bfd9d305249ba90d7303884161986d8abcead0c605e855cc3",
+      "exports": [
+        {
+          "name": "SupportWidget",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "SupportWidgetData",
+              "wireType": "object"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "open",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onClose",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSend",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRate",
+              "optional": true,
+              "sourceType": "(feedback: {\n    rating: number | \"up\" | \"down\";\n    reasons: string[];\n    note: string;\n  }) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "handoff-inbox",
+      "kind": "block",
+      "title": "Handoff Inbox",
+      "description": "Where people take over from the bot — escalated conversations by urgency, what the bot already did, reply and hand back.",
+      "sourcePath": "registry/handoff-inbox/handoff-inbox.tsx",
+      "sha256": "7e03bb265af955f3a88d9791f87c99462144cc74e30a683fcef98d58b5ecb773",
+      "exports": [
+        {
+          "name": "HandoffInbox",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "HandoffInboxData",
+              "wireType": "object"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "HandoffStatus",
+              "wireType": "string",
+              "literals": [
+                "waiting",
+                "active",
+                "returned"
+              ]
+            },
+            {
+              "name": "onTakeOver",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onHandBack",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSend",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(escalation: Escalation) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "draft",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onDraftChange",
+              "optional": true,
+              "sourceType": "(draft: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "queueOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultQueueOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onQueueOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "detailsOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultDetailsOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onDetailsOpenChange",
+              "optional": true,
+              "sourceType": "(open: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "streaming-message",
+      "kind": "ui",
+      "title": "Streaming Message",
+      "description": "Assistant message with token streaming, collapsible reasoning, citation chips and copy / retry actions.",
+      "sourcePath": "registry/streaming-message/streaming-message.tsx",
+      "sha256": "4a0a1107c50c611acc1c0d6797afc34583269aca22c7441fa77e44c089c77ac8",
+      "exports": [
+        {
+          "name": "StreamingMessage",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "StreamingMessageData",
+              "wireType": "object"
+            },
+            {
+              "name": "model",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "showHeader",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "(content: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRetry",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent-status",
+      "kind": "ui",
+      "title": "Agent Status",
+      "description": "Live activity line for a working agent — current step, rotating detail, elapsed time and a stop action.",
+      "sourcePath": "registry/agent-status/agent-status.tsx",
+      "sha256": "5741919d1ae68a0f86f5aaa6d4ef58bb627ae33a72531bbb7e88838143aaee64",
+      "exports": [
+        {
+          "name": "AgentStatus",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "AgentStatusData",
+              "wireType": "object"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "maxSteps",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "message-branches",
+      "kind": "ui",
+      "title": "Message Branches",
+      "description": "Switch between regenerated answers and edited prompts — arrows, a mini branch map, and direction-aware swaps.",
+      "sourcePath": "registry/message-branches/message-branches.tsx",
+      "sha256": "ca4272ab8ce9ccb33b03b37698fcfb84dabd09817904afe632a2120280e85e48",
+      "exports": [
+        {
+          "name": "MessageBranches",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ versions: MessageVersion[]; turnsBefore?: number }",
+              "wireType": "object"
+            },
+            {
+              "name": "index",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "defaultIndex",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "onIndexChange",
+              "optional": true,
+              "sourceType": "(index: number, version: MessageVersion) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRegenerate",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"inline\" | \"map\"",
+              "wireType": "string",
+              "literals": [
+                "inline",
+                "map"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "response-feedback",
+      "kind": "ui",
+      "title": "Response Feedback",
+      "description": "Thumbs up or down under an answer; a down vote opens reason chips and a note, then settles into a thank-you.",
+      "sourcePath": "registry/response-feedback/response-feedback.tsx",
+      "sha256": "9396046ddf20b3eeb9ebba3ee8375ce2eaafa407b12b7588ae06422909608d6f",
+      "exports": [
+        {
+          "name": "ResponseFeedback",
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "Feedback",
+              "wireType": "object"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: Feedback) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRate",
+              "optional": true,
+              "sourceType": "(rating: FeedbackRating) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSubmit",
+              "optional": true,
+              "sourceType": "(feedback: {\n    rating: FeedbackRating;\n    reasons: string[];\n    note: string;\n  }) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onUndo",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "undoMs",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRegenerate",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "reasons",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"inline\" | \"detailed\"",
+              "wireType": "string",
+              "literals": [
+                "inline",
+                "detailed"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent-composer",
+      "kind": "ui",
+      "title": "Agent Composer",
+      "description": "Prompt input with Ask / Plan / Act modes, a context tray with token counts and messages that queue while the agent works.",
+      "sourcePath": "registry/agent-composer/agent-composer.tsx",
+      "sha256": "88bcdb815cfdb42dbab91ca0b7d982e025b0805b29664976c93c7e773ea16891",
+      "exports": [
+        {
+          "name": "AgentComposer",
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "sourceType": "(value: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "mode",
+              "optional": true,
+              "sourceType": "ComposerMode",
+              "wireType": "string",
+              "literals": [
+                "ask",
+                "plan",
+                "act"
+              ]
+            },
+            {
+              "name": "onModeChange",
+              "optional": true,
+              "sourceType": "(mode: ComposerMode) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "showModes",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "context",
+              "optional": true,
+              "sourceType": "ComposerContextItem[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onContextChange",
+              "optional": true,
+              "sourceType": "(context: ComposerContextItem[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "files",
+              "optional": true,
+              "sourceType": "ComposerFile[]",
+              "wireType": "array"
+            },
+            {
+              "name": "commands",
+              "optional": true,
+              "sourceType": "ComposerCommand[]",
+              "wireType": "array"
+            },
+            {
+              "name": "models",
+              "optional": true,
+              "sourceType": "ComposerModel[]",
+              "wireType": "array"
+            },
+            {
+              "name": "model",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onModelChange",
+              "optional": true,
+              "sourceType": "(model: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "\"idle\" | \"streaming\"",
+              "wireType": "string",
+              "literals": [
+                "idle",
+                "streaming"
+              ]
+            },
+            {
+              "name": "queue",
+              "optional": true,
+              "sourceType": "ComposerQueued[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onQueueChange",
+              "optional": true,
+              "sourceType": "(queue: ComposerQueued[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSubmit",
+              "optional": true,
+              "sourceType": "(message: ComposerMessage) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "allowAttachments",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "placeholder",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent-question",
+      "kind": "ui",
+      "title": "Agent Question",
+      "description": "Agent asks with choice cards, marks its own suggestion and reason, and accepts a pick, several picks or free text.",
+      "sourcePath": "registry/agent-question/agent-question.tsx",
+      "sha256": "d8a030451d0fe43b8406ed54929fe3d831f9271aedc501234c77bafbcbb31f54",
+      "exports": [
+        {
+          "name": "AgentQuestion",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "AgentQuestionData",
+              "wireType": "object"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "\"pending\" | \"answered\" | \"delegated\"",
+              "wireType": "string",
+              "literals": [
+                "pending",
+                "answered",
+                "delegated"
+              ]
+            },
+            {
+              "name": "answer",
+              "optional": true,
+              "sourceType": "QuestionAnswer",
+              "wireType": "object"
+            },
+            {
+              "name": "onSubmit",
+              "optional": true,
+              "sourceType": "(answer: QuestionAnswer) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onDelegate",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onUndo",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "undoMs",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "selected",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onSelectedChange",
+              "optional": true,
+              "sourceType": "(ids: string[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "agent",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tool-approval-queue",
+      "kind": "ui",
+      "title": "Tool Approval Queue",
+      "description": "Triage pending tool calls by risk: select several, grant once, for the session or always, and undo from the resolved log.",
+      "sourcePath": "registry/tool-approval-queue/tool-approval-queue.tsx",
+      "sha256": "27e4d289148e32ff2fa6c2cbf393983892825498be7cc6ee088e9654cbe581db",
+      "exports": [
+        {
+          "name": "ToolApprovalQueue",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "ToolApprovalRequest[]",
+              "wireType": "array"
+            },
+            {
+              "name": "layout",
+              "optional": true,
+              "sourceType": "\"grouped\" | \"flat\"",
+              "wireType": "string",
+              "literals": [
+                "grouped",
+                "flat"
+              ]
+            },
+            {
+              "name": "onDecide",
+              "optional": true,
+              "sourceType": "(\n    requests: ToolApprovalRequest[],\n    decision: ToolDecision,\n    scope: GrantScope,\n  ) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onUndo",
+              "optional": true,
+              "sourceType": "(request: ToolApprovalRequest) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "undoMs",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "selected",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onSelectedChange",
+              "optional": true,
+              "sourceType": "(ids: string[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "defaultExpanded",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tool-call-block",
+      "kind": "ui",
+      "title": "Tool Call Block",
+      "description": "Inline chat card for a tool call: name, collapsible JSON args, status, duration and a result preview.",
+      "sourcePath": "registry/tool-call-block/tool-call-block.tsx",
+      "sha256": "00c7d6f0eb123ea99f57134af77c010fb34cf9eb3e7abad9461b8662a5e1bb1c",
+      "exports": [
+        {
+          "name": "ToolCallBlock",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "ToolCall",
+              "wireType": "object"
+            },
+            {
+              "name": "defaultOpen",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onRetry",
+              "optional": true,
+              "sourceType": "(call: ToolCall) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "file-changes",
+      "kind": "ui",
+      "title": "File Changes",
+      "description": "Split review: a file tree on one side, hunks on the other — keep or revert each hunk, then apply the result.",
+      "sourcePath": "registry/file-changes/file-changes.tsx",
+      "sha256": "bc31eebd1ff128edb58f747dc68528c3db8ae4cde8e46156b4465390af7588f9",
+      "exports": [
+        {
+          "name": "FileChanges",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "FileChange[]",
+              "wireType": "array"
+            },
+            {
+              "name": "view",
+              "optional": true,
+              "sourceType": "\"split\" | \"stacked\"",
+              "wireType": "string",
+              "literals": [
+                "split",
+                "stacked"
+              ]
+            },
+            {
+              "name": "defaultSelectedId",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "selectedId",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onSelectedChange",
+              "optional": true,
+              "sourceType": "(fileId: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onHunkChange",
+              "optional": true,
+              "sourceType": "(fileId: string, hunkId: string, keep: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onApply",
+              "optional": false,
+              "sourceType": "(selection: HunkSelection) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onDiscard",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "applying",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "terminal-output",
+      "kind": "ui",
+      "title": "Terminal Output",
+      "description": "Streaming command output with stdout / stderr lines, exit status, duration, copy and stop.",
+      "sourcePath": "registry/terminal-output/terminal-output.tsx",
+      "sha256": "a9d7db1e7ee3b7505b244ecf3f86e6419aa2a5ec0db816ac819542be9bf3e93f",
+      "exports": [
+        {
+          "name": "TerminalOutput",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "TerminalRun",
+              "wireType": "object"
+            },
+            {
+              "name": "onStop",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "maxHeight",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mcp-servers",
+      "kind": "ui",
+      "title": "MCP Servers",
+      "description": "Connected MCP servers with status, auth prompts and reconnect — expand one to switch individual tools on or off.",
+      "sourcePath": "registry/mcp-servers/mcp-servers.tsx",
+      "sha256": "bfcfa08df41137ce01b1ba66beaf7f720f152e293969c09f8a5250f2786be424",
+      "exports": [
+        {
+          "name": "McpServers",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "McpServer[]",
+              "wireType": "array"
+            },
+            {
+              "name": "view",
+              "optional": true,
+              "sourceType": "\"servers\" | \"tools\"",
+              "wireType": "string",
+              "literals": [
+                "servers",
+                "tools"
+              ]
+            },
+            {
+              "name": "onToggleTool",
+              "optional": true,
+              "sourceType": "(serverId: string, tool: string, enabled: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onToggleServer",
+              "optional": true,
+              "sourceType": "(serverId: string, enabled: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onAuthorize",
+              "optional": true,
+              "sourceType": "(server: McpServer) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onReconnect",
+              "optional": true,
+              "sourceType": "(server: McpServer) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "defaultExpanded",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "background-agents",
+      "kind": "ui",
+      "title": "Background Agents Panel",
+      "description": "Agents working in the background as a grid of live tiles or a compact dock that expands into the selected agent.",
+      "sourcePath": "registry/background-agents/background-agents.tsx",
+      "sha256": "2baf91d66b9085900718ff1b884c24ef436397b4344418d1f364edeef97805cc",
+      "exports": [
+        {
+          "name": "BackgroundAgents",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "BackgroundAgent[]",
+              "wireType": "array"
+            },
+            {
+              "name": "layout",
+              "optional": true,
+              "sourceType": "\"grid\" | \"dock\"",
+              "wireType": "string",
+              "literals": [
+                "grid",
+                "dock"
+              ]
+            },
+            {
+              "name": "onPause",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onResume",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onOpen",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onCancel",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onReview",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "selectedId",
+              "optional": true,
+              "sourceType": "string | null",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(agent: BackgroundAgent | null) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "checkpoint-timeline",
+      "kind": "ui",
+      "title": "Checkpoint Timeline",
+      "description": "Checkpoints the agent made along the way — scrub through turns, see what changed, restore to any point.",
+      "sourcePath": "registry/checkpoint-timeline/checkpoint-timeline.tsx",
+      "sha256": "235e6c4d047981f5964084c1d73c8f02dcb5598be427df6d2fe8be88b93392d0",
+      "exports": [
+        {
+          "name": "CheckpointTimeline",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "Checkpoint[]",
+              "wireType": "array"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"timeline\" | \"compact\"",
+              "wireType": "string",
+              "literals": [
+                "timeline",
+                "compact"
+              ]
+            },
+            {
+              "name": "selectedId",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(checkpoint: Checkpoint) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRestore",
+              "optional": true,
+              "sourceType": "(checkpoint: Checkpoint) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "confirming",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onConfirmingChange",
+              "optional": true,
+              "sourceType": "(confirming: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "run-trace",
+      "kind": "ui",
+      "title": "Run Trace",
+      "description": "Flame graph of an agent run with click-to-zoom spans, plus a breakdown of where time, tokens and cost went.",
+      "sourcePath": "registry/run-trace/run-trace.tsx",
+      "sha256": "ac2d8f560313d550711b4dedcdb0439e5d04c7dc374330865c3388090586438c",
+      "exports": [
+        {
+          "name": "RunTrace",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ spans: TraceSpan[]; elapsedMs: number }",
+              "wireType": "object"
+            },
+            {
+              "name": "view",
+              "optional": true,
+              "sourceType": "\"flame\" | \"breakdown\"",
+              "wireType": "string",
+              "literals": [
+                "flame",
+                "breakdown"
+              ]
+            },
+            {
+              "name": "onZoom",
+              "optional": true,
+              "sourceType": "(span: TraceSpan | null) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "eval-results",
+      "kind": "ui",
+      "title": "Eval Results",
+      "description": "An eval run as a grid of cases — pass, fail or regressed vs the baseline — with per-case input, expected and actual.",
+      "sourcePath": "registry/eval-results/eval-results.tsx",
+      "sha256": "f35fb8d561a7ecd1bf54d247b11f55630113a2daf33bf6fcd37aef9b9e24a329",
+      "exports": [
+        {
+          "name": "EvalResults",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{\n    suite: string;\n    /** e.g. \"opus-5.5 vs sonnet-5.5\". */\n    label?: string;\n    cases: EvalCase[];\n    /** Baseline pass rate (0–1) for the delta next to the big number. */\n    baselinePassRate?: number;\n    metrics?: EvalMetric[];\n  }",
+              "wireType": "object"
+            },
+            {
+              "name": "view",
+              "optional": true,
+              "sourceType": "\"grid\" | \"compare\"",
+              "wireType": "string",
+              "literals": [
+                "grid",
+                "compare"
+              ]
+            },
+            {
+              "name": "filter",
+              "optional": true,
+              "sourceType": "EvalFilter",
+              "wireType": "string",
+              "literals": [
+                "all",
+                "failed",
+                "regressed",
+                "improved"
+              ]
+            },
+            {
+              "name": "onFilterChange",
+              "optional": true,
+              "sourceType": "(filter: EvalFilter) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "selectedId",
+              "optional": true,
+              "sourceType": "string | null",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onSelectCase",
+              "optional": true,
+              "sourceType": "(testCase: EvalCase) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "context-window-meter",
+      "kind": "ui",
+      "title": "Context Window Meter",
+      "description": "Token usage by segment — system, history, files, tools — with a near-limit warning and a compact action.",
+      "sourcePath": "registry/context-window-meter/context-window-meter.tsx",
+      "sha256": "bb22db92e0bede533285a4fb2f3de342adf03b0546ca53c08f85cebfe214259e",
+      "exports": [
+        {
+          "name": "ContextWindowMeter",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ limit: number; segments: ContextSegment[]; model?: string }",
+              "wireType": "object"
+            },
+            {
+              "name": "warnAt",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "onCompact",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "compacting",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"card\" | \"inline\"",
+              "wireType": "string",
+              "literals": [
+                "card",
+                "inline"
+              ]
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "memory-panel",
+      "kind": "ui",
+      "title": "Memory Panel",
+      "description": "What the agent remembers about the user and project — search, scopes, inline edit and forget.",
+      "sourcePath": "registry/memory-panel/memory-panel.tsx",
+      "sha256": "65737c0f63331b560be3b5b847c528cb47de38b36fb78052372ceba8de0a8c9c",
+      "exports": [
+        {
+          "name": "MemoryPanel",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "Memory[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onEdit",
+              "optional": true,
+              "sourceType": "(memory: Memory, text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onForget",
+              "optional": true,
+              "sourceType": "(memory: Memory) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onUndo",
+              "optional": true,
+              "sourceType": "(memory: Memory) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "undoMs",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"panel\" | \"compact\"",
+              "wireType": "string",
+              "literals": [
+                "panel",
+                "compact"
+              ]
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "usage-summary",
+      "kind": "ui",
+      "title": "Usage Summary",
+      "description": "Tokens and cost over time, split by model, against a monthly budget.",
+      "sourcePath": "registry/usage-summary/usage-summary.tsx",
+      "sha256": "d57c35a8fc13f8e19c059221dacdc8ad4eb1ab56cb2d40c3a7d534b7a7f9865c",
+      "exports": [
+        {
+          "name": "UsageSummary",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{\n    days: UsageDay[];\n    models: UsageModel[];\n    /** Total cost of the previous period of the same length, for the delta. */\n    previousCost?: number;\n    budget?: { limit: number; label?: string };\n  }",
+              "wireType": "object"
+            },
+            {
+              "name": "currency",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "warnAt",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onSelectDay",
+              "optional": true,
+              "sourceType": "(day: UsageDay) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rate-limits",
+      "kind": "ui",
+      "title": "Rate Limits",
+      "description": "Requests and tokens per minute as refilling buckets, with a retry-after countdown and queued calls when throttled.",
+      "sourcePath": "registry/rate-limits/rate-limits.tsx",
+      "sha256": "347a9357931bc063d3e27f08c97027cacc02d141fc2606134cf99222410c28e6",
+      "exports": [
+        {
+          "name": "RateLimits",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{\n    /** e.g. \"opus-5.5 · Tier 3\". */\n    model?: string;\n    limits: RateLimit[];\n    /** Calls waiting for capacity, oldest first. */\n    queued?: QueuedCall[];\n    /** Set when the API answered 429; counts down locally. */\n    retryAfterMs?: number;\n  }",
+              "wireType": "object"
+            },
+            {
+              "name": "onRetry",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chat-thread",
+      "kind": "ui",
+      "title": "Chat Thread",
+      "description": "The conversation itself — user and assistant turns, grouping, date dividers, unread marker and a jump-to-latest pill.",
+      "sourcePath": "registry/chat-thread/chat-thread.tsx",
+      "sha256": "5849baf986dfc70a13a0aac50446c4e2d7411d3cc6734c7963778eef381f5d26",
+      "exports": [
+        {
+          "name": "ChatThread",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ messages: ThreadMessage[]; unreadFrom?: string }",
+              "wireType": "object"
+            },
+            {
+              "name": "density",
+              "optional": true,
+              "sourceType": "\"default\" | \"dense\"",
+              "wireType": "string",
+              "literals": [
+                "default",
+                "dense"
+              ]
+            },
+            {
+              "name": "agentName",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "userName",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "renderAvatar",
+              "optional": true,
+              "sourceType": "(message: ThreadMessage) => React.ReactNode",
+              "wireType": "callback"
+            },
+            {
+              "name": "height",
+              "optional": true,
+              "sourceType": "number | string",
+              "wireType": "unknown"
+            },
+            {
+              "name": "bare",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "footer",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "bottomInset",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "contentClassName",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "user-message",
+      "kind": "ui",
+      "title": "User Message",
+      "description": "A sent prompt with attachments, edit-in-place and resend, copy, and a delivery state.",
+      "sourcePath": "registry/user-message/user-message.tsx",
+      "sha256": "5c7de108393c44d0dcee94071e16b5fdc01be7f53b60744e9b31ee8ae84b35a5",
+      "exports": [
+        {
+          "name": "UserMessage",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "UserMessageData",
+              "wireType": "object"
+            },
+            {
+              "name": "onEdit",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRetry",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "(text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conversation-list",
+      "kind": "ui",
+      "title": "Conversation List",
+      "description": "Chat history for a sidebar — search, pinned and dated groups, rename inline, archive and delete with undo.",
+      "sourcePath": "registry/conversation-list/conversation-list.tsx",
+      "sha256": "231bbdf171d2fb92736e6139fdf02b35eb0f935f528c796f3fd0adf595aba6ff",
+      "exports": [
+        {
+          "name": "ConversationList",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "Conversation[]",
+              "wireType": "array"
+            },
+            {
+              "name": "activeId",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(conversation: Conversation) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onNew",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRename",
+              "optional": true,
+              "sourceType": "(conversation: Conversation, title: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onPin",
+              "optional": true,
+              "sourceType": "(conversation: Conversation, pinned: boolean) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onArchive",
+              "optional": true,
+              "sourceType": "(conversation: Conversation) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onDelete",
+              "optional": true,
+              "sourceType": "(conversation: Conversation) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "undoMs",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"sidebar\" | \"compact\"",
+              "wireType": "string",
+              "literals": [
+                "sidebar",
+                "compact"
+              ]
+            },
+            {
+              "name": "headerAction",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "now",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prompt-suggestions",
+      "kind": "ui",
+      "title": "Prompt Suggestions",
+      "description": "Starter prompts for an empty chat and follow-up chips under an answer.",
+      "sourcePath": "registry/prompt-suggestions/prompt-suggestions.tsx",
+      "sha256": "5acb7ecc2b3ac8af15ff42c63c9155abcc474260a00f56e52aa7afb62664ef81",
+      "exports": [
+        {
+          "name": "PromptSuggestions",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "PromptSuggestion[]",
+              "wireType": "array"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"cards\" | \"chips\"",
+              "wireType": "string",
+              "literals": [
+                "cards",
+                "chips"
+              ]
+            },
+            {
+              "name": "onSelect",
+              "optional": false,
+              "sourceType": "(suggestion: PromptSuggestion, prompt: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRefresh",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "refreshing",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "heading",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attachment-preview",
+      "kind": "ui",
+      "title": "Attachment Preview",
+      "description": "Images and files attached to a prompt — thumbnails, type and size, upload progress, retry and remove.",
+      "sourcePath": "registry/attachment-preview/attachment-preview.tsx",
+      "sha256": "cca2a8a869f3dad56139b2ea95a0f30c44489f2b30c4d70edcdeba7cec34042f",
+      "exports": [
+        {
+          "name": "AttachmentPreview",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "Attachment[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onRemove",
+              "optional": true,
+              "sourceType": "(attachment: Attachment) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRetry",
+              "optional": true,
+              "sourceType": "(attachment: Attachment) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onOpen",
+              "optional": true,
+              "sourceType": "(attachment: Attachment | null) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-block",
+      "kind": "ui",
+      "title": "Code Block",
+      "description": "Code in an answer — filename, language, line numbers, wrap toggle, copy and collapse for long snippets.",
+      "sourcePath": "registry/code-block/code-block.tsx",
+      "sha256": "ce5643c5f72d0672b64c607a673fe698ca1f590e9f4091080c4f91c32281fdec",
+      "exports": [
+        {
+          "name": "CodeBlock",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "CodeBlockData",
+              "wireType": "object"
+            },
+            {
+              "name": "collapseAfter",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "showLineNumbers",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "defaultWrap",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "(code: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "bare",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "source-list",
+      "kind": "ui",
+      "title": "Source List",
+      "description": "Citations behind an answer — numbered footnotes with hover previews and a panel of every source used.",
+      "sourcePath": "registry/source-list/source-list.tsx",
+      "sha256": "20170170ff582d4695a5bc8213b5c2c4eee96528b7e2456d4bf94722c0bfeb8a",
+      "exports": [
+        {
+          "name": "SourceList",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "SourceListData",
+              "wireType": "object"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"footnotes\" | \"panel\"",
+              "wireType": "string",
+              "literals": [
+                "footnotes",
+                "panel"
+              ]
+            },
+            {
+              "name": "onOpen",
+              "optional": true,
+              "sourceType": "(source: Source) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chart-card",
+      "kind": "ui",
+      "title": "Chart Card",
+      "description": "A chart the agent answers with — bar, line, area or donut, with tooltips, legend toggles and animated data.",
+      "sourcePath": "registry/chart-card/chart-card.tsx",
+      "sha256": "c5a6628e102119f528a5854f08fe0c8b1e05d3bb71dd4acf16329fb7868ba251",
+      "exports": [
+        {
+          "name": "ChartCard",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ labels: string[]; series: ChartSeries[] }",
+              "wireType": "object"
+            },
+            {
+              "name": "type",
+              "optional": true,
+              "sourceType": "ChartType",
+              "wireType": "string",
+              "literals": [
+                "bar",
+                "line",
+                "area",
+                "donut"
+              ]
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "total",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "partialLast",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(index: number) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dot-histogram",
+      "kind": "ui",
+      "title": "Dot Histogram",
+      "description": "A distribution as stacked dots — every sample visible, median and p95 marked, samples past a limit such as a timeout flagged.",
+      "sourcePath": "registry/dot-histogram/dot-histogram.tsx",
+      "sha256": "9aff573609c92a76e216f620bd0b2445de99282f7e5c8fab63e5263e353e46ca",
+      "exports": [
+        {
+          "name": "DotHistogram",
+          "props": [
+            {
+              "name": "values",
+              "optional": false,
+              "sourceType": "number[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "threshold",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "thresholdLabel",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "bins",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "unit",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(bin: DotHistogramBin) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tick-gauge",
+      "kind": "ui",
+      "title": "Tick Gauge",
+      "description": "A meter drawn as ticks around an arc, with a target marker and the shortfall to it in red — success rates, SLOs, budgets.",
+      "sourcePath": "registry/tick-gauge/tick-gauge.tsx",
+      "sha256": "20ea0a86e551c9713ca54f234ee7d7b751934d3030ef42616c9d791cf314fd68",
+      "exports": [
+        {
+          "name": "TickGauge",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "target",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "targetLabel",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "caption",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "ticks",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "aside",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mirror-strips",
+      "kind": "ui",
+      "title": "Mirror Strips",
+      "description": "Rows of dot strips with two series mirrored around a line — compare rounds or weeks on one axis, with pinned columns and notes.",
+      "sourcePath": "registry/mirror-strips/mirror-strips.tsx",
+      "sha256": "16c8914871c20e2621dfad035e11305a361d4fd8f17ca38a64ca629446e85839",
+      "exports": [
+        {
+          "name": "MirrorStrips",
+          "props": [
+            {
+              "name": "columns",
+              "optional": false,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "rows",
+              "optional": false,
+              "sourceType": "MirrorRow[]",
+              "wireType": "array"
+            },
+            {
+              "name": "series",
+              "optional": false,
+              "sourceType": "{\n    up: { label: string; color?: string };\n    down: { label: string; color?: string };\n  }",
+              "wireType": "object"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "marks",
+              "optional": true,
+              "sourceType": "MirrorMark[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(column: number) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "radial-dots",
+      "kind": "ui",
+      "title": "Radial Dots",
+      "description": "A cycle as rings of dots — hours of the day or days of the week, stacked by series, with the headline in the middle.",
+      "sourcePath": "registry/radial-dots/radial-dots.tsx",
+      "sha256": "99509133301caeafcb15c2c9d681c014b358abd33dd2d0f2d5619440aa21902a",
+      "exports": [
+        {
+          "name": "RadialDots",
+          "props": [
+            {
+              "name": "labels",
+              "optional": false,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "series",
+              "optional": false,
+              "sourceType": "RadialSeries[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "center",
+              "optional": false,
+              "sourceType": "{ value: string; caption?: string }",
+              "wireType": "object"
+            },
+            {
+              "name": "axis",
+              "optional": true,
+              "sourceType": "number[]",
+              "wireType": "array"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(index: number) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "match-field",
+      "kind": "ui",
+      "title": "Match Field",
+      "description": "A fit field — candidates, bots or options placed by score around a centre, grouped into sectors, with threshold rings.",
+      "sourcePath": "registry/match-field/match-field.tsx",
+      "sha256": "d348ef1c22972e1e8feee9b6001855889cab8b41300bc3828e7405db2d254ed6",
+      "exports": [
+        {
+          "name": "MatchField",
+          "props": [
+            {
+              "name": "sectors",
+              "optional": false,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "items",
+              "optional": false,
+              "sourceType": "MatchItem[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "rings",
+              "optional": true,
+              "sourceType": "number[]",
+              "wireType": "array"
+            },
+            {
+              "name": "threshold",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "min",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(item: MatchItem) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "radar-chart",
+      "kind": "ui",
+      "title": "Radar Chart",
+      "description": "Scores across several axes as a polygon, with a dashed bar to meet and each member's values as dots on the spokes.",
+      "sourcePath": "registry/radar-chart/radar-chart.tsx",
+      "sha256": "401ee70462841f593cb0a307fb1c806064e6375171e61966f282108330b77390",
+      "exports": [
+        {
+          "name": "RadarChart",
+          "props": [
+            {
+              "name": "axes",
+              "optional": false,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "max",
+              "optional": false,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "series",
+              "optional": false,
+              "sourceType": "RadarSeries",
+              "wireType": "object"
+            },
+            {
+              "name": "baseline",
+              "optional": true,
+              "sourceType": "{ label: string; values: number[] }",
+              "wireType": "object"
+            },
+            {
+              "name": "members",
+              "optional": true,
+              "sourceType": "RadarMember[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "headline",
+              "optional": true,
+              "sourceType": "{ value: string; caption?: string }",
+              "wireType": "object"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(axis: number) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "diverging-bars",
+      "kind": "ui",
+      "title": "Diverging Bars",
+      "description": "Stacked daily columns with one series hanging below zero on its own scale — triaged vs escalated, solved vs handed off.",
+      "sourcePath": "registry/diverging-bars/diverging-bars.tsx",
+      "sha256": "114baa2ccfa793c83f9281eb7e0aa17a911fe68ece168b2839df227949ce0c5d",
+      "exports": [
+        {
+          "name": "DivergingBars",
+          "props": [
+            {
+              "name": "labels",
+              "optional": false,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "series",
+              "optional": false,
+              "sourceType": "DivergingSeries[]",
+              "wireType": "array"
+            },
+            {
+              "name": "below",
+              "optional": true,
+              "sourceType": "DivergingSeries",
+              "wireType": "object"
+            },
+            {
+              "name": "headline",
+              "optional": true,
+              "sourceType": "{ value: string; caption?: string }",
+              "wireType": "object"
+            },
+            {
+              "name": "aside",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(index: number) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "blast-radius",
+      "kind": "ui",
+      "title": "Blast Radius",
+      "description": "What a key, agent or tool can reach, hop by hop around a centre, with the affected paths in red.",
+      "sourcePath": "registry/blast-radius/blast-radius.tsx",
+      "sha256": "8bbc2702701805b6234966c912d393e2bba45e8b98b97326ae2ec6ccb6cc8a8d",
+      "exports": [
+        {
+          "name": "BlastRadius",
+          "props": [
+            {
+              "name": "center",
+              "optional": false,
+              "sourceType": "{ label: string; initials?: string; icon?: Icon }",
+              "wireType": "object"
+            },
+            {
+              "name": "nodes",
+              "optional": false,
+              "sourceType": "BlastNode[]",
+              "wireType": "array"
+            },
+            {
+              "name": "kinds",
+              "optional": true,
+              "sourceType": "Record<string, BlastKind>",
+              "wireType": "object"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "aside",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(node: BlastNode) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iso-bars",
+      "kind": "ui",
+      "title": "Iso Bars",
+      "description": "Isometric stacked bars in two rows — the main volume behind, rework or failures in front.",
+      "sourcePath": "registry/iso-bars/iso-bars.tsx",
+      "sha256": "d22f06fcfdf25eddb807ac9cff4e3e3c4f3f30498ac8fda0511fdd8c1109d1e0",
+      "exports": [
+        {
+          "name": "IsoBars",
+          "props": [
+            {
+              "name": "labels",
+              "optional": false,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "back",
+              "optional": false,
+              "sourceType": "IsoSeries[]",
+              "wireType": "array"
+            },
+            {
+              "name": "front",
+              "optional": true,
+              "sourceType": "IsoSeries[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "aside",
+              "optional": true,
+              "sourceType": "{\n    value: string;\n    caption?: string;\n    flag?: string;\n    tone?: \"warning\" | \"negative\";\n  }",
+              "wireType": "object"
+            },
+            {
+              "name": "format",
+              "optional": true,
+              "sourceType": "(value: number) => string",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(point: { row: IsoRow; index: number }) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hex-density",
+      "kind": "ui",
+      "title": "Hex Density",
+      "description": "A density map of two measures in hexagons, split by a threshold line — retrieved vs dropped, fast vs slow.",
+      "sourcePath": "registry/hex-density/hex-density.tsx",
+      "sha256": "34a9dfe6172d786249bdaedc813effe9ded2771c3a4b757a30483e75d24176ec",
+      "exports": [
+        {
+          "name": "HexDensity",
+          "props": [
+            {
+              "name": "points",
+              "optional": false,
+              "sourceType": "[number, number][]",
+              "wireType": "array"
+            },
+            {
+              "name": "x",
+              "optional": true,
+              "sourceType": "HexDensityAxis",
+              "wireType": "object"
+            },
+            {
+              "name": "y",
+              "optional": true,
+              "sourceType": "HexDensityAxis",
+              "wireType": "object"
+            },
+            {
+              "name": "threshold",
+              "optional": true,
+              "sourceType": "HexDensityThreshold",
+              "wireType": "object"
+            },
+            {
+              "name": "radius",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "tone",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "unit",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "aside",
+              "optional": true,
+              "sourceType": "React.ReactNode",
+              "wireType": "renderable"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(bin: HexDensityBin) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "data-table",
+      "kind": "ui",
+      "title": "Data Table",
+      "description": "Tabular results — sortable columns, filter, pagination, row selection and copy as CSV.",
+      "sourcePath": "registry/data-table/data-table.tsx",
+      "sha256": "c85ce25c988a6b4e44cc2a43643c3b7c41ae614637d3aa620a5f66a3a06f0574",
+      "exports": [
+        {
+          "name": "DataTable",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "R[]",
+              "wireType": "array"
+            },
+            {
+              "name": "columns",
+              "optional": false,
+              "sourceType": "DataColumn<R>[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "pageSize",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "searchable",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "selectable",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "selected",
+              "optional": true,
+              "sourceType": "string[]",
+              "wireType": "array"
+            },
+            {
+              "name": "onSelectedChange",
+              "optional": true,
+              "sourceType": "(ids: string[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "actions",
+              "optional": true,
+              "sourceType": "(ids: string[]) => React.ReactNode",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRowClick",
+              "optional": true,
+              "sourceType": "(row: R) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stat-grid",
+      "kind": "ui",
+      "title": "Stat Grid",
+      "description": "KPI cards with rolling numbers, deltas and sparklines for a quick summary answer.",
+      "sourcePath": "registry/stat-grid/stat-grid.tsx",
+      "sha256": "385334114fee82bb003d0ad6ad45ec8e0448bf2a9cadf627ed216612d3eebfb7",
+      "exports": [
+        {
+          "name": "StatGrid",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "Stat[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "sparklines",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(stat: Stat) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "form-card",
+      "kind": "ui",
+      "title": "Form Card",
+      "description": "A form the agent asks the user to fill — fields, selects, validation and a submitted state.",
+      "sourcePath": "registry/form-card/form-card.tsx",
+      "sha256": "1df35e932744a5e307f5f2d86bc128bee4d82737345a82589a6d24d5ddb1aadf",
+      "exports": [
+        {
+          "name": "FormCard",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ title: string; description?: string; fields: FormField[] }",
+              "wireType": "object"
+            },
+            {
+              "name": "values",
+              "optional": true,
+              "sourceType": "FormValues",
+              "wireType": "object"
+            },
+            {
+              "name": "defaultValues",
+              "optional": true,
+              "sourceType": "FormValues",
+              "wireType": "object"
+            },
+            {
+              "name": "onValuesChange",
+              "optional": true,
+              "sourceType": "(values: FormValues) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onSubmit",
+              "optional": true,
+              "sourceType": "(values: FormValues) => void | Promise<void>",
+              "wireType": "callback"
+            },
+            {
+              "name": "validate",
+              "optional": true,
+              "sourceType": "(values: FormValues) => Record<string, string | undefined>",
+              "wireType": "callback"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "FormStatus",
+              "wireType": "string",
+              "literals": [
+                "editing",
+                "submitting",
+                "submitted"
+              ]
+            },
+            {
+              "name": "onStatusChange",
+              "optional": true,
+              "sourceType": "(status: FormStatus) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "revealErrors",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "submitLabel",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "result-carousel",
+      "kind": "ui",
+      "title": "Result Carousel",
+      "description": "A row of result cards — image, title, meta and an action — with snap scrolling and arrows.",
+      "sourcePath": "registry/result-carousel/result-carousel.tsx",
+      "sha256": "0ae1da3a07a0d90dfbb621d94e7e01dce4a72eaaadc68eb36de6739f34a44a56",
+      "exports": [
+        {
+          "name": "ResultCarousel",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "ResultItem[]",
+              "wireType": "array"
+            },
+            {
+              "name": "title",
+              "optional": false,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "subtitle",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "compact",
+              "optional": true,
+              "sourceType": "boolean",
+              "wireType": "boolean"
+            },
+            {
+              "name": "onAction",
+              "optional": true,
+              "sourceType": "(item: ResultItem) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onOpen",
+              "optional": true,
+              "sourceType": "(item: ResultItem) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "slot-picker",
+      "kind": "ui",
+      "title": "Slot Picker",
+      "description": "Pick a time the agent proposed — days, free slots, time zone and a confirm step.",
+      "sourcePath": "registry/slot-picker/slot-picker.tsx",
+      "sha256": "4f7f68aaa6aa0d342c0335a1bde53907213ac5cc9a7bacbd7a0cb777b12cc19f",
+      "exports": [
+        {
+          "name": "SlotPicker",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ title?: string; slots: Slot[]; timeZone: SlotZone; attendeeZone?: SlotZone }",
+              "wireType": "object"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "sourceType": "\"week\" | \"day\"",
+              "wireType": "string",
+              "literals": [
+                "week",
+                "day"
+              ]
+            },
+            {
+              "name": "selectedId",
+              "optional": true,
+              "sourceType": "string | null",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onSelect",
+              "optional": true,
+              "sourceType": "(slot: Slot | null) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onConfirm",
+              "optional": true,
+              "sourceType": "(slot: Slot) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "confirmedId",
+              "optional": true,
+              "sourceType": "string | null",
+              "wireType": "unknown"
+            },
+            {
+              "name": "onChange",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "confirmation-card",
+      "kind": "ui",
+      "title": "Confirmation Card",
+      "description": "A summary of what the agent is about to do — line items, totals and confirm or edit before it acts.",
+      "sourcePath": "registry/confirmation-card/confirmation-card.tsx",
+      "sha256": "f77af198ae467b35b8778ab38a05afa25d7394f724aad7901c87353d1ab1e106",
+      "exports": [
+        {
+          "name": "ConfirmationCard",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{\n    title: string;\n    subtitle?: string;\n    items: ConfirmationItem[];\n    fees?: { label: string; amount: number }[];\n    warnings?: string[];\n    /** Shown once done, e.g. a booking or deploy id. */\n    reference?: string;\n    /** Shown once done, e.g. \"Today, 14:32\". */\n    doneAt?: string;\n  }",
+              "wireType": "object"
+            },
+            {
+              "name": "currency",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "status",
+              "optional": true,
+              "sourceType": "ConfirmationStatus",
+              "wireType": "string",
+              "literals": [
+                "review",
+                "confirming",
+                "done"
+              ]
+            },
+            {
+              "name": "onItemsChange",
+              "optional": true,
+              "sourceType": "(items: ConfirmationItem[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onConfirm",
+              "optional": true,
+              "sourceType": "(items: ConfirmationItem[]) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onEdit",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onCancel",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onUndo",
+              "optional": true,
+              "sourceType": "() => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "undoSeconds",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "confirmLabel",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "doneLabel",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "json-viewer",
+      "kind": "ui",
+      "title": "JSON Viewer",
+      "description": "Structured output as a collapsible tree — types, counts, search, copy path and copy value.",
+      "sourcePath": "registry/json-viewer/json-viewer.tsx",
+      "sha256": "b4944f4837cd06cafc2c5c466a6b7219f1ab937c11c92f805cd2e48c0c4af0cc",
+      "exports": [
+        {
+          "name": "JsonViewer",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "JsonValue",
+              "wireType": "object"
+            },
+            {
+              "name": "title",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "view",
+              "optional": true,
+              "sourceType": "\"tree\" | \"raw\"",
+              "wireType": "string",
+              "literals": [
+                "tree",
+                "raw"
+              ]
+            },
+            {
+              "name": "defaultDepth",
+              "optional": true,
+              "sourceType": "number",
+              "wireType": "number"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "(kind: \"path\" | \"value\", text: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "artifact-panel",
+      "kind": "ui",
+      "title": "Artifact Panel",
+      "description": "A side canvas for what the agent made — live preview and source tabs, version history and download.",
+      "sourcePath": "registry/artifact-panel/artifact-panel.tsx",
+      "sha256": "36c177997da58c900242be6b9c7b3997a825258b13d2ea755019378cf3d5fe7a",
+      "exports": [
+        {
+          "name": "ArtifactPanel",
+          "props": [
+            {
+              "name": "data",
+              "optional": false,
+              "sourceType": "{ title: string; kind: string; versions: ArtifactVersion[] }",
+              "wireType": "object"
+            },
+            {
+              "name": "icon",
+              "optional": true,
+              "sourceType": "Icon",
+              "wireType": "unsupported"
+            },
+            {
+              "name": "view",
+              "optional": true,
+              "sourceType": "\"preview\" | \"versions\"",
+              "wireType": "string",
+              "literals": [
+                "preview",
+                "versions"
+              ]
+            },
+            {
+              "name": "versionId",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            },
+            {
+              "name": "onVersionChange",
+              "optional": true,
+              "sourceType": "(version: ArtifactVersion) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "tab",
+              "optional": true,
+              "sourceType": "ArtifactTab",
+              "wireType": "string",
+              "literals": [
+                "preview",
+                "source"
+              ]
+            },
+            {
+              "name": "onTabChange",
+              "optional": true,
+              "sourceType": "(tab: ArtifactTab) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onRestore",
+              "optional": true,
+              "sourceType": "(version: ArtifactVersion) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onCopy",
+              "optional": true,
+              "sourceType": "(source: string) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onDownload",
+              "optional": true,
+              "sourceType": "(version: ArtifactVersion) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "onOpen",
+              "optional": true,
+              "sourceType": "(version: ArtifactVersion) => void",
+              "wireType": "callback"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "sourceType": "string",
+              "wireType": "string"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

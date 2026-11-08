@@ -1,0 +1,86 @@
+{
+  "assets": [
+    {
+      "bytes": 1064,
+      "contentType": "text/plain; charset=utf-8",
+      "path": "LICENSE-RUNE-MIT.txt",
+      "sha256": "b1fe69afe2f6fe0884efc8936dab69bbdf3a319b3828a965ee1304fbd6a60021"
+    },
+    {
+      "bytes": 1540775,
+      "contentType": "text/plain; charset=utf-8",
+      "path": "THIRD_PARTY_LICENSES.txt",
+      "sha256": "72a5d6418f53a9e2d2c495c35349bf52abf482ea286525171fc1227a1258b620"
+    },
+    {
+      "bytes": 1347,
+      "contentType": "text/markdown; charset=utf-8",
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "8f8b14133d8e0dbb90534c8c78444d9cca0da737810fd6caa8d9a1667fad325a"
+    },
+    {
+      "bytes": 1224,
+      "contentType": "application/json; charset=utf-8",
+      "path": "font-embedding-provenance.json",
+      "sha256": "acce8a32a9566275a3111a8dbc46c9caf4590b8c8a61854e9bf939471241d1fa"
+    },
+    {
+      "bytes": 666,
+      "contentType": "text/html; charset=utf-8",
+      "path": "frame.html",
+      "sha256": "92a32bc0741351e839e1bbf18c52d01718bab1cd2aa5c6d8a03ce7a7856968f3"
+    },
+    {
+      "bytes": 6782,
+      "contentType": "text/javascript; charset=utf-8",
+      "path": "frame.mjs",
+      "sha256": "b3ebdad38320b69a1f76662cae97fcb34e0a0c0622b8eb9c3c0337201617853c"
+    },
+    {
+      "bytes": 1560,
+      "contentType": "application/json; charset=utf-8",
+      "path": "provenance.json",
+      "sha256": "2e02fe16a770e51893c80c88818d1092ece1815ab15a82ced2a096a327704caa"
+    },
+    {
+      "bytes": 6788,
+      "contentType": "text/plain; charset=utf-8",
+      "path": "rune_theme.d.ts",
+      "sha256": "28272f165426ac0518016b28c796f0b0f79aaf29573014033c8adae03059e8a9"
+    },
+    {
+      "bytes": 110455,
+      "contentType": "text/javascript; charset=utf-8",
+      "path": "rune_theme.js",
+      "sha256": "1311effc2c7676dcb3619e46624b41a53851dbe3a8adaf6c44e392bda6cec957"
+    },
+    {
+      "bytes": 8007728,
+      "contentType": "application/wasm",
+      "path": "rune_theme_bg.wasm",
+      "sha256": "f0117be27def866aeb0ca99192e00fee181e8b16fd6f37c90fb4c736dec79b3e"
+    },
+    {
+      "bytes": 4612,
+      "contentType": "text/plain; charset=utf-8",
+      "path": "rune_theme_bg.wasm.d.ts",
+      "sha256": "a308b8de5ee468a09ed7c37a40ea47f94371ff4dfa15eca659c27e0721a62a2e"
+    },
+    {
+      "bytes": 20745,
+      "contentType": "text/javascript; charset=utf-8",
+      "path": "snippets/rune-bcdf3621eaa7cec8/src/platform/web/bridge.js",
+      "sha256": "ad451c0ba841823dbc4f7872aa1d2c2b8537245d5bea4947b166004f4a52ab7a"
+    },
+    {
+      "bytes": 7743,
+      "contentType": "text/javascript; charset=utf-8",
+      "path": "snippets/rune-bcdf3621eaa7cec8/src/platform/web/platform.js",
+      "sha256": "f50cdcf5c192a4db0063abec244c0116576c0501ca2f84a0b77e5117012eec0d"
+    }
+  ],
+  "entry": "frame.html",
+  "formatVersion": 1,
+  "library": "rune",
+  "sourceCommit": "4ca683561a100e16b1ce32f3576f4ade61bd2924"
+}

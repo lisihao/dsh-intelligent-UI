@@ -1,0 +1,239 @@
+/* Hallmark: locked DESIGN.md — source-bound reading, cards, and disclosures. */
+/* Critique: preserve complete source groups; elevation is explicit rather than per-paragraph decoration. */
+/* Hallmark · waive 24b · approved 10px reading rhythm · locked compact source reading keeps the existing paragraph measure */
+/* Hallmark · waive 26b · noninteractive source containers · source cards expose no action or aria-disabled state */
+.iexp-block {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.iexp-block-reading {
+  margin-block: calc(10px * var(--iexp-density));
+  color: inherit;
+}
+
+.iexp-block-card,
+.iexp-block-disclosure-card {
+  container-type: inline-size;
+  min-width: 0;
+  margin-block: calc(16px * var(--iexp-density));
+  padding: clamp(16px, 2.4cqi, 24px);
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-card-radius);
+  background: var(--iexp-card);
+  box-shadow: var(--iexp-shadow-card);
+  transition: border-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .iexp-block-card:is(:hover, :focus-within),
+  .iexp-block-disclosure-card:is(:hover, :focus-within) {
+    border-color: var(--iexp-accent);
+    box-shadow: var(--iexp-shadow-focus);
+    transform: translateY(var(--iexp-hover-lift));
+  }
+}
+
+.iexp-block-card > :first-child,
+.iexp-block-disclosure-card > :first-child {
+  margin-top: 0;
+}
+
+.iexp-block-card > :last-child,
+.iexp-block-disclosure-card > :last-child {
+  margin-bottom: 0;
+}
+
+.iexp-block-disclosure {
+  margin-block: calc(16px * var(--iexp-density));
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-card-radius);
+  background: var(--iexp-card);
+  overflow: clip;
+}
+
+.iexp-block-disclosure > summary {
+  min-height: 36px;
+  padding: 8px 12px;
+  color: var(--iexp-muted);
+  font: inherit;
+}
+
+.iexp-block-disclosure > summary:focus-visible {
+  outline: 2px solid var(--iexp-accent);
+  outline-offset: -3px;
+}
+
+.iexp-block-disclosure-card {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.iexp-block[data-iexp-block-kind='code'] {
+  position: relative;
+}
+
+.iexp-block[data-iexp-block-kind='code'] :is(pre, [class*='code-block']) {
+  border-inline-start: 3px solid var(--iexp-accent);
+}
+
+.iexp-block[data-iexp-presentation^='canvas-'] {
+  margin-block: calc(16px * var(--iexp-density));
+}
+
+/* Source organization keeps the original list order and source nodes. These
+   are compact reading structures, not inferred comparison cards or datasets. */
+.iexp-source-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: calc(12px * var(--iexp-density));
+  min-width: 0;
+  max-width: 100%;
+  margin-block: calc(12px * var(--iexp-density));
+  padding: 0;
+  list-style: none;
+}
+
+.iexp-source-list-grid > li {
+  min-width: 0;
+  margin: 0;
+  padding: calc(12px * var(--iexp-density));
+  overflow-wrap: anywhere;
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-list-radius, var(--iexp-card-radius));
+  background: var(--iexp-card);
+}
+
+.iexp-source-list-grid > li > :first-child,
+.iexp-source-list-grid > li > :first-child > :first-child {
+  margin-top: 0;
+}
+
+.iexp-source-list-grid > li > :last-child,
+.iexp-source-list-grid > li > :last-child > :last-child {
+  margin-bottom: 0;
+}
+
+.iexp-source-label-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: separate;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--iexp-line);
+  border-radius: var(--iexp-source-table-radius, var(--iexp-card-radius));
+  background: var(--iexp-card);
+}
+
+.iexp-source-label-row > :is(.iexp-source-label-cell, .iexp-source-label-detail) {
+  min-width: 0;
+  padding: calc(10px * var(--iexp-density)) calc(12px * var(--iexp-density));
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  border-block-end: 1px solid var(--iexp-line);
+}
+
+.iexp-source-label-row:last-child > :is(.iexp-source-label-cell, .iexp-source-label-detail) {
+  border-block-end: 0;
+}
+
+.iexp-source-label-cell {
+  width: min(32%, 18rem);
+  color: var(--iexp-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+
+.iexp-source-label-detail {
+  color: inherit;
+}
+
+.iexp-source-label-detail > :first-child {
+  margin-top: 0;
+}
+
+.iexp-source-label-detail > :last-child {
+  margin-bottom: 0;
+}
+
+@container (max-width: 420px) {
+  .iexp-block-card,
+  .iexp-block-disclosure-card {
+    padding: 12px;
+    border-radius: var(--iexp-page-card-radius);
+  }
+}
+
+@media (max-width: 560px) {
+  .iexp-source-list-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iexp-source-label-table,
+  .iexp-source-label-table > tbody,
+  .iexp-source-label-table .iexp-source-label-row,
+  .iexp-source-label-table .iexp-source-label-cell,
+  .iexp-source-label-table .iexp-source-label-detail {
+    display: block;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .iexp-source-label-table .iexp-source-label-cell {
+    padding-block-end: calc(4px * var(--iexp-density));
+    border-block-end: 0;
+  }
+
+  .iexp-source-label-table .iexp-source-label-detail {
+    padding-block-start: calc(4px * var(--iexp-density));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iexp-block-card,
+  .iexp-block-disclosure-card {
+    transition: none;
+  }
+}
+
+/* The block-aware Paper adapter keeps each compiler group intact inside the
+   existing Paper section/stage grammar instead of splitting captions or lists. */
+.iexp-continuous .iexp-story-arch .iexp-block > h1 {
+  max-width: 22ch;
+  margin: 0 auto 28px;
+  justify-content: center;
+  font-size: clamp(30px, 4.7cqi, 56px);
+  line-height: 1.22;
+  font-weight: 360;
+  letter-spacing: -0.035em;
+}
+
+.iexp-continuous .iexp-story-heading.iexp-story-copy {
+  max-width: none;
+}
+
+.iexp-continuous .iexp-story-heading.iexp-story-copy .iexp-block > :is(h1, h2, h3) {
+  max-width: 25ch;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  font-size: clamp(26px, 3.4cqi, 40px);
+  line-height: 1.28;
+  font-weight: 360;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.iexp-continuous .iexp-story-stage > .iexp-block,
+.iexp-continuous .iexp-story-stage > .iexp-block-theme {
+  min-width: 0;
+}
+
+.iexp-continuous .iexp-story-stage .iexp-table-group {
+  margin: 0 0 24px;
+}

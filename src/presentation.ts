@@ -1,8 +1,12 @@
+import { DilArtifactView, dilArtifactIdentity } from './dil/artifact.js'
+import { createDilLibraryRenderer } from './dil/library-view.js'
+import type { DilApi } from './contracts.js'
 import {normalizeCompositionSource} from './adaptive-ui/source-contracts.js'
+import { compactLooseTables } from './loose-tables.js'
 import { AdaptiveCompositionView, CompositionRuntimeContext } from './adaptive-ui/view.js'
-import { useCompositionSelection } from './adaptive-ui/scope.js'
+import { CompositionSelectionContext, ExperimentalBlockDispatchContext, useCompositionSelection, useExperimentalBlockDispatch } from './adaptive-ui/scope.js'
 import { HistoricalChart, LiveSeriesView, recognizeLiveSeries, AdaptiveLoading, AdaptiveText } from './adaptive-ui/components.js'
-import { isAsciiTheme, isGpuAsciiTheme } from './theme-contracts.js'
+import { builtInThemes, isAsciiTheme, isGpuAsciiTheme, type ThemePackage } from './theme-contracts.js'
 import { AsciiChart, supportsAsciiChart } from './ascii-chart.js'
 import { analyzeExecutionFlow } from './execution-flow.js'
 import { ExecutionFlowView } from './execution-flow-view.js'
@@ -14,17 +18,24 @@ import { TableViewport } from './table-viewport.js'
 import { analyzeResearchDocument } from './research-content.js'
 import { UiverseRenderScope } from './uiverse-render.js'
 import { ThemeButton, ThemeCard } from './theme-components.js'
-import { Component, Fragment, createElement as h, useCallback, useContext, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type ReactElement, type ReactNode, type ComponentProps } from 'react'
+import { Children, Component, Fragment, createElement as h, isValidElement, useCallback, useContext, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode, type ComponentProps } from 'react'
 import { Renderer, type LibraryExtension, type ActionEvent } from '@openuidev/react-lang'
 import { ThemeProvider, MarkDownRenderer, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, LineChart, BarChart, IconWrapper } from '@openuidev/react-ui'
 import { openuiLibrary } from '@openuidev/react-ui/genui-lib'
 import { widgetStateSchema, saveWidgetStateSchema, type ExperienceArtifact, type WidgetStateApi, type SaveWidgetStateInput } from './contracts.js'
+import type { CompositionSelection } from './adaptive-ui/contracts.js'
 import { styles } from './style.js'
 import { appearancePreferences, appearanceTokens } from './appearance.js'
-import { themePreferences, usePresentationTheme } from './theme-runtime.js'
+import { PresentationThemeContext, themePreferences, themeStyleTokens, usePresentationTheme } from './theme-runtime.js'
 import { McpAppView } from './mcp-view.js'
 import type { CallToolResult } from '@modelcontextprotocol/client'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import { mathMarkdownSource, preserveCurrencyAmounts } from './markdown-math.js'
+import { markdownCodeBlocks, MarkdownCodeBlock } from './markdown-code.js'
+import { markdownNavigation } from './markdown-navigation.js'
 import { planContentSections } from './content-sections.js'
 import { continuousSectionsPlugin, planReadingTable } from './continuous-view.js'
 import { PaperChartDeck } from './paper-chart-deck.js'
@@ -33,6 +44,13 @@ import { FlowView, type FlowViewPlan } from './flow-view.js'
 import { analyzeGraph, analyzeTaskRecords, analyzeTaskTable, analyzeMasterDetail, parseMarkdownLayouts, type FlowPlan } from './content-layout.js'
 import { BoardView, MasterDetailView, HeadingIndex, headingAnchor } from './layout-views.js'
 import { analyzeTableCharts, parseMarkdownTables, rowsFromRecords, selectIcon, type AutoChartPlan } from './content-analysis.js'
+import { blockIdFromMarkdownProps, blockPresentationPlugin, continuousBlockSectionsPlugin, resolvedBlockPresentation, sourceOrganizationPlugin, type ResolvedBlockPresentation } from './adaptive-ui/block-presentations.js'
+import { BLOCK_PRESENTATION_LABELS, type BlockPresentationId } from './adaptive-ui/presentation-recipes.js'
+import { CanvasBlockView } from './adaptive-ui/canvas-block-view.js'
+import { ExecutableBlockView } from './adaptive-ui/executable-block-view.js'
+import { SOURCE_PRESENTATION_RENDERER_KEY } from './adaptive-ui/source-block-components.js'
+import { SOURCE_LIBRARY_RENDERER_KEY } from './adaptive-ui/library-component-bindings.js'
+import { RunePresentation } from './rune-presentation.js'
 
 /** Host theme stays read-only; content contrast follows the user-selected surface color. */
 export class ExperienceTheme {
@@ -105,12 +123,13 @@ function ChartSource({ plan }: { plan: AutoChartPlan }): ReactElement { return p
 
 /** Charts are derived locally; the unmodified table remains the accessible data source. */
 export function AutoChart({ plan }: { plan: AutoChartPlan }): ReactElement {
-  const theme = useExperienceTheme(), selectedTheme = useSelectedTheme(), composition = useCompositionSelection()
+  const theme = useExperienceTheme(), selectedTheme = useSelectedTheme(), composition = useCompositionSelection(), experimentalBlockDispatch = useExperimentalBlockDispatch()
   const colors = appearanceTokens(appearancePreferences.getSnapshot(), selectedTheme).variables
   const palette = (theme === 'dark' ? selectedTheme.tokens.paletteDark : selectedTheme.tokens.paletteLight).map((_, index) => colors[`--iexp-series-${index + 1}`]!)
   const compact = selectedTheme.tokens.comparison === 'organic' && isCompactComparison(plan)
   const plot = (view: AutoChartPlan) => {
-    if ((composition?.chart === 'ascii' || composition?.chart !== 'openui' && composition?.chart !== 'visx' && isAsciiTheme(selectedTheme) && !isGpuAsciiTheme(selectedTheme)) && supportsAsciiChart(plan)) return h(AsciiChart, {plan:view, scalePlan:plan})
+    const explicitExperimentalChart = experimentalBlockDispatch && composition?.chart !== undefined && composition.chart !== 'auto'
+    if ((composition?.chart === 'ascii' || !explicitExperimentalChart && composition?.chart !== 'openui' && composition?.chart !== 'visx' && isAsciiTheme(selectedTheme) && !isGpuAsciiTheme(selectedTheme)) && supportsAsciiChart(plan)) return h(AsciiChart, {plan:view, scalePlan:plan})
     let categoryKey = 'category'
     while (view.series.some(series => series.name === categoryKey)) categoryKey = `_${categoryKey}`
     const horizontal = view.kind === 'bar'
@@ -146,57 +165,448 @@ function flowPlan(plan: FlowPlan): FlowViewPlan {
 function SafeFlow({ plan }: { plan: FlowPlan }): ReactElement {
   return h(ChartBoundary, { key: plan.original, fallback: h('pre', { style: styles.raw }, plan.original) }, h(FlowView, { plan: flowPlan(plan) }))
 }
-function MarkdownContent({ text, isStreaming }: { text: string, isStreaming: boolean }): ReactElement {
-  const composition = useCompositionSelection(), semanticCharts = !composition || !['document','table','records'].includes(composition.layout), semanticFlows = !composition || composition.layout === 'auto' || composition.layout === 'flow'
+type BlockLayoutPlan = NonNullable<CompositionSelection['blockLayout']>
+type BlockComposition = BlockLayoutPlan['blocks'][number]
+type BlockSelection = BlockComposition['selection']
+const EMPTY_COMPOSITION_PATH: readonly number[] = []
+const chartPresentations = new Map<ResolvedBlockPresentation, NonNullable<BlockSelection['chart']>>([
+  ['chart-openui', 'openui'], ['chart-compact', 'compact'], ['chart-dense', 'dense'], ['chart-ascii', 'ascii'], ['chart-visx', 'visx'],
+])
+const genericPresentations = new Set<ResolvedBlockPresentation>(['reading', 'cards', 'disclosure'])
+const objectPresentations = new Set<ResolvedBlockPresentation>(['object-ink', 'object-ascii', 'object-glass'])
+
+function blockPresentation(block: BlockComposition | undefined): ResolvedBlockPresentation {
+  return resolvedBlockPresentation(block)
+}
+function hasExplicitPresentation(block: BlockComposition | undefined): boolean {
+  return block?.presentation !== undefined
+}
+function isChartPresentation(presentation: ResolvedBlockPresentation): boolean {
+  return chartPresentations.has(presentation)
+}
+function selectionForPresentation(selection: BlockSelection, presentation: ResolvedBlockPresentation): BlockSelection {
+  const chart = chartPresentations.get(presentation)
+  return chart === undefined ? selection : { ...selection, chart }
+}
+
+function sameCompositionPath(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((part, index) => part === right[index])
+}
+function blocksAtPath(program: CompositionSelection | undefined, path: readonly number[]): readonly BlockComposition[] {
+  return program?.blockLayout?.blocks.filter(block => sameCompositionPath(block.path, path)) ?? []
+}
+/** A block targets one compiler-reconstructed source node, never a sliced Markdown fragment. */
+function markdownBlockAt(program: CompositionSelection | undefined, path: readonly number[], start?: number, end?: number): BlockComposition | undefined {
+  if (start === undefined || end === undefined) return undefined
+  const matches = blocksAtPath(program, path).filter(block => block.start !== undefined && block.end !== undefined && block.start <= start && block.end >= end)
+  return matches.length === 1 ? matches[0] : undefined
+}
+function structuredBlockAt(program: CompositionSelection | undefined, path: readonly number[]): BlockComposition | undefined {
+  const matches = blocksAtPath(program, path).filter(block => block.start === undefined && block.end === undefined)
+  return matches.length === 1 ? matches[0] : undefined
+}
+function scopedSelection(selection: BlockSelection | undefined, content: ReactNode): ReactNode {
+  return selection ? h(ExperimentalBlockDispatchContext.Provider, { value: true }, h(CompositionSelectionContext.Provider, { value: selection }, content)) : content
+}
+/** Global reading aids do not turn off a source-bound table, board, chart, or flow choice. */
+function localLayout(selection: { layout: CompositionSelection['layout'] } | undefined, preserveGlobalReadingAids = false): CompositionSelection['layout'] {
+  const layout = selection?.layout ?? 'auto'
+  return preserveGlobalReadingAids && (layout === 'continuous' || layout === 'heading-index' || layout === 'research') ? 'auto' : layout
+}
+function allowsSemanticCharts(selection: { layout: CompositionSelection['layout'], surface?: CompositionSelection['surface'] } | undefined, preserveGlobalReadingAids = false, presentation: ResolvedBlockPresentation = 'fallback'): boolean {
+  if (isChartPresentation(presentation)) return true
+  if (selection?.surface === 'source') return false
+  return !['document', 'table', 'records'].includes(localLayout(selection, preserveGlobalReadingAids))
+}
+function allowsSemanticFlows(selection: { layout: CompositionSelection['layout'], surface?: CompositionSelection['surface'] } | undefined, preserveGlobalReadingAids = false, presentation: ResolvedBlockPresentation = 'fallback'): boolean {
+  if (presentation === 'flow') return true
+  if (presentation !== 'fallback') return false
+  if (selection?.surface === 'source') return false
+  const layout = localLayout(selection, preserveGlobalReadingAids)
+  return layout === 'auto' || layout === 'flow'
+}
+function chartPlansForPresentation(presentation: ResolvedBlockPresentation, plans: readonly AutoChartPlan[]): AutoChartPlan[] {
+  if (!isChartPresentation(presentation) || presentation === 'chart-openui') return [...plans]
+  if (presentation === 'chart-compact') return plans.filter(isCompactComparison)
+  if (presentation === 'chart-dense') return plans.filter(plan => plan.kind === 'line')
+  if (presentation === 'chart-ascii') return plans.filter(supportsAsciiChart)
+  if (presentation === 'chart-visx') return plans.filter(plan => plan.kind === 'line')
+  return []
+}
+const layoutLabels: Record<CompositionSelection['layout'], string> = {
+  auto: '保留原文结构', board: '任务看板', records: '记录详情', flow: '步骤或关系图', table: '完整表格',
+  research: '研究阅读', document: '文档阅读', 'heading-index': '章节索引', continuous: '连续阅读',
+}
+const chartLabels: Record<CompositionSelection['chart'], string> = {
+  auto: '自动图表', openui: 'OpenUI 图表', compact: '紧凑比较图', dense: '密集趋势图', ascii: 'ASCII 图表', visx: 'Visx 图表',
+}
+const componentLabels: Readonly<Record<string, string>> = {
+  native: '原生组件', 'soft-relief': '柔和浮雕组件', 'clear-glass': '清透玻璃组件', 'mechanical-outline': '机械描边组件',
+}
+const objectEffectLabels: Readonly<Record<string, string>> = {
+  'ink-object': '墨绘对象效果', 'ascii-object': 'ASCII 对象效果', 'glass-object': '玻璃对象效果',
+}
+const blockKindLabels: Readonly<Record<string, string>> = {
+  prose: '正文', paragraph: '段落', 'markdown-paragraph': '段落', table: '表格', 'markdown-table': '表格',
+  code: '代码块', 'ordered-list': '有序列表', list: '列表', flow: '步骤或关系', structured: '结构化内容',
+  'structured-array': '结构化列表', 'structured-record': '结构化记录', scalar: '文本值',
+}
+const evidenceLabels: Readonly<Record<string, string>> = {
+  'source:markdown': '来源是当前 Markdown 原文',
+  'source:table': '来源是完整 Markdown 表格',
+  'source:flow:arrow-chain': '原文包含明确的箭头步骤',
+  'source:flow:ordered-list': '原文包含明确的有序步骤',
+  'source:list': '来源是列表',
+  'source:ordered-list': '来源是有序列表',
+  'source:illustration': '来源包含可验证的插图',
+  'source:code': '来源是代码块',
+  'source:structured': '来源是结构化内容',
+  'source:passive-markdown': '来源保持普通 Markdown 阅读',
+  'markdown-paragraph': '来源是 Markdown 段落',
+  'markdown-table': '来源是完整 Markdown 表格',
+  'ordered-list': '来源是有序列表',
+  'arrow-chain': '原文包含明确的箭头步骤',
+  'explicit-flow': '原文包含明确的步骤或关系',
+  'numeric-table': '表格包含可比较的数值列',
+  'task-table': '表格包含明确的任务和状态字段',
+  'task-records': '结构化记录包含明确的任务和状态字段',
+  'record-list': '结构化记录可保持完整详情',
+  'validated-chart-plan': '表格已通过图表结构核验',
+  'historical-time-series': '时间序列已通过趋势图结构核验',
+  'validated-task-status-records': '任务和状态字段已通过结构核验',
+  'validated-explicit-graph-or-flow': '原文关系或步骤已通过结构核验',
+  'source-bound-ordered-list-flow': '有序步骤已与当前原文逐项对应',
+}
+function readableEvidence(value: string): string {
+  const key = value.trim().toLowerCase().replace(/[ _]+/g, '-')
+  if (evidenceLabels[key]) return evidenceLabels[key]
+  if (key.startsWith('node:')) return '来源节点类型已与当前原文核验'
+  if (key.startsWith('range:')) return '来源范围已与当前原文核验'
+  if (key.startsWith('contains:')) return '内容结构已与当前原文核验'
+  if (key.startsWith('source:')) return '来源类型已与当前原文核验'
+  return '该内容块已通过与当前原文结构相符的本地核验'
+}
+function readableSourceScope(block: BlockComposition, path: readonly number[]): string {
+  const kind = blockKindLabels[block.kind] ?? '内容块'
+  return path.length ? `第 ${path.map(index => index + 1).join('.')} 个内容块中的${kind}` : `当前文档中的${kind}`
+}
+function readableChoice(selection: BlockSelection, presentation: ResolvedBlockPresentation = 'fallback'): string {
+  if (presentation !== 'fallback') {
+    const parts = [componentLabels[selection.componentSet] ?? '已选组件样式']
+    if (isChartPresentation(presentation) && selection.chart !== 'auto') parts.push(chartLabels[selection.chart])
+    if (objectPresentations.has(presentation) && selection.objectEffect !== 'auto' && selection.objectEffect !== 'none') parts.push(objectEffectLabels[selection.objectEffect] ?? '已选对象效果')
+    return parts.join('；')
+  }
+  const parts = [layoutLabels[selection.layout], chartLabels[selection.chart], componentLabels[selection.componentSet] ?? '已选组件样式']
+  if (selection.objectEffect !== 'auto' && selection.objectEffect !== 'none') parts.push(objectEffectLabels[selection.objectEffect] ?? '已选对象效果')
+  return parts.join('；')
+}
+function readablePresentation(block: BlockComposition): string {
+  if(block.componentName)return block.componentName
+  const presentation = blockPresentation(block)
+  if (presentation === 'fallback') return '兼容旧版布局选择'
+  return BLOCK_PRESENTATION_LABELS[presentation as BlockPresentationId] ?? `Canvas ${presentation.replace(/^canvas-/, '')} 视觉副本`
+}
+/** Source evidence is local verification metadata, not a model-authored explanation. */
+function BlockLayoutBasis({ program, path }: { program: CompositionSelection | undefined, path: readonly number[] }): ReactElement | null {
+  const blocks = blocksAtPath(program, path)
+  if (!blocks.length) return null
+  return h('details', { className: 'iexp-disclosure', 'data-iexp-block-layout-basis': 'true' },
+    h('summary', null, '内容块布局依据'),
+    h('p', null, '展示已选方式与本地核验的适用条件，不代表模型返回的文字理由。'),
+    h('ul', null, ...blocks.map(block => {
+      const evidence = [...new Set(block.evidence.map(readableEvidence))]
+      const evidenceList = h('ul', null, ...evidence.map((item, index) => h('li', { key: index }, `本地核验：${item}`)))
+      return h('li', { key: block.id },
+        h('strong', null, `${blockKindLabels[block.kind] ?? '内容块'}：${readablePresentation(block)}；${readableChoice(block.selection, blockPresentation(block))}`),
+        h('div', null, `来源位置：${readableSourceScope(block, path)}`),
+        block.componentFit&&h('p',null,`组件适配说明：${block.componentFit}`),
+        evidenceList,
+      )
+    })),
+  )
+}
+function BlockThemeScope({ selection, children }: { selection?: BlockSelection, children?: ReactNode }): ReactElement {
+  const inherited = useSelectedTheme()
+  const runtime = useContext(CompositionRuntimeContext)
+  const appearance = useSyncExternalStore(appearancePreferences.subscribe, appearancePreferences.getSnapshot, appearancePreferences.getSnapshot)
+  const theme = useMemo<ThemePackage>(() => {
+    const id = selection?.themeId
+    if (!id || id === '$global' || id === inherited.id) return inherited
+    return [...builtInThemes, ...(runtime.settings?.theme?.installed ?? [])].find(candidate => candidate.id === id) ?? inherited
+  }, [inherited, runtime.settings?.theme?.installed, selection?.themeId])
+  const variables = useMemo(() => themeStyleTokens(theme, appearanceTokens(appearance, theme)), [appearance, theme])
+  if (theme.id === inherited.id) return h(PresentationThemeContext.Provider, { value: theme }, children)
+  return h(PresentationThemeContext.Provider, { value: theme }, h('div', {
+    className: 'iexp-block-theme',
+    'data-iexp-block-theme': theme.id,
+    style: variables as CSSProperties,
+  }, h(RunePresentation,null,children)))
+}
+
+type BlockShellAttributes = {
+  readonly 'data-iexp-block-id': string
+  readonly 'data-iexp-presentation': string
+  readonly 'data-iexp-block-kind': string
+}
+function blockShellAttributes(block: BlockComposition | undefined, id?: string): BlockShellAttributes {
+  return {
+    'data-iexp-block-id': block?.id ?? id ?? 'unbound',
+    'data-iexp-presentation': blockPresentation(block),
+    'data-iexp-block-kind': block?.kind ?? 'unknown',
+  }
+}
+/**
+ * A presentation wraps the renderer's original React node group. It never
+ * reconstructs Markdown from a substring, so links, definitions, code and
+ * footnotes remain part of the one document AST.
+ */
+function BlockPresentationView({ block, id, value, isStreaming = false, children }: { block?: BlockComposition, id?: string, value?: unknown, isStreaming?: boolean, children?: ReactNode }): ReactElement {
+  const presentation = blockPresentation(block)
+  const attrs = blockShellAttributes(block, id)
+  const selection = block ? selectionForPresentation(block.selection, presentation) : undefined
+  const source = children
+  const genericCard = (className: string, content: ReactNode) => h(ThemeCard, { as: 'article', renderRole: 'content', className, ...attrs }, content)
+  let view: ReactElement
+  if(block?.component&&block.component.rendererKey!==SOURCE_PRESENTATION_RENDERER_KEY&&block.component.rendererKey!==SOURCE_LIBRARY_RENDERER_KEY){
+    view=h(ExecutableBlockView,{selection:block.component,value,isStreaming,renderMarkdown:markdown=>typeof value==='string'&&markdown===value?source:h(ContentView,{value:markdown,decide:false,embedded:true})},source)
+  } else if (presentation === 'cards') {
+    view = genericCard('iexp-block iexp-block-card', source)
+  } else if (presentation === 'disclosure') {
+    view = h('details', { open: true, className: 'iexp-block iexp-block-disclosure', ...attrs },
+      h('summary', null, '完整来源内容'),
+      genericCard('iexp-block-disclosure-card', source))
+  } else if (presentation === 'reading') {
+    // ThemeCard is deliberate even for reading: every registered component set
+    // has a real content consumer, while the reading CSS keeps the source continuous.
+    view = h(ThemeCard, { as: 'div', renderRole: 'content', className: 'iexp-block iexp-block-reading', ...attrs }, source)
+  } else if (presentation.startsWith('canvas-')) {
+    view = genericCard('iexp-block iexp-block-card iexp-block-canvas', h(CanvasBlockView, { presentation, value, isStreaming }, source))
+  } else {
+    view = presentation === 'fallback'
+      ? h('div', { className: 'iexp-block', ...attrs }, source)
+      : h(ThemeCard, { as: 'div', renderRole: 'content', className: 'iexp-block iexp-block-reading', ...attrs }, source)
+  }
+  return h(BlockThemeScope, { selection }, scopedSelection(selection, view))
+}
+type SourceOrganizationElementProps = {
+  readonly children?: ReactNode
+  readonly className?: string
+  readonly node?: unknown
+  readonly [key: string]: unknown
+}
+function sourceOrganizationClassName(name: string, className?: string): string {
+  return [name, className].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ')
+}
+function sourceOrganizationDomProps(props: SourceOrganizationElementProps): Record<string, unknown> {
+  const { children: _children, node: _node, className: _className, ...attributes } = props
+  return attributes
+}
+function SourceListGrid(props: SourceOrganizationElementProps): ReactElement {
+  return h('ul', {
+    ...sourceOrganizationDomProps(props),
+    className: sourceOrganizationClassName('iexp-source-list-grid', props.className),
+  }, props.children)
+}
+function SourceLabelTable(props: SourceOrganizationElementProps): ReactElement {
+  const rows = Children.toArray(props.children).filter(node => typeof node !== 'string' || node.trim().length > 0)
+  return h('table', {
+    ...sourceOrganizationDomProps(props),
+    'aria-label': '来源标签与详情',
+    className: sourceOrganizationClassName('iexp-source-label-table', props.className),
+  }, h('tbody', null, rows))
+}
+function SourceLabelCell({ children }: SourceOrganizationElementProps): ReactElement {
+  // The row owns the real table cell; this marker passes the original strong
+  // node through without manufacturing a label string.
+  return h(Fragment, null, children)
+}
+function sourceLabelAttributes(label: ReactNode): Record<string, unknown> {
+  if (!isValidElement(label)) return {}
+  const props = label.props as Record<string, unknown>
+  return Object.fromEntries(Object.entries(props).filter(([key]) => key === 'data-iexp-source-label-start' || key === 'data-iexp-source-label-end'))
+}
+function SourceLabelRow(props: SourceOrganizationElementProps): ReactElement {
+  const nodes = Children.toArray(props.children).filter(node => typeof node !== 'string' || node.trim().length > 0)
+  const [label, ...detail] = nodes
+  return h('tr', {
+    ...sourceOrganizationDomProps(props),
+    className: sourceOrganizationClassName('iexp-source-label-row', props.className),
+  }, h('th', {
+    scope: 'row',
+    className: 'iexp-source-label-cell',
+    ...sourceLabelAttributes(label),
+  }, label), h('td', { className: 'iexp-source-label-detail' }, ...detail))
+}
+function MarkdownContent({ text, isStreaming, path, program, preserveSoftBreaks = false }: { text: string, isStreaming: boolean, path: readonly number[], program: CompositionSelection | undefined, preserveSoftBreaks?: boolean }): ReactElement {
+  const composition = program
+  const experimentalProgram = !!program?.blockLayout
   const tables = useMemo(() => isStreaming ? [] : analyzeResearchDocument(text).tables, [text, isStreaming])
-  const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text), [text, isStreaming])
+  const layout = useMemo(() => isStreaming ? { flows: [] } : parseMarkdownLayouts(text, experimentalProgram ? { completeOutline: true } : undefined), [text, isStreaming, experimentalProgram])
   const selectedTheme = useSelectedTheme()
   const colorScheme = useExperienceTheme()
   const illustrations = useMemo(() => isStreaming ? [] : markdownIllustrations(text), [text, isStreaming])
-  const sections = useMemo(() => !isStreaming && (composition?.layout==='continuous'||(!composition||composition.layout==='auto')&&selectedTheme.tokens.composition === 'continuous') ? planContentSections(text) : undefined, [text, isStreaming, selectedTheme.tokens.composition,composition?.layout])
+  const rootLayout = composition?.layout ?? 'auto'
+  const globalReadingAids = experimentalProgram && (rootLayout === 'continuous' || rootLayout === 'heading-index' || rootLayout === 'research')
+  const semanticFallback = !composition || rootLayout === 'auto' || experimentalProgram && rootLayout === 'research'
+  const headingIndexEligible = !composition || rootLayout === 'auto' || rootLayout === 'heading-index' || experimentalProgram && rootLayout === 'research'
+  const sections = useMemo(() => !isStreaming && (rootLayout === 'continuous' || semanticFallback && selectedTheme.tokens.composition === 'continuous') ? planContentSections(text, experimentalProgram ? { allowTextOnly: true } : undefined) : undefined, [text, isStreaming, selectedTheme.tokens.composition, rootLayout, semanticFallback, experimentalProgram])
+  const markdownBlocks = useMemo(() => blocksAtPath(program, path), [program, path])
   const prefix = useId().replaceAll(':', '')
+  const renderText = useMemo(() => mathMarkdownSource(text), [text])
+  const sourceCode = useMemo(() => markdownCodeBlocks(text), [text])
+  const navigation = useMemo(() => markdownNavigation(text, start => `#${headingAnchor(prefix, start)}`), [text, prefix])
   // Stable renderer types retain native disclosures and nested layout state during polling.
   const markdownOptions = useMemo<ComponentProps<typeof MarkDownRenderer>['options']>(() => {
-    const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number } } } }) => {
-      const start = node?.position?.start.offset, icon = selectIcon(headingText(children))
+    const blockById = new Map(markdownBlocks.map(block => [block.id, block] as const))
+    const headings = Object.fromEntries([1, 2, 3, 4, 5, 6].map(level => [`h${level}`, ({ children, node }: { children?: ReactNode, node?: { position?: { start: { offset?: number }, end?: { offset?: number } } } }) => {
+      const start = node?.position?.start.offset, end = node?.position?.end?.offset, block = markdownBlockAt(program, path, start, end), icon = selectIcon(headingText(children))
       const heading = h(`h${level}`, { 'data-iexp-source-start': start, 'data-iexp-source-end': (node as { position?: { end?: { offset?: number } } } | undefined)?.position?.end?.offset, id: start === undefined ? undefined : headingAnchor(prefix, start), tabIndex: -1, style: styles.semanticHeading }, icon !== 'file-text' && h('span', { 'aria-hidden': true, style: styles.headingIcon }, h(IconWrapper, { name: icon, size: 20 })), h('span', null, children))
-      return (!composition||composition.layout==='auto'||composition.layout==='heading-index') && !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
+      const output = headingIndexEligible && !sections && start !== undefined && start === layout.outline?.entries[0]?.start ? h(Fragment, null, h(HeadingIndex, { plan: layout.outline, prefix }), heading) : heading
+      return scopedSelection(block?.selection, output)
     }]))
-    return { remarkPlugins: [remarkGfm, ...(sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : [])], components: {
+    const astPlugins = experimentalProgram
+      ? [blockPresentationPlugin(markdownBlocks), sourceOrganizationPlugin(text, markdownBlocks), ...(sections ? [continuousBlockSectionsPlugin(sections, markdownBlocks)] : [])]
+      : sections ? [continuousSectionsPlugin(sections, layout.flows.map(flow => flow.start), tables.filter(table => table.plans.length > 1).map(table => table.start))] : []
+    const blockRenderer = ({ children, ...props }: { children?: ReactNode, [key: string]: unknown }) => {
+      const id = blockIdFromMarkdownProps(props)
+      const block=id === undefined ? undefined : blockById.get(id)
+      return h(BlockPresentationView, { block, id, isStreaming, value:block?.start!==undefined&&block.end!==undefined?text.slice(block.start,block.end):undefined }, children)
+    }
+    return { remarkPlugins: [remarkGfm, ...(preserveSoftBreaks ? [remarkBreaks] : []), remarkMath, preserveCurrencyAmounts(text), navigation.remarkPlugin, ...astPlugins], rehypePlugins: [[rehypeKatex, { trust: false, maxExpand: 1000, maxSize: 100, strict: 'ignore' }]], components: {
       ...headings,
+      pre: ({ children, node }) => {
+        const start = node?.position?.start.offset
+        const block = sourceCode.find(candidate => candidate.start === start)
+        return block ? h(MarkdownCodeBlock, { code: block.value, language: block.language, start: block.start, end: block.end }) : h('pre', null, children)
+      },
+      code: ({ children, className }) => h('code', { className: ['openui-markdown-renderer-code', className].filter(Boolean).join(' ') }, children),
+      'iexp-source-toc': ({ children, ...props }: { children?: ReactNode, [key: string]: unknown }) => {
+        const unmatched = Number(props['data-iexp-toc-unmatched'] ?? 0)
+        return h('nav', { className: 'iexp-source-toc', 'aria-label': '原文目录', 'data-iexp-toc-unmatched': unmatched },
+          children, unmatched > 0 && h('p', { className: 'iexp-source-toc-note' }, `${unmatched} 项目录文字未匹配章节，保留原文。`))
+      },
+      'iexp-block': blockRenderer,
+      'iexp-source-list-grid': SourceListGrid,
+      'iexp-source-label-table': SourceLabelTable,
+      'iexp-source-label-row': SourceLabelRow,
+      'iexp-source-label-cell': SourceLabelCell,
       tbody: ({ children }) => h(PagedTableBody, { children }),
       p: ({ children, node }) => {
-        const flow = semanticFlows && layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === node?.position?.start.offset)
-        if (flow) return h(SafeFlow, { plan: flow })
-        const illustration = illustrations.find(item => item.start === node?.position?.start.offset)
-        if (illustration) {
+        const start = node?.position?.start.offset, end = node?.position?.end.offset, block = markdownBlockAt(program, path, start, end), effective = block?.selection ?? composition
+        const presentation = blockPresentation(block), explicit = hasExplicitPresentation(block)
+        const flow = (explicit ? presentation === 'flow' : allowsSemanticFlows(effective, !block && globalReadingAids, presentation))
+          && layout.flows.find(plan => plan.sourceKind === 'arrow-chain' && plan.start === start)
+        if (flow) return scopedSelection(block?.selection, h(SafeFlow, { plan: flow }))
+        const visualIllustration = !explicit || objectPresentations.has(presentation) || presentation === 'illustration-native'
+        const illustration = effective?.surface === 'source' || !visualIllustration ? undefined : illustrations.find(item => item.start === node?.position?.start.offset)
+        if (illustration && visualIllustration) {
           // Keep ordinary Markdown images as rendered by the host. Its URL filter
           // removes data: image sources, so use the byte-validated blob for those.
           const record = { type: illustration.mime, role: 'illustration', url: illustration.url, alt: illustration.alt, title: illustration.title }
           const source = glbSource(record)
-          if (source) return h('div', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: /^data:/i.test(illustration.url) ? undefined : h('div', { className: 'iexp-markdown-illustration-original' }, children) }))
+          if (source) return scopedSelection(block?.selection, h('div', { 'data-iexp-source-start': start, 'data-iexp-source-end': end }, h(CanvasObjectView, { value: record, source, dark: colorScheme === 'dark', originalView: /^data:/i.test(illustration.url) ? undefined : h('div', { className: 'iexp-markdown-illustration-original' }, children) })))
         }
-        return h('p', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)
+        return scopedSelection(block?.selection, h('p', { 'data-iexp-source-start': start, 'data-iexp-source-end': end }, children))
       },
-      a: ({ children, node, href, ...props }) => h('a', { ...props, href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
+      a: ({ children, node, href, ...props }) => h('a', { ...props, href: navigation.resolveHref(href ?? '') ?? href, 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children),
       td: ({ children, node, align }) => h(TableCell, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       th: ({ children, node, align }) => h(TableHead, { align: align === 'center' || align === 'right' ? align : 'left' }, h('span', { 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, children)),
       ol: ({ children, node, start }) => {
-        const flow = semanticFlows && layout.flows.find(plan => plan.sourceKind === 'ordered-list' && plan.start === node?.position?.start.offset)
-        return flow ? h(SafeFlow, { plan: flow }) : h('ol', { start }, children)
+        const sourceStart = node?.position?.start.offset, sourceEnd = node?.position?.end.offset, block = markdownBlockAt(program, path, sourceStart, sourceEnd), effective = block?.selection ?? composition, presentation = blockPresentation(block), explicit = hasExplicitPresentation(block)
+        const flow = (explicit ? presentation === 'flow' : allowsSemanticFlows(effective, !block && globalReadingAids, presentation)) && layout.flows.find(plan => plan.sourceKind === 'ordered-list' && plan.start === sourceStart)
+        return scopedSelection(block?.selection, flow ? h(SafeFlow, { plan: flow }) : h('ol', { start }, children))
       },
       table: ({ children, node }) => {
-        const table = tables.find(table => table.start === node?.position?.start.offset), plans = semanticCharts ? table?.plans ?? [] : []
-        const board = table && (!composition || composition.layout === 'auto' || composition.layout === 'board') ? analyzeTaskTable(table.headers, table.rows) : undefined
-        const detail = (composition?.layout==='records'||sections&&(!composition||composition.layout==='auto')) && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
-        return h('div', { className: 'iexp-table-group', 'data-iexp-source-start': node?.position?.start.offset, 'data-iexp-source-end': node?.position?.end.offset }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail }, children))
+        const sourceStart = node?.position?.start.offset, sourceEnd = node?.position?.end.offset, block = markdownBlockAt(program, path, sourceStart, sourceEnd), effective = block?.selection ?? composition, layoutChoice = localLayout(effective, !block && globalReadingAids), presentation = blockPresentation(block), explicit = hasExplicitPresentation(block)
+        if (effective?.surface === 'source') return scopedSelection(block?.selection, h('div', { className: 'iexp-table-group', 'data-iexp-source-start': sourceStart, 'data-iexp-source-end': sourceEnd }, h(SourceTable, { plans: [] }, children)))
+        const table = tables.find(table => table.start === sourceStart)
+        const plans = explicit
+          ? isChartPresentation(presentation) ? chartPlansForPresentation(presentation, table?.plans ?? []) : []
+          : allowsSemanticCharts(effective, !block && globalReadingAids, presentation) ? table?.plans ?? [] : []
+        const board = explicit
+          ? presentation === 'board' && table ? analyzeTaskTable(table.headers, table.rows) : undefined
+          : table && (layoutChoice === 'auto' || layoutChoice === 'board') ? analyzeTaskTable(table.headers, table.rows) : undefined
+        const detail = explicit
+          ? presentation === 'records' && table ? planReadingTable(table.headers, table.rows) : undefined
+          : (layoutChoice === 'records' || sections && layoutChoice === 'auto') && !board && !plans.length && table ? planReadingTable(table.headers, table.rows) : undefined
+        const selection = explicit && block ? selectionForPresentation(block.selection, presentation) : block?.selection
+        return scopedSelection(selection, h('div', { className: 'iexp-table-group', 'data-iexp-source-start': sourceStart, 'data-iexp-source-end': sourceEnd }, board ? h(BoardView, { plan: board }) : detail ? h(MasterDetailView, { plan: detail }) : plans.length > 0 && (sections && !explicit ? h(PaperChartDeck, { plans, Chart: SafeAutoChart }) : h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, i) => h(SafeAutoChart, { key: i, plan })))), h(SourceTable, { plans, supplemented: !!board || !!detail || plans.length > 0 }, children)))
       },
     } }
-  }, [layout, prefix, tables, sections, illustrations, colorScheme, semanticCharts, semanticFlows, composition?.layout])
-  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: text, options: markdownOptions }))
+  }, [layout, prefix, tables, sections, illustrations, colorScheme, composition, program, path, rootLayout, globalReadingAids, headingIndexEligible, experimentalProgram, markdownBlocks, isStreaming, sourceCode, navigation, text, preserveSoftBreaks])
+  return h('div', { className: `iexp-document${sections ? ' iexp-continuous' : ''}`, 'data-content-layout': sections ? 'continuous' : undefined }, h(BlockLayoutBasis, { program, path }), sections && layout.outline && h(HeadingIndex, { plan: layout.outline, prefix }), h(MarkDownRenderer, { textMarkdown: renderText, options: markdownOptions }))
 }
-function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStreaming: boolean, dark: boolean }): ReactElement {
+function StructuredSource({ value, label = '完整原始记录' }: { value: unknown, label?: string }): ReactElement {
+  return h('details', { className: 'iexp-disclosure' }, h('summary', null, label), h('pre', { style: styles.raw }, rawText(value)))
+}
+function StructuredRecordsTable({ value, plans = [] }: { value: unknown, plans?: readonly AutoChartPlan[] }): ReactElement {
+  const records = rowsFromRecords(value)
+  if (!records) return h('pre', { style: styles.raw }, rawText(value))
+  const { headers, rows: cells } = records
+  const head = h(TableHeader, null, h(TableRow, null, ...headers.map(key => h(TableHead, { key }, key))))
+  const rows = cells.map((row, index) => h(TableRow, { key: index }, ...row.map((cell, cellIndex) => h(TableCell, { key: cellIndex }, cell))))
+  return h('div', { className: 'iexp-table-group' }, plans.length > 0 && h('div', { className: 'iexp-chart-grid' }, ...plans.map((plan, index) => h(SafeAutoChart, { key: index, plan }))), h(SourceTable, { plans: [...plans] }, head, h(PagedTableBody, null, ...rows)))
+}
+function ExplicitStructuredContent({ value, isStreaming, dark, presentation, composition }: { value: unknown, isStreaming: boolean, dark: boolean, presentation: ResolvedBlockPresentation, composition?: BlockSelection }): ReactElement {
+  const raw = () => h('pre', { style: styles.raw }, rawText(value))
+  const record = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+  if (genericPresentations.has(presentation) || presentation.startsWith('canvas-')) return raw()
+  if (presentation === 'illustration-native') {
+    const source = !isStreaming ? glbSource(value) : undefined
+    return source?.kind === 'image'
+      ? h('div', null, h(CanvasObjectView, { value, source, dark }), h(StructuredSource, { value, label: '原始插画记录' }))
+      : raw()
+  }
+  if (presentation === 'live-native' || presentation === 'live-liveline') {
+    const live = !isStreaming && recognizeLiveSeries(value)
+    return live ? h(LiveSeriesView, { source: live, dark, animate: presentation === 'live-liveline' }) : raw()
+  }
+  if (presentation === 'text-native' || presentation === 'text-torph') {
+    const current = record?.value ?? record?.current, previous = record?.previous ?? record?.previousValue
+    if ((record?.type === 'status-update' || record?.type === 'metric-update') && typeof record.label === 'string' && record.editable !== true && (typeof current === 'string' || typeof current === 'number') && (typeof previous === 'string' || typeof previous === 'number')) {
+      const text = String(current) + (typeof record.unit === 'string' ? ` ${record.unit}` : '')
+      return h('section', { 'data-iexp-update': record.type }, h('strong', null, record.label), h('p', null, presentation === 'text-torph' ? h(AdaptiveText, { text, motion: true }) : text), h(StructuredSource, { value, label: '原始更新记录' }))
+    }
+    return raw()
+  }
+  if (presentation === 'loading-native' || presentation === 'loading-skullet') {
+    const loading = record?.loading === true && typeof (record.surface ?? record.knownSurface) === 'string' && (record.visibleContent ?? record.hasVisibleContent) === false
+    if (!loading) return raw()
+    const status = record.error ? h('p', { role: 'alert' }, '内容加载失败，请查看原始状态。') : record.empty === true ? h('p', { role: 'status' }, '没有可展示的数据。') : presentation === 'loading-native' ? h('p', { role: 'status' }, '正在加载内容…') : h(AdaptiveLoading, { loading: true, error: typeof record.error === 'string' ? record.error : undefined, empty: record.empty === true, label: typeof record.label === 'string' ? record.label : '正在加载内容…' })
+    return h('section', null, status, h(StructuredSource, { value, label: '原始加载状态' }))
+  }
+  if (presentation === 'flow') {
+    const execution = isStreaming ? { status: 'unrecognized' as const } : analyzeExecutionFlow(value)
+    if (execution.status === 'valid') return h(ChartBoundary, { fallback: raw() }, h(ExecutionFlowView, { plan: execution.plan, sourceText: rawText(value) }))
+    const graph = isStreaming ? { status: 'unrecognized' as const } : analyzeGraph(value)
+    if (graph.status === 'valid') return h(ChartBoundary, { fallback: raw() }, h(FlowView, { plan: { ...graph.plan, title: '原文关系', sourceText: rawText(value), reason: '仅绘制来源明确提供的节点与连线，图示不改变原始数据。' } }))
+    return raw()
+  }
+  if (objectPresentations.has(presentation)) {
+    const source = !isStreaming ? glbSource(value) : undefined
+    return source ? h('div', null, h(CanvasObjectView, { value, source, dark }), h(StructuredSource, { value, label: '原始模型记录' })) : raw()
+  }
+  if (presentation === 'board') {
+    const board = isStreaming ? undefined : analyzeTaskRecords(value)
+    return board ? h('div', null, h(BoardView, { plan: board }), h(StructuredSource, { value })) : raw()
+  }
+  if (presentation === 'records') {
+    const detail = isStreaming ? undefined : analyzeMasterDetail(value)
+    return detail ? h('div', null, h(MasterDetailView, { plan: detail }), h(StructuredSource, { value })) : raw()
+  }
+  if (presentation === 'table') return h(StructuredRecordsTable, { value })
+  if (isChartPresentation(presentation)) {
+    const records = isStreaming ? undefined : rowsFromRecords(value)
+    const plans = records ? chartPlansForPresentation(presentation, analyzeTableCharts(records.headers, records.rows)) : []
+    return h(StructuredRecordsTable, { value, plans })
+  }
+  return raw()
+}
+function StructuredContent({ value, isStreaming, dark, presentation = 'fallback' }: { value: unknown, isStreaming: boolean, dark: boolean, presentation?: ResolvedBlockPresentation }): ReactElement {
   const composition = useCompositionSelection(), layout = composition?.layout ?? 'auto'
+  if (composition?.surface === 'source') return h('pre', { style: styles.raw }, rawText(value))
+  if (presentation !== 'fallback') return h(ExplicitStructuredContent, { value, isStreaming, dark, presentation, composition: composition as BlockSelection | undefined })
   const live = !isStreaming && recognizeLiveSeries(value)
   if (live) return h(LiveSeriesView, {source:live,dark,animate:composition?.live!=='native'})
   const record=value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:undefined
@@ -230,18 +640,37 @@ function StructuredContent({ value, isStreaming, dark }: { value: unknown, isStr
   }
   return h('pre', { style: styles.raw }, rawText(value))
 }
-function ContentBody({ value, isStreaming = false }: { value: unknown, isStreaming?: boolean }): ReactElement {
+function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH, program, embedded = false, preserveSoftBreaks = false }: { value: unknown, isStreaming?: boolean, path?: readonly number[], program?: CompositionSelection, embedded?: boolean, preserveSoftBreaks?: boolean }): ReactElement {
   const theme = useExperienceTheme()
-  const normalized=normalizeCompositionSource(value)
-  const content:ReactNode=normalized.kind==='blocks'?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming})):normalized.kind==='markdown'
-    ?h(MarkdownContent,{text:normalized.markdown,isStreaming})
-    :h(StructuredContent,{value:normalized.kind==='structured'||normalized.kind==='scalar'?normalized.value:value,isStreaming,dark:theme==='dark'})
-  return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('div', { className: 'dsh-experience iexp-content iexp-reply-surface', 'data-experience-theme': theme }, content)))
+  const presentationTheme = useSelectedTheme()
+  const contextualProgram = useCompositionSelection() as CompositionSelection | undefined
+  // A model-selected Markdown node keeps Markdown semantics; it does not start another legacy layout decision.
+  const rootProgram:CompositionSelection|undefined = embedded ? {themeId:presentationTheme.id,surface:'semantic',chart:'auto',componentSet:'native',objectEffect:'none',layout:'document'} : program ?? contextualProgram
+  const normalized = normalizeCompositionSource(value)
+  const childCount = normalized.kind === 'blocks' ? normalized.values.length : 0
+  // Repair copied loose tables only when no composition selection reads source offsets.
+  const markdownSource = normalized.kind === 'markdown' ? normalized.markdown : '', repairTables = !embedded && rootProgram === undefined
+  const displayMarkdown = useMemo(() => repairTables ? compactLooseTables(markdownSource) : markdownSource, [markdownSource, repairTables])
+  const childPaths = useMemo(() => Array.from({ length: childCount }, (_part, index) => [...path, index]), [path, childCount])
+  const structured = normalized.kind === 'structured' || normalized.kind === 'scalar' || normalized.kind === 'empty'
+  const block = structured ? structuredBlockAt(rootProgram, path) : undefined
+  const structuredValue = normalized.kind === 'structured' || normalized.kind === 'scalar' ? normalized.value : value
+  const structuredContent = h(StructuredContent, { value: structuredValue, isStreaming, dark: theme === 'dark', presentation: blockPresentation(block) })
+  const content:ReactNode=normalized.kind==='blocks'
+    ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram,embedded,preserveSoftBreaks}))
+    :normalized.kind==='markdown'
+      ?h(MarkdownContent,{text:displayMarkdown,isStreaming,path,program:rootProgram,preserveSoftBreaks})
+      :block ? h(BlockPresentationView, { block, value: structuredValue, isStreaming }, structuredContent) : structuredContent
+  const basis = structured ? h(BlockLayoutBasis, { program: rootProgram, path }) : undefined
+  const body=h('div', { className: `dsh-experience iexp-content ${embedded?'iexp-embedded-markdown':'iexp-reply-surface'}`, 'data-experience-theme': theme }, basis, content)
+  return h(UiverseRenderScope, { role: 'content' }, h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, embedded?body:h(RunePresentation,null,body)))
 }
 
 /** One composition boundary per actual source output; nested renderers share its decision. */
-export function ContentView({value,isStreaming=false,documentId,sessionId,decide=true}:{value:unknown,isStreaming?:boolean,documentId?:string,sessionId?:string,decide?:boolean}):ReactElement {
-  return h(AdaptiveCompositionView,{value,isStreaming,documentId,sessionId,decide},h(ContentBody,{value,isStreaming}))
+export function ContentView({value,isStreaming=false,documentId,sessionId,decide=true,embedded=false,preserveSoftBreaks=false}:{value:unknown,isStreaming?:boolean,documentId?:string,sessionId?:string,decide?:boolean,embedded?:boolean,preserveSoftBreaks?:boolean}):ReactElement {
+  const body=h(ContentBody,{value,isStreaming,embedded,preserveSoftBreaks})
+  if(embedded)return h(CompositionSelectionContext.Provider,{value:undefined},body)
+  return h(AdaptiveCompositionView,{value,isStreaming,documentId,sessionId,decide},body)
 }
 
 export interface McpUiApi {
@@ -303,7 +732,7 @@ function AssistantArtifactContent({artifact,isStreaming}:{artifact:ExperienceArt
   return nodes.length?h('div',null,...nodes):h(ContentView,{value:assistantContent(message),isStreaming,decide:false})
 }
 
-export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = false, onContinue, stateApi, mcpApi, displayMode }: { displayMode?: DisplayMode, artifact: ExperienceArtifact, openuiEnabled?: boolean, isStreaming?: boolean, stateApi?: WidgetStateApi, mcpApi?: McpUiApi, onContinue?: (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void> }): ReactElement {
+export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = false, onContinue, stateApi, mcpApi, displayMode, dilEnabled = false, dilApi }: { displayMode?: DisplayMode, artifact: ExperienceArtifact, openuiEnabled?: boolean, isStreaming?: boolean, stateApi?: WidgetStateApi, mcpApi?: McpUiApi, dilEnabled?: boolean, dilApi?: DilApi, onContinue?: (event: ActionEvent, state: Record<string, unknown>, signal: AbortSignal) => Promise<void> }): ReactElement {
   const theme = useExperienceTheme()
   const library = useSyncExternalStore(openUiWidgets.subscribe, openUiWidgets.getSnapshot, openUiWidgets.getSnapshot)
   const [pending] = useState(() => new Set<AbortController>())
@@ -312,6 +741,8 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
   const [actionError, setActionError] = useState('')
   const [state, setState] = useState<Record<string, unknown>>({})
   const [stateReady, setStateReady] = useState(!stateApi)
+  const currentStateOwner = `${artifact.source.sessionId}\u0000${artifact.id}`
+  const [stateOwner, setStateOwner] = useState(currentStateOwner)
   const [stateError, setStateError] = useState('')
   const stateControl = useRef<{ revision: number, disposed: boolean, canSave: boolean, last: string, timer?: ReturnType<typeof setTimeout>, saving: boolean, next?: SaveWidgetStateInput['state'] }>({ revision: 0, disposed: false, saving: false, canSave: false, last: '{}' })
   const stateKey = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(artifact.id) && !!artifact.source.sessionId
@@ -319,11 +750,11 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     setErrors([]); setActionError(''); setState({}); setStateError('')
     const control = { revision: 0, disposed: false, saving: false, canSave: false, last: '{}' } as typeof stateControl.current
     stateControl.current = control
-    if (!stateApi || !stateKey) { setStateReady(true); return () => { control.disposed = true } }
+    if (!stateApi || !stateKey) { setStateOwner(currentStateOwner); setStateReady(true); return () => { control.disposed = true } }
     setStateReady(false)
     void stateApi.widgetState({ sessionId: artifact.source.sessionId, artifactId: artifact.id }).then(result => {
-      if (!control.disposed) { const saved = widgetStateSchema.parse(result); control.revision = saved.revision; control.canSave = true; control.last = JSON.stringify(saved.state); setState(saved.state); setStateReady(true) }
-    }).catch(error => { if (!control.disposed) { setStateError(`无法恢复组件状态：${error instanceof Error ? error.message : String(error)}`); setStateReady(true) } })
+      if (!control.disposed) { const saved = widgetStateSchema.parse(result); control.revision = saved.revision; control.canSave = true; control.last = JSON.stringify(saved.state); setState(saved.state); setStateOwner(currentStateOwner); setStateReady(true) }
+    }).catch(error => { if (!control.disposed) { setStateError(`无法恢复组件状态：${error instanceof Error ? error.message : String(error)}${artifact.protocol === 'dil' ? '。本次使用初始状态，修改不会保存。' : ''}`); setStateOwner(currentStateOwner); setStateReady(true) } })
     return () => { control.disposed = true; if (control.timer) clearTimeout(control.timer) }
   }, [artifact.id, artifact.source.sessionId, stateApi, stateKey])
   const updateState = (next: Record<string, unknown>) => {
@@ -346,12 +777,17 @@ export function ArtifactView({ artifact, openuiEnabled = true, isStreaming = fal
     }
     control.timer = setTimeout(() => { void flush() }, 300)
   }
-  const visual = artifact.protocol === 'openui' && openuiEnabled && typeof artifact.payload === 'string'
-    ? h('div', null, stateReady ? h(Renderer, { response: artifact.payload, library, isStreaming, initialState: state, onStateUpdate: updateState, onAction: (event) => { if (event.type !== 'continue_conversation' || !onContinue) { setActionError('此交互类型没有可用的会话执行路径，未执行任何操作。'); return }; const controller = new AbortController(); pending.add(controller); setActionError(''); void onContinue(event, state, controller.signal).catch(error => { if (!controller.signal.aborted) setActionError(`提交失败：${error instanceof Error ? error.message : String(error)}`) }).finally(() => pending.delete(controller)) }, onError: (items) => setErrors(items.map(item => item.message)) }) : h('p', { role: 'status' }, '正在恢复组件状态…'), stateError && h('p', { role: 'alert' }, stateError), errors.length > 0 && h('p', { role: 'alert' }, `OpenUI 渲染错误：${errors.join('; ')}`), actionError && h('p', { role: 'alert' }, actionError))
+  const visual = artifact.protocol === 'dil'
+    ? h(DilArtifactView, { key: dilArtifactIdentity(artifact), artifact, enabled: dilEnabled, api: dilApi, stateReady: stateReady && stateOwner === currentStateOwner, initialState: state, onStateChange: updateState, onContinue, renderMarkdown: renderEmbeddedMarkdown, renderComponent: renderDilLibraryComponent })
+    : artifact.protocol === 'openui' && openuiEnabled && typeof artifact.payload === 'string'
+    ? h('div', null, stateReady ? h(Renderer, { response: artifact.payload, library, isStreaming, initialState: state, onStateUpdate: updateState, onAction: (event) => { if (event.type !== 'continue_conversation' || !onContinue) { setActionError('此交互类型没有可用的会话执行路径，未执行任何操作。'); return }; const controller = new AbortController(); pending.add(controller); setActionError(''); void onContinue(event, state, controller.signal).catch(error => { if (!controller.signal.aborted) setActionError(`提交失败：${error instanceof Error ? error.message : String(error)}`) }).finally(() => pending.delete(controller)) }, onError: (items) => setErrors(items.map(item => item.message)) }) : h('p', { role: 'status' }, '正在恢复组件状态…'), errors.length > 0 && h('p', { role: 'alert' }, `OpenUI 渲染错误：${errors.join('; ')}`), actionError && h('p', { role: 'alert' }, actionError))
     : artifact.protocol === 'openui' && !openuiEnabled
       ? h('p', { role: 'status' }, 'OpenUI 展示已关闭。请查看原始内容。')
     : artifact.protocol === 'mcp-app'
       ? h(McpContent, { artifact, api: mcpApi })
       : artifact.source.kind==='assistant'?h(AssistantArtifactContent,{artifact,isStreaming}):h(ContentView, { value: artifact.payload, isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}` })
-  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : artifact.protocol === 'openui' ? h(AdaptiveCompositionView,{value:{type:'openui',source:artifact.payload},isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}`},h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)) : h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual))))
+  return h(ThemeProvider, { cssSelector: '.dsh-experience', mode: theme }, h('section', { className: 'dsh-experience iexp-artifact', style: styles.section }, h('strong', { className: 'iexp-source-label' }, h('span', { 'aria-hidden': true }, h(IconWrapper, { name: 'file-text', size: 15 })), artifact.source.label), h(OutputView, { sessionId: artifact.source.sessionId, raw: artifact.raw, mode: displayMode }, artifact.protocol === 'content' ? visual : artifact.protocol === 'openui' ? h(AdaptiveCompositionView,{value:{type:'openui',source:artifact.payload},isStreaming,sessionId:artifact.source.sessionId,documentId:`artifact:${artifact.id}`},h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual)) : h(RunePresentation, null, h('div', { className: 'dsh-experience iexp-content', 'data-experience-theme': theme }, visual))), stateError && (artifact.protocol === 'dil' || artifact.protocol === 'openui') && h('p', { role: 'alert' }, stateError)))
 }
+
+const renderEmbeddedMarkdown = (text: string): ReactNode => h(ContentView, { value: text, decide: false, embedded: true })
+const renderDilLibraryComponent = createDilLibraryRenderer(renderEmbeddedMarkdown)

@@ -1,0 +1,32 @@
+import * as React from 'react'
+import { createRoot } from 'react-dom/client'
+import { CompositionRuntimeContext } from __CONTEXT_MODULE__
+import { TuffUiBlockView, TuffUiHostActionPortContext } from __VIEW_MODULE__
+
+const catalog = __CATALOG_JSON__
+const typeSchemas = __TYPE_SCHEMAS_JSON__
+const events = []
+const apiCalls = { info: 0, catalog: 0 }
+let runtimeInfo
+const api = {
+  async componentRuntimeInfo() {
+    apiCalls.info += 1
+    if (!runtimeInfo) runtimeInfo = __RUNTIME_INFO_EXPRESSION__
+    return runtimeInfo
+  },
+  async componentCatalog() { apiCalls.catalog += 1; return { library: 'tuffui', catalog, typeSchemas } },
+}
+const selection = __SELECTION_JSON__
+const root = document.getElementById('root')
+if (!root) throw new Error('TUFFUI_REACT18_HARNESS_ROOT_MISSING')
+const eventPort = event => { events.push(event); const output = document.getElementById('events'); if (output) output.textContent = JSON.stringify(events) }
+createRoot(root).render(React.createElement(CompositionRuntimeContext.Provider, { value: { api, sessionId: 'react18-opaque-harness' } },
+  React.createElement(TuffUiHostActionPortContext.Provider, { value: eventPort },
+    React.createElement(TuffUiBlockView, { selection, renderMarkdown: source => source }, React.createElement('pre', { id: 'source' }, __ORIGINAL_SOURCE_JSON__)),
+  ),
+))
+window.__tuffReact18Opaque = {
+  events, apiCalls,
+  snapshot: () => { const iframe = document.querySelector('iframe'); return { iframe: !!iframe, sandbox: iframe?.getAttribute('sandbox'), src: iframe?.src, events: [...events], apiCalls: { ...apiCalls } } },
+  frameReadable: () => { try { const iframe = document.querySelector('iframe'); return Boolean(iframe?.contentDocument?.body?.innerText) } catch { return false } },
+}

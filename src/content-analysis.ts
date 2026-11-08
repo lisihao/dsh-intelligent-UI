@@ -39,7 +39,7 @@ const units: Record<string, string> = {
   ppm: 'ppm', '倍': '倍', '%': '%', '％': '%', ms: 'ms', '毫秒': 'ms', s: 's', sec: 's', seconds: 's', '秒': 's',
   min: 'min', minutes: 'min', '分钟': 'min', h: 'h', hours: 'h', '小时': 'h',
   usd: 'USD', '美元': 'USD', '$': 'USD', cny: 'CNY', rmb: 'CNY', '人民币': 'CNY', '元': 'CNY',
-  '亿元': '亿元', '万元': '万元', '亿美元': '亿美元', '万美元': '万美元',
+  '亿元': '亿元', '万元': '万元', '亿美元': '亿美元', '万美元': '万美元', 'cad 百万': 'CAD 百万',
   kb: 'KB', mb: 'MB', gb: 'GB', tb: 'TB', kib: 'KiB', mib: 'MiB', gib: 'GiB',
   '个': '个', '次': '次', '项': '项', '条': '条', '人': '人',
 }
@@ -47,11 +47,13 @@ const unit = (text: string): string | undefined => units[text.trim().toLowerCase
 function headerUnit(header: string): string | undefined {
   const match = header.match(/[（(]([^()（）]+)[）)]\s*$/)
   if (match) return unit(match[1]!)
+  if (/(?:^|[，,;；\s])CAD\s+百万\s*$/i.test(header)) return unit('CAD 百万')
   if (/(?:%|％)\s*$/.test(header)) return '%'
   const suffix = header.match(/(?:_|\s)(ms|seconds|sec|s|minutes|min|hours|h|usd|cny|rmb|kb|mb|gb|tb|kib|mib|gib)$/i)
   if (suffix) return unit(suffix[1]!)
   return undefined
 }
+function hasExplicitCurrencyScale(header: string): boolean { return /(?:^|[，,;；\s])(?:CAD|USD|CNY|RMB)\s+\S+\s*$/i.test(header) }
 interface NumericCell { value: number, unit: string, original: string, approximate: boolean, qualification: string }
 function numeric(text: string, inheritedUnit?: string): NumericCell | undefined {
   const original = text
@@ -117,7 +119,7 @@ function declaredUnit(context: string): { value?: string, invalid: boolean } {
 }
 const totalLabel = /^(?:合计|总计|总额|总数|汇总|total|sum)(?:\s*[（(].*[）)])?$/i
 const directComparisonBan = /不可比|不能直接比较|不宜直接比较|not comparable|do not compare/i
-const sourceWarning = /口径|假设|估算|测算|近似|不可|不能|不宜|假定|定义|未经审计|未审计|unaudited|definition|scenario|assum|estimat|different|not comparable/i
+const sourceWarning = /口径|假设|估算|测算|示例|案例|不代表|不是|近似|不可|不能|不宜|假定|定义|未经审计|未审计|unaudited|definition|scenario|assum|estimat|different|not comparable/i
 
 /** Complement sorted source indices without scanning every omitted row for every group. */
 function omittedRanges(included: number[], end: number, start = 0): Array<[number, number]> {
@@ -157,8 +159,9 @@ export function analyzeTableCharts(headers: string[], rows: string[][], context 
   for (let column = 1; column < headers.length; column++) {
     const header = headers[column]!
     const columnPeriod = periodOf(header)
-    if (isIdentifier(header) && !columnPeriod || /[（(][^()（）]+[）)]\s*$/.test(header) && !headerUnit(header) && !columnPeriod || headerUnit(header) && inherited.value && headerUnit(header) !== inherited.value) { continue }
-    const parsed = rows.map(row => numeric(row[column]!, headerUnit(header) ?? inherited.value))
+    const explicitUnit = headerUnit(header)
+    if (isIdentifier(header) && !columnPeriod || /[（(][^()（）]+[）)]\s*$/.test(header) && !explicitUnit && !columnPeriod || hasExplicitCurrencyScale(header) && !explicitUnit || explicitUnit && inherited.value && explicitUnit !== inherited.value) { continue }
+    const parsed = rows.map(row => numeric(row[column]!, explicitUnit ?? inherited.value))
     if (/资本支出|capex/i.test(header) && new Set(parsed.filter((cell): cell is NumericCell => !!cell).map(cell => cell.qualification)).size > 1) continue
     const groups = new Map<string, { rows: number[], cells: NumericCell[], rowPeriod: string }>()
     for (let row = 0; row < rows.length; row++) {
@@ -226,6 +229,55 @@ export function analyzeTable(headers: string[], rows: string[][], context = '', 
 const processor = unified().use(remarkParse).use(remarkGfm)
 type AstNode = { type: string, value?: string, children?: AstNode[], position?: { start: { offset?: number }, end: { offset?: number } } }
 function plainText(node: AstNode): string { return node.value ?? node.children?.map(plainText).join('') ?? '' }
+/** Numbered strong-only paragraphs are section boundaries unless their title explicitly refers to table data. */
+const numberedBoldPrefix = /^(?:[一二三四五六七八九十百千万零〇两]+[、.．]|\d+[.．](?!\d)|\d+[、)）])\s*/
+const tableNoteReference = /^(?:以上|以下|上述|前述|上表|上图|前表|前图|本表|本图|下表|下图|表中|该表|该数据|这些数据|所列数据|单位(?:均)?(?:为|是|[:：]|$))/
+const previousTableNoteReference = /^(?:以上|上述|前述|上表|上图|前表|前图)/
+const currentTableNoteReference = /^(?:以下|下表|下图)/
+function numberedBoldTitle(node: AstNode): string | undefined {
+  if (node.type !== 'paragraph' || node.children?.length !== 1) return undefined
+  const only = node.children[0]
+  if (only?.type !== 'strong') return undefined
+  const text = plainText(only).trim()
+  return numberedBoldPrefix.test(text) ? text.replace(numberedBoldPrefix, '').trim() : undefined
+}
+export function isStandaloneNumberedBoldHeading(node: AstNode): boolean {
+  const title = numberedBoldTitle(node)
+  return !!title && !tableNoteReference.test(title)
+}
+function numberedBoldTableNoteDirection(node: AstNode): 'previous' | 'current' | undefined {
+  const title = numberedBoldTitle(node)
+  if (!title || !tableNoteReference.test(title)) return undefined
+  if (previousTableNoteReference.test(title)) return 'previous'
+  if (currentTableNoteReference.test(title)) return 'current'
+  return undefined
+}
+function isContextBoundary(node: AstNode): boolean { return node.type === 'table' || node.type === 'heading' || isStandaloneNumberedBoldHeading(node) }
+const tableNoteLeadIn = /^(?:本表|上述(?:数据|内容|结果)?|以上(?:数据|内容|结果)?|注意(?:[:：]|$)|注(?:[:：]|$)|notes?\b)/i
+function isTableNoteLeadIn(node: AstNode | undefined): boolean {
+  if (!node || node.type !== 'paragraph') return false
+  const text = plainText(node).trim().replace(numberedBoldPrefix, '').trim()
+  return tableNoteLeadIn.test(text)
+}
+/** Lists led by explicit table-note prose stay local; an independent paragraph after that list starts a new block. */
+function listLeadInBoundary(siblings: AstNode[], tableIndex: number): number | undefined {
+  let listIndex = tableIndex + 1
+  while (listIndex < siblings.length && siblings[listIndex]?.type === 'paragraph') listIndex++
+  if (siblings[listIndex]?.type !== 'list') return undefined
+  const leadIn = siblings[listIndex - 1]
+  if (isTableNoteLeadIn(leadIn)) {
+    for (let following = listIndex + 1; following < siblings.length; following++) {
+      const sibling = siblings[following]!
+      if (sibling.type === 'paragraph') {
+        if (isTableNoteLeadIn(sibling)) continue
+        return following
+      }
+      if (sibling.type !== 'list') break
+    }
+    return undefined
+  }
+  return leadIn?.type === 'paragraph' && /[:：]\s*$/.test(plainText(leadIn).trim()) ? listIndex - 1 : listIndex
+}
 function unreliableCell(node: AstNode): boolean { return ['delete', 'html', 'footnoteReference', 'image', 'imageReference'].includes(node.type) || !!node.children?.some(unreliableCell) }
 /** Source offsets and table cells come from the maintained CommonMark/GFM AST, never a pipe-splitting parser. */
 export function parseMarkdownTables(markdown: string): MarkdownTable[] {
@@ -237,6 +289,7 @@ export function parseMarkdownTables(markdown: string): MarkdownTable[] {
     for (let index = 0; index < siblings.length; index++) {
       const child = siblings[index]!
       if (child.type === 'heading') context = plainText(child)
+      if (isStandaloneNumberedBoldHeading(child)) context = plainText(child).trim()
       if (child.type === 'table') {
         const cells = child.children?.map(row => row.children?.map(plainText) ?? []) ?? []
         const headers = cells[0] ?? [], rows = cells.slice(1)
@@ -244,9 +297,13 @@ export function parseMarkdownTables(markdown: string): MarkdownTable[] {
         if (start !== undefined && end !== undefined) {
           // Keep qualifications on either side, but never borrow from another table or section.
           const before = siblings.slice(0, index)
-          const previousBoundary = before.findLastIndex(sibling => sibling.type === 'table' || sibling.type === 'heading')
+          // Only explicit backward/forward references select one side; ambiguous local notes stay conservatively attached.
+          const previousBoundary = before.findLastIndex(sibling => isContextBoundary(sibling) || numberedBoldTableNoteDirection(sibling) === 'previous')
           const preceding = before.slice(previousBoundary + 1)
-          const nextBoundary = siblings.findIndex((sibling, siblingIndex) => siblingIndex > index && (sibling.type === 'table' || sibling.type === 'heading'))
+          const sectionBoundary = siblings.findIndex((sibling, siblingIndex) => siblingIndex > index && (isContextBoundary(sibling) || numberedBoldTableNoteDirection(sibling) === 'current'))
+          const listBoundary = listLeadInBoundary(siblings, index)
+          const followingBoundaries = [sectionBoundary, listBoundary].filter((boundary): boundary is number => boundary !== undefined && boundary >= 0)
+          const nextBoundary = followingBoundaries.length ? Math.min(...followingBoundaries) : -1
           const following = siblings.slice(index + 1, nextBoundary < 0 ? siblings.length : nextBoundary)
           const prefix = preceding.map(plainText).join('\n').slice(-500)
           const suffix = following.map(plainText).join('\n')

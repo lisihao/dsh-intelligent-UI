@@ -3,11 +3,15 @@ import {builtInThemes} from './theme-contracts.js'
 import {CompositionRuntimeContext,type CompositionApi} from './adaptive-ui/view.js'
 import {AdaptiveLoading,AdaptiveText} from './adaptive-ui/components.js'
 import {composeInputSchema,compositionResultSchema,compositionCancelInputSchema,compositionCancelResultSchema,compositionReceiptInputSchema,compositionReceiptResultSchema,compositionStatusSchema,type CompositionStatus} from './adaptive-ui/contracts.js'
+import { installModelCenter } from './model-center.js'
+import { installSettingsNavigation } from './settings-navigation.js'
 import { DataBrowser, type DataBrowserApi } from './data-browser.js'
 import { installDataBrowserNavigation } from './data-browser-navigation.js'
 import { InsightPreview, type InsightPreviewApi } from './insight-preview-view.js'
 import { insightPreviewSnapshotSchema } from './insight-preview-contracts.js'
-import { artifactSchema } from './contracts.js'
+import { artifactSchema, dilCompilePreviewInputSchema, dilCompilePreviewResultSchema, dilRuntimeInfoSchema } from './contracts.js'
+import { DilStreamingPreview, resolveSolarPresent, type DilPreviewApi } from './dil/client.js'
+import { componentRuntimeInputSchema, componentRuntimeInfoSchema, componentCatalogResultSchema, uiverseRuntimeComponentInputSchema, uiverseRuntimeComponentResultSchema } from './component-runtime-contracts.js'
 import { ResearchWorkspace, researchModes } from './research-view.js'
 import { RPC_REMOTE as RESEARCH_REMOTE } from './research-remote.js'
 import { documentInput, prepareInput, markSubmissionInput, saveNotesInput, stateSchema, type ResearchApi } from './research-contracts.js'
@@ -26,7 +30,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateApi, ThemeApi } from './contracts.js'
+import type { AdaptiveSettings, ExperienceApi, ExperienceSettings, SaveSettingsInput, WidgetStateApi, ThemeApi } from './contracts.js'
 import { resolveTheme, type ThemePackage } from './theme-contracts.js'
 import { type ThemeCatalog, type DownloadThemeInput } from './theme-source.js'
 import { HeaderExtras } from './header-extras.js'
@@ -34,6 +38,7 @@ import { ThemeQuickSwitch } from './theme-quick-switch.js'
 import { ThemeSettings } from './theme-settings.js'
 import { RPC_REMOTE } from './remote.js'
 import { ArtifactView, ContentView, DisplayModeControl, OutputView, displayModes, rawText, openUiWidgets, experienceTheme, type McpUiApi } from './presentation.js'
+import { fenceStandaloneJson } from './user-json-fence.js'
 import { DocumentView } from './document-view.js'
 import { createCanvasClientScope } from './canvas-client-scope.js'
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
@@ -41,18 +46,30 @@ import { safeResearchUrl } from './research-content.js'
 import type { IntelligentUiClient } from './public-api.js'
 import { installExperienceStyles, styles } from './style.js'
 import { installAppearanceStyles } from './appearance-style.js'
+import { installShellLayoutStyles } from './shell-layout-style.js'
+import { CollaborationEntry } from './collaboration-entry.js'
+export { CollaborationEntry } from './collaboration-entry.js'
+import { installCollaborationHeaderPolicy } from './collaboration-header-policy.js'
+import { installCollaborationStyles } from './collaboration-style.js'
+export { collaborationCss } from './collaboration-style.js'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { CollaborationTarget } from './collaboration-contracts.js'
+
 import { installAsciiVisualTheme } from './ascii-visual-theme.js'
 import { defaultAppearance, appearanceSchema, saveSettingsSchema } from './contracts.js'
+import { blockLayoutEnabled, blockLayoutShortcutFromKeyboardEvent, blockLayoutShortcutLabel, isBlockLayoutShortcutCaptureTarget, matchesBlockLayoutShortcut, resolveBlockLayoutShortcut } from './layout-shortcut.js'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' { interface SessionReferenceSourceMap { solarExperienceUi: unknown } }
 
 export const name = 'intelligent-experience-platform'
-export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme']
+export const inject = ['slots', 'remote', 'connection', 'sessions', 'theme', 'locale', 'uiWorkspace']
 type McpStatus = { configured: boolean, enabled: boolean, connected: boolean, instances: number, error?: string }
 type PreviewApi = Pick<DataBrowserApi,'localFiles'> & InsightPreviewApi
-type ClientApi = Partial<CompositionApi> & {compositionStatus?:()=>Promise<CompositionStatus>} & ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & { mcpStatus?: () => Promise<McpStatus> }
-type CompositionWire = { [K in keyof CompositionApi]?: (...args: Parameters<CompositionApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<CompositionApi[K]>>>> } & {compositionStatus?:()=>Promise<RemoteResult<CompositionStatus>>}
-type Wire = CompositionWire & { [K in keyof PreviewApi]?: (...args: Parameters<PreviewApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<PreviewApi[K]>>>> } & { [K in keyof ExperienceApi]: (...args: Parameters<ExperienceApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ExperienceApi[K]>>>> } & { [K in keyof ThemeApi]?: (...args: Parameters<ThemeApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ThemeApi[K]>>>> } & { [K in keyof WidgetStateApi]?: (...args: Parameters<WidgetStateApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<WidgetStateApi[K]>>>> } & { mcpStatus?: () => Promise<RemoteResult<unknown>> } & { [K in keyof McpUiApi]?: (...args: Parameters<McpUiApi[K]>) => Promise<RemoteResult<unknown>> }
+type ClientApi = Partial<CompositionApi> & {compositionStatus?:()=>Promise<CompositionStatus>} & ExperienceApi & Partial<PreviewApi> & { research?: ResearchApi } & Partial<ThemeApi> & Partial<WidgetStateApi> & Partial<McpUiApi> & Partial<DilPreviewApi> & { mcpStatus?: () => Promise<McpStatus> }
+type CompositionWire = { [K in keyof CompositionApi]?: (...args: Parameters<NonNullable<CompositionApi[K]>>) => Promise<RemoteResult<Awaited<ReturnType<NonNullable<CompositionApi[K]>>>>> } & {compositionStatus?:()=>Promise<RemoteResult<CompositionStatus>>}
+type DilWire = { [K in keyof DilPreviewApi]?: (...args: Parameters<DilPreviewApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<DilPreviewApi[K]>>>> }
+type Wire = CompositionWire & { [K in keyof PreviewApi]?: (...args: Parameters<PreviewApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<PreviewApi[K]>>>> } & { [K in keyof ExperienceApi]: (...args: Parameters<ExperienceApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ExperienceApi[K]>>>> } & { [K in keyof ThemeApi]?: (...args: Parameters<ThemeApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ThemeApi[K]>>>> } & { [K in keyof WidgetStateApi]?: (...args: Parameters<WidgetStateApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<WidgetStateApi[K]>>>> } & { mcpStatus?: () => Promise<RemoteResult<unknown>> } & { [K in keyof McpUiApi]?: (...args: Parameters<McpUiApi[K]>) => Promise<RemoteResult<unknown>> } & DilWire
 type ResearchWire = { [K in keyof ResearchApi]: (...args: Parameters<ResearchApi[K]>) => Promise<RemoteResult<Awaited<ReturnType<ResearchApi[K]>>>> }
 /** Research stays optional when connected to an older Host. Validate both sides of the wire. */
 export function researchApiFromWire(w?: ResearchWire): ResearchApi | undefined {
@@ -66,15 +83,68 @@ export function researchApiFromWire(w?: ResearchWire): ResearchApi | undefined {
 }
 const message = (e: unknown): string => e instanceof Error ? e.message : String(e)
 function unwrap<T>(result: RemoteResult<T>): T { if (result.ok) return result.value; throw result.error }
-export function apiFromWire(w: Wire, research?: ResearchWire): ClientApi { const researchApi = researchApiFromWire(research); return { ...(w.composition && w.compositionReceipt && w.compositionCancel ? {composition:async input=>compositionResultSchema.parse(unwrap(await w.composition!(composeInputSchema.parse(input)))),compositionReceipt:async input=>compositionReceiptResultSchema.parse(unwrap(await w.compositionReceipt!(compositionReceiptInputSchema.parse(input)))),compositionCancel:async input=>compositionCancelResultSchema.parse(unwrap(await w.compositionCancel!(compositionCancelInputSchema.parse(input))))}:{}),...(w.compositionStatus?{compositionStatus:async()=>compositionStatusSchema.parse(unwrap(await w.compositionStatus!()))}:{}), ...(w.localFiles ? {localFiles: async () => z.array(artifactSchema).parse(unwrap(await w.localFiles!()))} : {}), ...(w.insightPreview ? {insightPreview: async input => insightPreviewSnapshotSchema.parse(unwrap(await w.insightPreview!(input)))} : {}), ...(researchApi ? { research: researchApi } : {}), settings: async () => unwrap(await w.settings()), saveSettings: async input => unwrap(await w.saveSettings(saveSettingsSchema.parse(JSON.parse(JSON.stringify(input))))), artifacts: async input => unwrap(await w.artifacts(input)), publish: async input => unwrap(await w.publish(input)), ...(w.themeCatalog ? { themeCatalog: async () => unwrap(await w.themeCatalog!()) } : {}), ...(w.downloadTheme ? { downloadTheme: async input => unwrap(await w.downloadTheme!(input)) } : {}), ...(w.installTheme ? { installTheme: async input => unwrap(await w.installTheme!(input)) } : {}), ...(w.removeTheme ? { removeTheme: async input => unwrap(await w.removeTheme!(input)) } : {}), ...(w.mcpStatus ? { mcpStatus: async () => mcpStatusSchema.parse(unwrap(await w.mcpStatus!())) } : {}), ...(w.widgetState && w.saveWidgetState ? { widgetState: async input => unwrap(await w.widgetState!(input)), saveWidgetState: async input => unwrap(await w.saveWidgetState!(input)) } : {}), ...(w.mcpOpen && w.mcpAction && w.mcpClose ? { mcpOpen: async input => openSchema.parse(unwrap(await w.mcpOpen!(input))), mcpAction: async input => resultSchema.parse(unwrap(await w.mcpAction!(input))), mcpClose: async input => z.null().parse(unwrap(await w.mcpClose!(input))) } : {}) } }
+export function apiFromWire(w: Wire, research?: ResearchWire): ClientApi { const researchApi = researchApiFromWire(research); return { ...(w.uiverseRuntimeComponent ? {uiverseRuntimeComponent: async input => uiverseRuntimeComponentResultSchema.parse(unwrap(await w.uiverseRuntimeComponent!(uiverseRuntimeComponentInputSchema.parse(input))))} : {}), ...(w.componentRuntimeInfo ? {componentRuntimeInfo: async input => componentRuntimeInfoSchema.parse(unwrap(await w.componentRuntimeInfo!(componentRuntimeInputSchema.parse(input))))} : {}), ...(w.componentCatalog ? {componentCatalog: async input => componentCatalogResultSchema.parse(unwrap(await w.componentCatalog!(componentRuntimeInputSchema.parse(input))))} : {}), ...(w.composition && w.compositionReceipt && w.compositionCancel ? {composition:async input=>compositionResultSchema.parse(unwrap(await w.composition!(composeInputSchema.parse(input)))),compositionReceipt:async input=>compositionReceiptResultSchema.parse(unwrap(await w.compositionReceipt!(compositionReceiptInputSchema.parse(input)))),compositionCancel:async input=>compositionCancelResultSchema.parse(unwrap(await w.compositionCancel!(compositionCancelInputSchema.parse(input))))}:{}),...(w.compositionStatus?{compositionStatus:async()=>compositionStatusSchema.parse(unwrap(await w.compositionStatus!()))}:{}), ...(w.localFiles ? {localFiles: async () => z.array(artifactSchema).parse(unwrap(await w.localFiles!()))} : {}), ...(w.insightPreview ? {insightPreview: async input => insightPreviewSnapshotSchema.parse(unwrap(await w.insightPreview!(input)))} : {}), ...(researchApi ? { research: researchApi } : {}), settings: async () => unwrap(await w.settings()), saveSettings: async input => unwrap(await w.saveSettings(saveSettingsSchema.parse(JSON.parse(JSON.stringify(input))))), artifacts: async input => unwrap(await w.artifacts(input)), publish: async input => unwrap(await w.publish(input)), ...(w.themeCatalog ? { themeCatalog: async () => unwrap(await w.themeCatalog!()) } : {}), ...(w.downloadTheme ? { downloadTheme: async input => unwrap(await w.downloadTheme!(input)) } : {}), ...(w.installTheme ? { installTheme: async input => unwrap(await w.installTheme!(input)) } : {}), ...(w.removeTheme ? { removeTheme: async input => unwrap(await w.removeTheme!(input)) } : {}), ...(w.mcpStatus ? { mcpStatus: async () => mcpStatusSchema.parse(unwrap(await w.mcpStatus!())) } : {}), ...(w.widgetState && w.saveWidgetState ? { widgetState: async input => unwrap(await w.widgetState!(input)), saveWidgetState: async input => unwrap(await w.saveWidgetState!(input)) } : {}), ...(w.dilRuntimeInfo && w.dilCompilePreview ? { dilRuntimeInfo: async input => dilRuntimeInfoSchema.parse(unwrap(await w.dilRuntimeInfo!(input))), dilCompilePreview: async input => dilCompilePreviewResultSchema.parse(unwrap(await w.dilCompilePreview!(dilCompilePreviewInputSchema.parse(input)))) } : {}), ...(w.mcpOpen && w.mcpAction && w.mcpClose ? { mcpOpen: async input => openSchema.parse(unwrap(await w.mcpOpen!(input))), mcpAction: async input => resultSchema.parse(unwrap(await w.mcpAction!(input))), mcpClose: async input => z.null().parse(unwrap(await w.mcpClose!(input))) } : {}) } }
 const resultSchema = z.object({ content: z.array(z.record(z.string(), z.unknown())), isError: z.boolean().optional() }).passthrough().transform(value => value as CallToolResult)
 const mcpStatusSchema = z.object({ configured: z.boolean(), enabled: z.boolean(), connected: z.boolean(), instances: z.number().int().nonnegative(), error: z.string().optional() })
 const openSchema = z.object({ instanceId: z.uuid(), proxyUrl: z.url(), html: z.string(), input: z.record(z.string(), z.unknown()), result: resultSchema })
 function mcpApi(api?: ClientApi): McpUiApi | undefined { return api?.mcpOpen && api.mcpAction && api.mcpClose ? api as McpUiApi : undefined }
 function stateApi(api?: ClientApi): WidgetStateApi | undefined { return api?.widgetState && api.saveWidgetState ? api as WidgetStateApi : undefined }
+function dilApi(api?: ClientApi): DilPreviewApi | undefined {
+  return api?.dilRuntimeInfo && api.dilCompilePreview ? { dilRuntimeInfo: api.dilRuntimeInfo, dilCompilePreview: api.dilCompilePreview } : undefined
+}
 
 function sameSettings(a: ExperienceSettings, b: ExperienceSettings): boolean { return JSON.stringify(a) === JSON.stringify(b) }
 function copySettings(value: ExperienceSettings): ExperienceSettings { return JSON.parse(JSON.stringify(value)) as ExperienceSettings }
+function hasOwn(value: object, key: PropertyKey): boolean { return Object.prototype.hasOwnProperty.call(value, key) }
+
+/** Keeps unrelated adaptive fields intact when one settings control changes. */
+export function mergeAdaptiveSettings(current: AdaptiveSettings | undefined, patch: Partial<AdaptiveSettings>): AdaptiveSettings {
+  const next: AdaptiveSettings = {
+    enabled: current?.enabled ?? false,
+    styleMode: current?.styleMode ?? 'automatic',
+  }
+  if (current?.blockLayout !== undefined) next.blockLayout = current.blockLayout
+  if (current?.blockLayoutShortcut !== undefined) next.blockLayoutShortcut = current.blockLayoutShortcut
+  if (hasOwn(patch, 'enabled') && patch.enabled !== undefined) next.enabled = patch.enabled
+  if (hasOwn(patch, 'styleMode') && patch.styleMode !== undefined) next.styleMode = patch.styleMode
+  if (hasOwn(patch, 'blockLayout')) {
+    if (patch.blockLayout === undefined) delete next.blockLayout
+    else next.blockLayout = patch.blockLayout
+  }
+  if (hasOwn(patch, 'blockLayoutShortcut')) {
+    if (patch.blockLayoutShortcut === undefined) delete next.blockLayoutShortcut
+    else next.blockLayoutShortcut = patch.blockLayoutShortcut
+  }
+  return next
+}
+
+function rebaseAdaptiveSettings(input: AdaptiveSettings, baseline: AdaptiveSettings | undefined, current: AdaptiveSettings | undefined): AdaptiveSettings {
+  const baselineEnabled = baseline?.enabled ?? false
+  const baselineStyleMode = baseline?.styleMode ?? 'automatic'
+  const next = mergeAdaptiveSettings(current, {
+    enabled: input.enabled === baselineEnabled ? current?.enabled ?? false : input.enabled,
+    styleMode: input.styleMode === baselineStyleMode ? current?.styleMode ?? 'automatic' : input.styleMode,
+  })
+  if (hasOwn(input, 'blockLayout') && input.blockLayout !== (baseline?.blockLayout ?? false)) {
+    next.blockLayout = input.blockLayout
+  }
+  if (hasOwn(input, 'blockLayoutShortcut') &&
+      resolveBlockLayoutShortcut(input.blockLayoutShortcut) !== resolveBlockLayoutShortcut(baseline?.blockLayoutShortcut)) {
+    next.blockLayoutShortcut = input.blockLayoutShortcut
+  }
+  return next
+}
+
+function adaptiveSaveInput(settings: ExperienceSettings, adaptive: AdaptiveSettings): SaveSettingsInput {
+  return {
+    expectedRevision: settings.revision,
+    takeover: settings.takeover,
+    openui: settings.openui,
+    mcpApps: settings.mcpApps,
+    adaptive,
+  }
+}
+
 /** Preserve only the caller's edits when an earlier local save completed first. */
 function rebaseSettings(input: SaveSettingsInput, baseline: ExperienceSettings, current: ExperienceSettings): SaveSettingsInput {
   const next: SaveSettingsInput = {
@@ -94,14 +164,15 @@ function rebaseSettings(input: SaveSettingsInput, baseline: ExperienceSettings, 
     }
     next.appearance = appearance
   }
-  if (input.adaptive && JSON.stringify(input.adaptive)===JSON.stringify(baseline.adaptive) && current.adaptive) next.adaptive=current.adaptive
+  if (input.adaptive) next.adaptive = rebaseAdaptiveSettings(input.adaptive, baseline.adaptive, current.adaptive)
   return next
 }
 
 export class ExperienceStore {
-  private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
+  private value: { api?: ClientApi, settings?: ExperienceSettings, error?: string, takeoverError?: string, shortcutError?: string, shortcutStatus?: string, appearancePreview?: ReturnType<typeof defaultAppearance> } = {}
   private listeners = new Set<() => void>()
   private generation = 0
+  private settingsReads = 0
   private saves: Promise<void> = Promise.resolve()
   private transitions = new Map<number, { api: ClientApi, before: ExperienceSettings, after: ExperienceSettings }>()
   private previewOwner?: object
@@ -114,7 +185,21 @@ export class ExperienceStore {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   update(value: typeof this.value) { if (this.value.api !== value.api) this.transitions.clear(); this.value = value; this.listeners.forEach(listener => listener()) }
   setTakeoverError(error?: string) { if (this.value.takeoverError !== error) this.update({ ...this.value, takeoverError: error }) }
-  async refresh() { const api = this.value.api; if (!api) return; const generation = this.generation; try { const settings = await api.settings(); if (this.value.api === api && generation === this.generation) this.update({ ...this.value, api, settings }) } catch (e) { if (this.value.api === api) this.update({ ...this.value, error: message(e) }) } }
+  setShortcutError(error?: string) { if (this.value.shortcutError !== error) this.update({ ...this.value, shortcutError: error }) }
+  setShortcutStatus(status?: string) { if (this.value.shortcutStatus !== status) this.update({ ...this.value, shortcutStatus: status }) }
+  async refresh() {
+    const api = this.value.api
+    if (!api) return
+    const generation = this.generation, read = ++this.settingsReads
+    const current = () => this.value.api === api && generation === this.generation && read === this.settingsReads
+    try {
+      const settings = await api.settings()
+      if (current()) this.update({ ...this.value, api, settings, error: undefined })
+    } catch (error) {
+      // A read started before a later read/save must not restore a stale error.
+      if (current()) this.update({ ...this.value, error: message(error) })
+    }
+  }
   async save(input: SaveSettingsInput) {
     this.generation++
     const api = this.value.api
@@ -145,7 +230,7 @@ export class ExperienceStore {
             this.transitions.set(current.revision, { api, before: copySettings(current), after: copySettings(saved) })
             if (this.transitions.size > 128) this.transitions.delete(this.transitions.keys().next().value!)
           }
-          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved })
+          if (!this.value.settings || this.value.settings.revision <= saved.revision) this.update({ ...this.value, api, settings: saved, error: undefined })
         }
         return saved
       } catch (error) {
@@ -162,6 +247,79 @@ export class ExperienceStore {
   async downloadTheme(input: Omit<DownloadThemeInput, 'expectedRevision'>) { this.generation++; const { api, settings: current } = this.value; if (!api?.downloadTheme || !current) throw new Error('主题来源服务不可用，请重新加载插件。'); const settings = await api.downloadTheme({ ...input, expectedRevision: current.revision }); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
   async removeTheme(id: string) { this.generation++; const { api, settings: current } = this.value; if (!api?.removeTheme || !current) throw new Error('主题管理服务不可用，请重新加载插件。'); const settings = await api.removeTheme({ expectedRevision: current.revision, id }); if (this.value.api === api) this.update({ ...this.value, api, settings }); return settings }
 }
+
+function blockLayoutPrerequisiteError(settings: ExperienceSettings | undefined): string | undefined {
+  if (!settings) return '设置尚未读取，内容块智能布局快捷键未执行。'
+  // An already-enabled experiment must always be reversible, even after its
+  // display/Jev prerequisites were later switched off.
+  if (blockLayoutEnabled(settings.adaptive?.blockLayout)) return undefined
+  if (settings.takeover) return undefined
+  return '内容块智能布局快捷键未执行：请先开启“接管输出与兼容页面外观”；快捷键不会自动开启它。'
+}
+
+const blockLayoutShortcutInstallations = new WeakMap<Window, WeakMap<ExperienceStore, () => void>>()
+const blockLayoutShortcutCaptureAttributes = { 'data-iexp-layout-shortcut-capture': 'true' } as { readonly [key: `data-${string}`]: string }
+
+/**
+ * One plugin-lifetime capture listener. It follows current settings without
+ * being recreated for conversation output or a rendered Settings component.
+ */
+export function installBlockLayoutShortcut(store: ExperienceStore, target: Window | undefined = typeof window === 'undefined' ? undefined : window): () => void {
+  if (!target) return () => undefined
+  let stores = blockLayoutShortcutInstallations.get(target)
+  if (!stores) {
+    stores = new WeakMap()
+    blockLayoutShortcutInstallations.set(target, stores)
+  }
+  const existing = stores.get(store)
+  if (existing) return existing
+  let disposed = false
+  let queued: Promise<void> = Promise.resolve()
+  const onKeyDown = (event: KeyboardEvent) => {
+    const settings = store.snapshot().settings
+    if (!matchesBlockLayoutShortcut(event, settings?.adaptive?.blockLayoutShortcut)) return
+    if (isBlockLayoutShortcutCaptureTarget(event.target)) return
+    event.preventDefault()
+    const prerequisite = blockLayoutPrerequisiteError(settings)
+    if (prerequisite) {
+      store.setShortcutStatus(undefined)
+      store.setShortcutError(prerequisite)
+      return
+    }
+    queued = queued.then(async () => {
+      if (disposed) return
+      const current = store.snapshot().settings
+      const currentPrerequisite = blockLayoutPrerequisiteError(current)
+      if (currentPrerequisite) {
+        store.setShortcutStatus(undefined)
+        store.setShortcutError(currentPrerequisite)
+        return
+      }
+      const enabled = !blockLayoutEnabled(current!.adaptive?.blockLayout)
+      const adaptive = mergeAdaptiveSettings(current!.adaptive, {
+        blockLayout: enabled,
+      })
+      await store.save(adaptiveSaveInput(current!, adaptive))
+      store.setShortcutError(undefined)
+      store.setShortcutStatus('内容块智能布局已' + (enabled ? '开启。' : '关闭。'))
+    }).catch(error => {
+      if (!disposed) {
+        store.setShortcutStatus(undefined)
+        store.setShortcutError('内容块智能布局快捷键保存失败：' + message(error))
+      }
+    })
+  }
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    target.removeEventListener('keydown', onKeyDown, true)
+    stores?.delete(store)
+  }
+  stores.set(store, dispose)
+  target.addEventListener('keydown', onKeyDown, true)
+  return dispose
+}
+
 function useStore(store: ExperienceStore) { return useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot) }
 function CompositionScope({store,sessionId,children}:{store:ExperienceStore,sessionId?:string,children?:ReactNode}):ReactElement {
   const {api,settings}=useStore(store)
@@ -171,7 +329,7 @@ function CompositionScope({store,sessionId,children}:{store:ExperienceStore,sess
 
 /** One global appearance shortcut beside the existing conversation display control. */
 export function HeaderControls({ store, sessionId }: { store: ExperienceStore, sessionId: string }): ReactElement {
-  const { settings } = useStore(store)
+  const { settings, shortcutError, shortcutStatus } = useStore(store)
   const root = useRef<HTMLDivElement>(null)
   const beforeWide = useRef<() => void>(() => {})
   const compactRef = useRef(true)
@@ -201,10 +359,16 @@ export function HeaderControls({ store, sessionId }: { store: ExperienceStore, s
   }, [])
   return h('div', { ref: root, className: 'dsh-experience iexp-header-controls', 'data-compact': compact },
     h(DisplayModeControl, { sessionId }), h(ThemeQuickSwitch, { store }),
-    h(HeaderExtras, { store, sessionId, compact, showResearch: !!settings?.takeover, beforeWide }))
+    h(HeaderExtras, { store, sessionId, compact, showResearch: !!settings?.takeover, beforeWide }),
+    (shortcutError || shortcutStatus) && h('span', {
+      role: shortcutError ? 'alert' : 'status',
+      'aria-live': 'polite',
+      title: shortcutError ?? shortcutStatus,
+      style: { maxWidth: '26ch', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+    }, shortcutError ?? shortcutStatus))
 }
 export function Settings({ store }: { store: ExperienceStore }): ReactElement {
-  const { api, settings, error, takeoverError } = useStore(store)
+  const { api, settings, error, takeoverError, shortcutError, shortcutStatus } = useStore(store)
   const [mcpStatus, setMcpStatus] = useState<McpStatus>()
   const [mcpStatusError, setMcpStatusError] = useState('')
   useEffect(() => { let live = true; setMcpStatus(undefined); setMcpStatusError(''); if (!settings?.mcpApps || !api?.mcpStatus) return; const refresh = () => { void api.mcpStatus!().then(value => { if (live) { setMcpStatus(value); setMcpStatusError('') } }, e => { if (live) setMcpStatusError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, settings?.mcpApps])
@@ -222,20 +386,106 @@ export function Settings({ store }: { store: ExperienceStore }): ReactElement {
     setBusy(true); setFailure('')
     try { await operation() } catch (error) { await store.refresh(); throw error } finally { setBusy(false) }
   }
-  async function changeAdaptive(enabled:boolean,styleMode:'automatic'|'selected'=settings?.adaptive?.styleMode??'automatic') {
+  async function changeAdaptive(patch: Partial<AdaptiveSettings>) {
     if(!settings||busy)return
     setBusy(true);setFailure('')
-    try{await store.save({expectedRevision:settings.revision,takeover:settings.takeover,openui:settings.openui,mcpApps:settings.mcpApps,adaptive:{enabled,styleMode}})}catch(error){setFailure(message(error));await store.refresh()}finally{setBusy(false)}
+    try {
+      await store.save(adaptiveSaveInput(settings, mergeAdaptiveSettings(settings.adaptive, patch)))
+      store.setShortcutError(undefined)
+      store.setShortcutStatus(undefined)
+    } catch (error) {
+      setFailure(message(error))
+      await store.refresh()
+    } finally {
+      setBusy(false)
+    }
   }
+  function captureBlockLayoutShortcut(event: { currentTarget: HTMLInputElement, nativeEvent: KeyboardEvent, preventDefault(): void, stopPropagation(): void }) {
+    const native = event.nativeEvent
+    if (native.defaultPrevented || native.isComposing || native.keyCode === 229 || native.repeat || native.key === 'Tab') return
+    if (native.key === 'Escape') {
+      event.currentTarget.blur()
+      return
+    }
+    if (['AltLeft', 'AltRight', 'ControlLeft', 'ControlRight', 'MetaLeft', 'MetaRight', 'ShiftLeft', 'ShiftRight'].includes(native.code)) return
+    const shortcut = blockLayoutShortcutFromKeyboardEvent(native)
+    event.preventDefault()
+    event.stopPropagation()
+    if (!shortcut) {
+      setFailure('快捷键需包含 Alt、Control 或 Command，并使用字母、数字或 F1–F12 键。')
+      return
+    }
+    void changeAdaptive({ blockLayoutShortcut: shortcut })
+  }
+  const shortcut = resolveBlockLayoutShortcut(settings?.adaptive?.blockLayoutShortcut)
+  const shortcutLabel = blockLayoutShortcutLabel(settings?.adaptive?.blockLayoutShortcut)
+  const jevLayoutPrerequisitesReady = !!settings?.takeover && settings?.adaptive?.enabled === true
   async function selectTheme(theme: ThemePackage) {
     await themeOperation(() => store.save({ expectedRevision: settings!.revision, takeover: settings!.takeover, openui: settings!.openui, mcpApps: settings!.mcpApps, themeId: theme.id, appearance: theme.appearance }))
   }
-  return h('div', { className: 'dsh-experience iexp-settings', style: { backgroundColor: (settings?.appearance ?? defaultAppearance()).backgroundColor, '--iexp-settings-ground': (settings?.appearance ?? defaultAppearance()).backgroundColor } as CSSProperties }, h('h2', null, '智能体验'), h('p', { className: 'iexp-setting-help' }, '统一助手、工具输出与兼容标签页的外观。关闭接管后恢复原来的显示。'), error && h('p', { role: 'alert' }, `设置服务不可用：${error}`), failure && h('p', { role: 'alert' }, `保存失败：${failure}`), takeoverError && h('p', { role: 'alert' }, `聊天接管不可用：${takeoverError} 请关闭接管，并检查其他聊天显示插件。`), ...([['takeover', '接管输出与兼容页面外观'], ['openui', '启用 OpenUI 展示'], ['mcpApps', '启用 MCP Apps（需要已配置的隔离宿主）']] as const).map(([key, label]) => h('label', { key, className: 'iexp-toggle-row' }, h(ThemeToggle, { checked: settings?.[key] ?? false, disabled: !settings || busy, onChange: (e: { currentTarget: HTMLInputElement }) => { void change(key, e.currentTarget.checked) } }), ` ${label}`)), h(ThemeSettings, { settings, busy, onCatalog: () => store.themeCatalog(), onDownload: (source, id) => themeOperation(() => store.downloadTheme({ source, id })), onSaveSource: source => themeOperation(() => store.save({ expectedRevision: settings!.revision, takeover: settings!.takeover, openui: settings!.openui, mcpApps: settings!.mcpApps, themeSource: source })), onSelect: selectTheme, onInstall: theme => themeOperation(() => store.installTheme(theme)), onRemove: id => themeOperation(() => store.removeTheme(id)) }), h('fieldset', { className: 'iexp-appearance-controls', disabled: !settings || busy }, h('legend', null, '内容外观'),
-    h('label', { className: 'iexp-toggle-row' }, h(ThemeToggle, { checked: (settings?.appearance ?? defaultAppearance()).translucent, onChange: (event: { currentTarget: HTMLInputElement }) => { void change('appearance', { ...(settings?.appearance ?? defaultAppearance()), translucent: event.currentTarget.checked }) } }), ' 半透明背景'),
-    h('form', { className: 'iexp-appearance-color', onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); const next = appearanceSchema.safeParse({ ...(settings?.appearance ?? defaultAppearance()), backgroundColor: color }); if (!next.success) { setFailure('请输入 #RRGGBB 格式的背景颜色。'); return }; void change('appearance', next.data) } },
-      h('label', { htmlFor: 'iexp-background-color' }, '背景颜色'), h('input', { className: 'iexp-control', type: 'color', id: 'iexp-background-color', 'aria-label': '背景颜色选择器', value: /^#[0-9a-f]{6}$/i.test(color) ? color : '#24262b', onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }),
-      h(ThemeInput, { className: 'iexp-control', type: 'text', 'aria-label': '背景颜色值', value: color, spellCheck: false, maxLength: 7, onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }), h(ThemeButton, { type: 'submit', className: 'iexp-control' }, '应用颜色')),
-    h(ThemeButton, { type: 'button', className: 'iexp-control', onClick: () => { const appearance = resolveTheme(settings?.theme).appearance; setColor(appearance.backgroundColor); void change('appearance', appearance) } }, '恢复默认外观')), h('fieldset',{className:'iexp-adaptive-controls',disabled:!settings||busy},h('legend',null,'智能编排'),h('label',{className:'iexp-toggle-row'},h(ThemeToggle,{checked:settings?.adaptive?.enabled??false,onChange:event=>{void changeAdaptive(event.currentTarget.checked)}}),'使用 Jev 选择内容布局与组件'),h('p',{className:'iexp-setting-help'},'使用 Jev 当前保存的判断连接，可能产生 API 费用；还需在 Jev 中开启“智能 UI 编排”。关闭后保留本地布局。'),h('label',null,'风格选择 ',h('select',{className:'iexp-control',value:settings?.adaptive?.styleMode??'automatic',onChange:(event:{currentTarget:HTMLSelectElement})=>{void changeAdaptive(settings?.adaptive?.enabled??false,event.currentTarget.value as 'automatic'|'selected')}},h('option',{value:'automatic'},'从全部已安装风格中选择'),h('option',{value:'selected'},'保持手动选择的主题')))), settings?.mcpApps && api?.mcpStatus && h('p', { role: mcpStatusError || mcpStatus?.error ? 'alert' : 'status' }, mcpStatusError ? `MCP Apps 状态不可用：${mcpStatusError}` : !mcpStatus ? '正在读取 MCP Apps 状态…' : mcpStatus.error ? `MCP Apps 连接失败：${mcpStatus.error}` : !mcpStatus.configured ? '尚未配置 MCP Apps 服务地址。' : !mcpStatus.connected ? '正在连接 MCP Apps 服务…' : 'MCP Apps 已连接。'), !settings && !error && h(ThemeLoader, { label: '正在读取设置…' }))
+  return h('div', {
+    className: 'dsh-experience iexp-settings',
+    style: {
+      backgroundColor: (settings?.appearance ?? defaultAppearance()).backgroundColor,
+      '--iexp-settings-ground': (settings?.appearance ?? defaultAppearance()).backgroundColor,
+    } as CSSProperties,
+  },
+  h('h2', null, '智能体验'),
+  h('p', { className: 'iexp-setting-help' }, '统一助手、工具输出与兼容标签页的外观。关闭接管后恢复原来的显示。'),
+  error && h('p', { role: 'alert' }, '设置服务不可用：' + error),
+  failure && h('p', { role: 'alert' }, '保存失败：' + failure),
+  shortcutError && h('p', { role: 'alert' }, shortcutError),
+  shortcutStatus && h('p', { role: 'status' }, shortcutStatus),
+  takeoverError && h('p', { role: 'alert' }, '聊天接管不可用：' + takeoverError + ' 请关闭接管，并检查其他聊天显示插件。'),
+  ...([['takeover', '接管输出与兼容页面外观'], ['openui', '启用 OpenUI 展示'], ['mcpApps', '启用 MCP Apps（需要已配置的隔离宿主）']] as const).map(([key, label]) =>
+    h('label', { key, className: 'iexp-toggle-row' },
+      h(ThemeToggle, { checked: settings?.[key] ?? false, disabled: !settings || busy, onChange: (event: { currentTarget: HTMLInputElement }) => { void change(key, event.currentTarget.checked) } }),
+      ' ' + label)),
+  h(ThemeSettings, {
+    settings, busy, onCatalog: () => store.themeCatalog(),
+    onDownload: (source, id) => themeOperation(() => store.downloadTheme({ source, id })),
+    onSaveSource: source => themeOperation(() => store.save({ expectedRevision: settings!.revision, takeover: settings!.takeover, openui: settings!.openui, mcpApps: settings!.mcpApps, themeSource: source })),
+    onSelect: selectTheme, onInstall: theme => themeOperation(() => store.installTheme(theme)), onRemove: id => themeOperation(() => store.removeTheme(id)),
+  }),
+  h('fieldset', { className: 'iexp-appearance-controls', disabled: !settings || busy },
+    h('legend', null, '内容外观'),
+    h('label', { className: 'iexp-toggle-row' },
+      h(ThemeToggle, { checked: (settings?.appearance ?? defaultAppearance()).translucent, onChange: (event: { currentTarget: HTMLInputElement }) => { void change('appearance', { ...(settings?.appearance ?? defaultAppearance()), translucent: event.currentTarget.checked }) } }),
+      ' 半透明背景'),
+    h('form', { className: 'iexp-appearance-color', onSubmit: (event: { preventDefault(): void }) => {
+      event.preventDefault()
+      const next = appearanceSchema.safeParse({ ...(settings?.appearance ?? defaultAppearance()), backgroundColor: color })
+      if (!next.success) { setFailure('请输入 #RRGGBB 格式的背景颜色。'); return }
+      void change('appearance', next.data)
+    } },
+    h('label', { htmlFor: 'iexp-background-color' }, '背景颜色'),
+    h('input', { className: 'iexp-control', type: 'color', id: 'iexp-background-color', 'aria-label': '背景颜色选择器', value: /^#[0-9a-f]{6}$/i.test(color) ? color : '#24262b', onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }),
+    h(ThemeInput, { className: 'iexp-control', type: 'text', 'aria-label': '背景颜色值', value: color, spellCheck: false, maxLength: 7, onChange: (event: { currentTarget: HTMLInputElement }) => setColor(event.currentTarget.value) }),
+    h(ThemeButton, { type: 'submit', className: 'iexp-control' }, '应用颜色')),
+    h(ThemeButton, { type: 'button', className: 'iexp-control', onClick: () => { const appearance = resolveTheme(settings?.theme).appearance; setColor(appearance.backgroundColor); void change('appearance', appearance) } }, '恢复默认外观')),
+  h('fieldset', { className: 'iexp-adaptive-controls', disabled: !settings || busy },
+    h('legend', null, '智能编排'),
+    h('label', { className: 'iexp-toggle-row' },
+      h(ThemeToggle, { checked: settings?.adaptive?.enabled ?? false, onChange: (event: { currentTarget: HTMLInputElement }) => { void changeAdaptive({ enabled: event.currentTarget.checked }) } }),
+      '使用 Jev 选择内容布局与组件'),
+    h('p', { className: 'iexp-setting-help' }, '使用 Jev 当前保存的判断连接，可能产生 API 费用；还需在 Jev 中开启“智能 UI 编排”。关闭后保留本地布局。'),
+    h('label', null, '风格选择 ',
+      h('select', { className: 'iexp-control', value: settings?.adaptive?.styleMode ?? 'automatic', onChange: (event: { currentTarget: HTMLSelectElement }) => { void changeAdaptive({ styleMode: event.currentTarget.value as 'automatic' | 'selected' }) } },
+        h('option', { value: 'automatic' }, '从全部已安装风格中选择'),
+        h('option', { value: 'selected' }, '保持手动选择的主题'))),
+    h('div', { className: 'iexp-settings-group' },
+      h('label', { className: 'iexp-toggle-row' },
+        h(ThemeToggle, { checked: blockLayoutEnabled(settings?.adaptive?.blockLayout), onChange: (event: { currentTarget: HTMLInputElement }) => { void changeAdaptive({ blockLayout: event.currentTarget.checked }) } }),
+        '内容块智能布局（实验）'),
+      h('p', { className: 'iexp-setting-help' }, '内容块智能布局（实验）同时控制源内容块编译和 DIL 本地交互。DIL 本地交互不会自动调用 Jev 或模型。只有“接管输出与兼容页面外观”和“使用 Jev 选择内容布局与组件”均开启时，Jev 才会为内容块作布局判断，可能产生 API 费用；本开关和快捷键都不会自动开启它们。'),
+      !jevLayoutPrerequisitesReady && h('p', { className: 'iexp-setting-help' }, 'Jev 内容块布局当前未生效；实验仍可用于源内容块编译和 DIL 本地交互。'),
+      h('label', { htmlFor: 'iexp-block-layout-shortcut' }, '快捷键'),
+      h('div', { className: 'iexp-control-row' },
+        h(ThemeInput, { id: 'iexp-block-layout-shortcut', className: 'iexp-control', type: 'text', readOnly: true, value: shortcut === '' ? '' : shortcutLabel, placeholder: '按下新的快捷键', 'aria-label': '内容块智能布局快捷键', 'aria-describedby': 'iexp-block-layout-shortcut-help', ...blockLayoutShortcutCaptureAttributes, onKeyDown: captureBlockLayoutShortcut }),
+        h(ThemeButton, { type: 'button', className: 'iexp-control', disabled: shortcut === '', onClick: () => { void changeAdaptive({ blockLayoutShortcut: '' }) } }, '清除快捷键')),
+      h('p', { id: 'iexp-block-layout-shortcut-help', className: 'iexp-setting-help' }, shortcut === '' ? '快捷键已关闭。' : '当前快捷键：' + shortcutLabel + '。聚焦聊天输入框时也可使用；聚焦此输入框后按下新的组合即可修改。'))),
+  settings?.mcpApps && api?.mcpStatus && h('p', { role: mcpStatusError || mcpStatus?.error ? 'alert' : 'status' }, mcpStatusError ? 'MCP Apps 状态不可用：' + mcpStatusError : !mcpStatus ? '正在读取 MCP Apps 状态…' : mcpStatus.error ? 'MCP Apps 连接失败：' + mcpStatus.error : !mcpStatus.configured ? '尚未配置 MCP Apps 服务地址。' : !mcpStatus.connected ? '正在连接 MCP Apps 服务…' : 'MCP Apps 已连接。'),
+  !settings && !error && h(ThemeLoader, { label: '正在读取设置…' }))
 }
 /** Uses the normal visible session queue and selected model; never edits model or tool configuration. */
 export async function submitResearchPrompt(ctx: {sessions: ISessions}, sessionId: SessionId, text: string, signal: AbortSignal): Promise<void> {
@@ -267,10 +517,10 @@ function ImageBlock({ attachment, loadImage }: { attachment: unknown, loadImage:
 function AssistantNode({ nodeProps: props, store, onContinue, onOrganize }: { nodeProps: PropsRuntime<'conversation.chat.node', 'assistant-step'>, store: ExperienceStore, onContinue: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { node, loadImage } = props
   const { settings, api } = useStore(store)
-  return h('section', { className: 'dsh-experience', style: styles.section }, h(OutputView, { sessionId: String(props.sessionId), raw: node.data }, node.data.status === 'interrupted' && h('p', null, '已停止'), ...node.data.blocks.map((block, i) => block.kind === 'image' ? h(ImageBlock, { key: i, attachment: block.attachment, loadImage }) : block.kind === 'reasoning' ? h('details', { key: i }, h('summary', null, '思考过程'), h(ContentView, { value: block.text,decide:false })) : block.kind === 'text' ? (() => { const code = openUiFence(block.text, node.data.status === 'running'); return code !== undefined && settings?.openui ? h(ArtifactView, { key: i, artifact: { formatVersion: 1, id: `stream-${node.anchorSeq}-${i}`, createdAt: '', source: { sessionId: String(props.sessionId), kind: 'assistant', label: '助手生成的界面' }, protocol: 'openui', raw: block.text, payload: code, providerId: 'openui' }, isStreaming: node.data.status === 'running', displayMode: 'visual', onContinue }) : h(ResearchWorkspace, { key: i, sessionId: String(props.sessionId), documentId: `assistant:${node.anchorSeq}:${i}`, text: block.text, api: api?.research, onOrganize, isStreaming: node.data.status === 'running' }, h(ContentView, { value: block.text, isStreaming: node.data.status === 'running',sessionId:String(props.sessionId),documentId:`assistant:${node.anchorSeq}:${i}` })) })() : h('details', { key: i }, h('summary', null, block.kind === 'tool-call' ? `工具调用：${block.name}` : '其他内容'), h('pre', { style: styles.raw }, rawText(block))))))
+  return h('section', { className: 'dsh-experience', style: styles.section }, h(OutputView, { sessionId: String(props.sessionId), raw: node.data }, node.data.status === 'interrupted' && h('p', null, '已停止'), ...node.data.blocks.map((block, i) => block.kind === 'image' ? h(ImageBlock, { key: i, attachment: block.attachment, loadImage }) : block.kind === 'reasoning' ? h('details', { key: i }, h('summary', null, '思考过程'), h(ContentView, { value: block.text,decide:false })) : block.kind === 'text' ? (() => { const code = openUiFence(block.text, node.data.status === 'running'); return code !== undefined && settings?.openui ? h(ArtifactView, { key: i, artifact: { formatVersion: 1, id: `stream-${node.anchorSeq}-${i}`, createdAt: '', source: { sessionId: String(props.sessionId), kind: 'assistant', label: '助手生成的界面' }, protocol: 'openui', raw: block.text, payload: code, providerId: 'openui' }, isStreaming: node.data.status === 'running', displayMode: 'visual', onContinue, dilEnabled: settings?.adaptive?.blockLayout === true, dilApi: dilApi(api) }) : h(ResearchWorkspace, { key: i, sessionId: String(props.sessionId), documentId: `assistant:${node.anchorSeq}:${i}`, text: block.text, api: api?.research, onOrganize, isStreaming: node.data.status === 'running' }, h(ContentView, { value: block.text, isStreaming: node.data.status === 'running',sessionId:String(props.sessionId),documentId:`assistant:${node.anchorSeq}:${i}` })) })() : h('details', { key: i }, h('summary', null, block.kind === 'tool-call' ? `工具调用：${block.name}` : '其他内容'), h('pre', { style: styles.raw }, rawText(block))))))
 }
 type Tool = { meta?: unknown; name: string; callId: string; kind?: string; phase?: string; content?: unknown; isError?: boolean; error?: unknown; call?: unknown; argsRaw?: string; subCalls: readonly Tool[] }
-function McpInline({ api, sessionId, callId, enabled, onContinue }: { api?: ClientApi, sessionId: string, callId: string, enabled: boolean, onContinue?: Continue }): ReactElement | null {
+function McpInline({ api, sessionId, callId, enabled, onContinue, dilEnabled, dilApi: dilArtifactApi }: { api?: ClientApi, sessionId: string, callId: string, enabled: boolean, onContinue?: Continue, dilEnabled: boolean, dilApi?: DilPreviewApi }): ReactElement | null {
   const [artifact, setArtifact] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>[number]>()
   const [error, setError] = useState('')
   useEffect(() => {
@@ -285,26 +535,35 @@ function McpInline({ api, sessionId, callId, enabled, onContinue }: { api?: Clie
     void poll()
     return () => { active = false; if (timer) clearTimeout(timer) }
   }, [api, sessionId, callId, enabled])
-  return error ? h('p', { role: 'alert' }, `无法读取 MCP App 内容：${error}`) : artifact ? h(ArtifactView, { artifact, displayMode: 'visual', mcpApi: mcpApi(api), onContinue }) : null
+  return error ? h('p', { role: 'alert' }, `无法读取 MCP App 内容：${error}`) : artifact ? h(ArtifactView, { artifact, displayMode: 'visual', mcpApi: mcpApi(api), onContinue, dilEnabled, dilApi: dilArtifactApi }) : null
 }
-function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled }: { tool: Tool, inspect?: (id: never) => void, openuiEnabled?: boolean, onContinue?: Continue, sessionId: string, widgetStateApi?: WidgetStateApi, api?: ClientApi, mcpEnabled?: boolean }): ReactElement {
-  const meta = tool.meta && typeof tool.meta === 'object' ? tool.meta as Record<string, unknown> : undefined
-  const artifact = meta?.type === 'solar-experience' && (meta.protocol === 'content' || meta.protocol === 'openui') && typeof meta.label === 'string' && typeof meta.artifactId === 'string' ? { formatVersion: 1 as const, id: meta.artifactId, createdAt: '', source: { sessionId, kind: 'tool' as const, label: meta.label }, protocol: meta.protocol, payload: meta.payload, raw: meta.payload, providerId: 'solar-present' } : undefined
-  return h('details', { open: true, className: 'dsh-experience', style: styles.section }, h('summary', null, `${tool.name || '工具调用'} · ${tool.isError ? '失败' : tool.kind === 'tool-result' ? '已完成' : '执行中'}`), tool.isError && h('pre', { role: 'alert', style: styles.raw }, rawText(tool.error)), artifact ? h(ArtifactView, { artifact: artifact as Parameters<typeof ArtifactView>[0]['artifact'], displayMode: 'visual', openuiEnabled, onContinue, stateApi: widgetStateApi }) : tool.content !== undefined && h(ContentView, { value: tool.content,isStreaming:tool.kind!=='tool-result',sessionId,documentId:`tool:${tool.callId}` }), tool.kind === 'tool-result' && h(McpInline, { api, sessionId, callId: tool.callId, enabled: !!mcpEnabled, onContinue }), inspect && h(ThemeButton, { type: 'button', style: styles.button, onClick: () => inspect(tool.callId as never) }, '查看调用详情'), h('details', null, h('summary', null, '原始调用与结果'), h('pre', { style: styles.raw }, rawText(tool))), ...tool.subCalls.map((child, i) => h(ToolTree, { key: i, tool: child, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled })))
+export function ToolTree({ tool, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled, dilEnabled = false, dilApi: dilArtifactApi }: { tool: Tool, inspect?: (id: never) => void, openuiEnabled?: boolean, onContinue?: Continue, sessionId: string, widgetStateApi?: WidgetStateApi, api?: ClientApi, mcpEnabled?: boolean, dilEnabled?: boolean, dilApi?: DilPreviewApi }): ReactElement {
+  const { artifact, preview } = resolveSolarPresent({ meta: tool.meta, name: tool.name, kind: tool.kind, isError: tool.isError, argsRaw: tool.argsRaw, sessionId, callId: tool.callId })
+  const renderArtifact = (value: Parameters<typeof ArtifactView>[0]['artifact'], isStreaming = false, durable = true) => h(ArtifactView, { artifact: value, displayMode: 'visual', openuiEnabled, onContinue, stateApi: durable ? widgetStateApi : undefined, dilEnabled, dilApi: dilArtifactApi, isStreaming })
+  const temporaryOpenUi = preview?.protocol === 'openui' ? { formatVersion: 1 as const, id: `stream:${tool.callId}`, createdAt: '', source: { sessionId, callId: tool.callId, kind: 'tool' as const, label: preview.label ?? '正在生成的界面' }, protocol: 'openui' as const, raw: preview.payload, payload: preview.payload, providerId: 'solar-present-preview' } : undefined
+  const durableDil = artifact?.protocol === 'dil' ? artifact : undefined
+  const body = durableDil || preview?.protocol === 'dil' ? h(DilStreamingPreview, { key: tool.callId, enabled: dilEnabled, api: dilArtifactApi, artifact: durableDil, sessionId, callId: tool.callId, label: preview?.label ?? durableDil?.source.label ?? '正在生成的界面', source: preview?.payload ?? (typeof durableDil?.raw === 'string' ? durableDil.raw : ''), renderArtifact: (value, durable) => renderArtifact(value, !durable, durable) }) : artifact ? renderArtifact(artifact) : temporaryOpenUi ? renderArtifact(temporaryOpenUi, true, false) : tool.content !== undefined ? h(ContentView, { value: tool.content, isStreaming: tool.kind !== 'tool-result', sessionId, documentId: `tool:${tool.callId}` }) : undefined
+  return h('details', { open: true, className: 'dsh-experience', style: styles.section }, h('summary', null, `${tool.name || '工具调用'} · ${tool.isError ? '失败' : tool.kind === 'tool-result' ? '已完成' : '执行中'}`), tool.isError && h('pre', { role: 'alert', style: styles.raw }, rawText(tool.error)), body, tool.kind === 'tool-result' && h(McpInline, { api, sessionId, callId: tool.callId, enabled: !!mcpEnabled, onContinue, dilEnabled, dilApi: dilArtifactApi }), inspect && h(ThemeButton, { type: 'button', style: styles.button, onClick: () => inspect(tool.callId as never) }, '查看调用详情'), h('details', null, h('summary', null, '原始调用与结果'), h('pre', { style: styles.raw }, rawText(tool))), ...tool.subCalls.map((child, i) => h(ToolTree, { key: i, tool: child, inspect, openuiEnabled, onContinue, sessionId, widgetStateApi, api, mcpEnabled, dilEnabled, dilApi: dilArtifactApi })))
 }
-function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps })) }
+function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, onContinue: Continue, nodeProps: PropsRuntime<'conversation.chat.node', 'tool-call'> }): ReactElement { const { settings, api } = useStore(store); return h(OutputView, { sessionId: String(nodeProps.sessionId), raw: nodeProps.node.data.root }, h(ToolTree, { tool: nodeProps.node.data.root as Tool, inspect: nodeProps.inspectCall, openuiEnabled: settings?.openui, onContinue, sessionId: String(nodeProps.sessionId), widgetStateApi: stateApi(api), api, mcpEnabled: settings?.mcpApps, dilEnabled: settings?.adaptive?.blockLayout === true, dilApi: dilApi(api) })) }
+/** The Chat-owned user row keeps attachments, timestamps, copy, and actions; only its raw text node is visualized. */
+function UserTextNode({ raw }: PropsRuntime<'conversation.user.text.node', 'text'>): ReactElement {
+  if (!raw.trim()) return h('span', { className: 'iexp-user-message-whitespace' }, raw)
+  return h('div', { className: 'iexp-user-message-text' }, h(ContentView, { value: fenceStandaloneJson(raw), preserveSoftBreaks: true }))
+}
 export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
-  const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState('')
+  const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState(''); const dilEnabled = settings?.adaptive?.blockLayout === true; const dilArtifactApi = dilApi(api)
   const refreshEpoch = useRef(0)
   useEffect(() => { let live = true; setItems([]); setError(''); const refresh = () => { const epoch = ++refreshEpoch.current; if (api) void api.artifacts({ sessionId }).then(x => { if (live && epoch === refreshEpoch.current) { setItems(x); setError('') } }, e => { if (live && epoch === refreshEpoch.current) setError(message(e)) }) }; refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer) } }, [api, sessionId])
   return h('div', { className: 'dsh-experience', style: styles.panel }, h('h2', null, '生成内容'), error && h('p', { role: 'alert' }, `无法读取内容：${error}`), !error && items.length === 0 && h('p', null, '当前会话还没有保存的生成内容。'), ...items.map(item => {
     const text = item.protocol === 'content' && typeof item.payload === 'string' ? item.payload : undefined
-    const original = h(ArtifactView, { key: item.id, artifact: item, openuiEnabled: settings?.openui, onContinue, stateApi: stateApi(api), mcpApi: settings?.mcpApps ? mcpApi(api) : undefined, ...(text ? { displayMode: 'visual' as const } : {}) })
+    const original = h(ArtifactView, { key: item.id, artifact: item, openuiEnabled: settings?.openui, onContinue, stateApi: stateApi(api), mcpApi: settings?.mcpApps ? mcpApi(api) : undefined, dilEnabled, dilApi: dilArtifactApi, ...(text ? { displayMode: 'visual' as const } : {}) })
     return text ? h(OutputView, { key: item.id, sessionId, raw: item.raw }, h(ResearchWorkspace, { sessionId, documentId: `artifact:${item.id}`, text, api: api?.research, onOrganize }, original)) : original
   }))
 }
 export function apply(ctx: Context): void {
   const store = new ExperienceStore()
+  ctx.effect(() => installBlockLayoutShortcut(store), 'intelligent-experience: block-layout-shortcut')
   const canvasScope = createCanvasClientScope()
   const ScopedDocumentView: typeof DocumentView = props => {
     const active = useSyncExternalStore(canvasScope.subscribe, canvasScope.getSnapshot, canvasScope.getSnapshot)
@@ -331,22 +590,77 @@ export function apply(ctx: Context): void {
   }, 'intelligent-experience: theme')
   ctx.effect(() => () => { displayModes.clear(); researchModes.clear() }, 'intelligent-experience: display modes')
   ctx.effect(() => installExperienceStyles(), 'intelligent-experience: styles')
+  ctx.effect(() => installShellLayoutStyles(), 'intelligent-experience: shell layout')
+  ctx.effect(() => installCollaborationStyles(), 'intelligent-experience: collaboration styles')
+  ctx.effect(() => ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({ name: 'conversation.session.header.actions', id: 'solar-collaboration', order: -100 }, (props: PropsRuntime<'conversation.session.header.actions'>) => h(CollaborationEntry, { ...props, key: props.sessionId, DocumentView: ScopedDocumentView, connectionState: (ctx.get('connection') as unknown as ConnectionHandle).state, onOpen: (target: CollaborationTarget) => {
+    if ((sessionContext.sessions.retainInfo(props.sessionId).getSnapshot().retainedBy.mainView ?? 0) === 0) throw Error('当前主视图已切换，请重新打开协作面板。')
+    if ('sessionId' in target) ctx.uiWorkspace.openSession(target.sessionId as SessionId)
+    else ctx.uiWorkspace.openSession({ ...target, parentSessionId: target.parentSessionId as SessionId, childSessionId: target.childSessionId as SessionId })
+  } }))), 'intelligent-experience: collaboration panel')
+  installCollaborationHeaderPolicy(ctx)
   ctx.effect(() => () => { try { canvasScope.dispose() } catch (error) { console.error('Canvas UI 资源释放失败：', error) } }, 'intelligent-experience: canvas resources')
   ctx.effect(() => ctx.provide('solarExperienceUi', uiClient), 'intelligent-experience: widgets')
+  installSettingsNavigation(ctx, {
+    snapshot: store.snapshot,
+    subscribe: store.subscribe,
+    async setEnabled(settingsNavigation) {
+      const settings = store.snapshot().settings
+      if (!settings) throw new Error('智能体验设置尚未就绪。')
+      await store.save({ expectedRevision: settings.revision, takeover: settings.takeover, openui: settings.openui, mcpApps: settings.mcpApps, settingsNavigation })
+    },
+  })
+  installModelCenter(ctx)
   ctx.effect(() => installAppearanceStyles(store), 'intelligent-experience: appearance')
   ctx.effect(() => installAsciiVisualTheme(store), 'intelligent-experience: ASCII graphics')
   let disposed = false; let remoteDispose: (() => Promise<void>) | undefined
-  let injectionDispose: (() => void) | undefined
-  let registrationDisposers: Array<() => void> = []
+  let injectionDisposers: Array<() => void> = []
+  let chatRegistrationDisposers: Array<() => void> = []
+  let userTextRegistrationDisposers: Array<() => void> = []
   let failed = false; let syncing = false
   const assistantView = (props: PropsRuntime<'conversation.chat.node', 'assistant-step'>) => h(CompositionScope,{store,sessionId:String(props.sessionId)},h(AssistantNode, { store, nodeProps: props, onOrganize: (text, signal) => submitResearchPrompt(sessionContext, props.sessionId, text, signal), onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) }))
   const toolView = (props: PropsRuntime<'conversation.chat.node', 'tool-call'>) => h(CompositionScope,{store,sessionId:String(props.sessionId)},h(ToolNode, { store, nodeProps: props, onContinue: (event, state, signal) => continueInSession(sessionContext, props.sessionId, event, state, signal) }))
-  const retract = () => { const owned = registrationDisposers; registrationDisposers = []; for (const dispose of owned.reverse()) dispose() }
+  const userTextView = (props: PropsRuntime<'conversation.user.text.node', 'text'>) => h(UserTextNode, props)
+  const retract = () => {
+    const owned = [...userTextRegistrationDisposers, ...chatRegistrationDisposers]
+    userTextRegistrationDisposers = []; chatRegistrationDisposers = []
+    for (const dispose of owned.reverse()) dispose()
+  }
+  const retractInjections = () => { const owned = injectionDisposers; injectionDisposers = []; for (const dispose of owned.reverse()) dispose() }
   const fail = (error: unknown) => { failed = true; retract(); console.warn('智能体验聊天接管失败：', error); store.setTakeoverError('聊天显示位置发生冲突或尚未就绪。') }
   const checkWinners = () => {
-    if (!registrationDisposers.length || failed) return
-    const winners = ctx.slots.entriesOfSlot('conversation.chat.node')
-    if (winners.find(entry => entry.options.key === 'assistant-step')?.component !== assistantView || winners.find(entry => entry.options.key === 'tool-call')?.component !== toolView) fail('其他插件占用了聊天显示位置')
+    if (failed || !chatRegistrationDisposers.length || !userTextRegistrationDisposers.length) return
+    const chatWinners = ctx.slots.entriesOfSlot('conversation.chat.node')
+    const userTextWinners = ctx.slots.entriesOfSlot('conversation.user.text.node')
+    if (chatWinners.find(entry => entry.options.key === 'assistant-step')?.component !== assistantView || chatWinners.find(entry => entry.options.key === 'tool-call')?.component !== toolView || userTextWinners.find(entry => entry.options.key === 'text')?.component !== userTextView) fail('其他插件占用了聊天显示位置')
+  }
+  const registerChatNodes = () => {
+    if (failed) return () => {}
+    const owned: Array<() => void> = []
+    try {
+      owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -100 }, assistantView))
+      owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'tool-call', priority: -100 }, toolView))
+      chatRegistrationDisposers = owned
+      checkWinners()
+    } catch (error) {
+      for (const dispose of owned.reverse()) dispose()
+      chatRegistrationDisposers = []
+      fail(error)
+    }
+    return () => { for (const dispose of owned.reverse()) dispose(); if (chatRegistrationDisposers === owned) chatRegistrationDisposers = [] }
+  }
+  const registerUserText = () => {
+    if (failed) return () => {}
+    const owned: Array<() => void> = []
+    try {
+      owned.push(ctx.slots.register({ name: 'conversation.user.text.node', key: 'text', priority: -100 }, userTextView))
+      userTextRegistrationDisposers = owned
+      checkWinners()
+    } catch (error) {
+      for (const dispose of owned.reverse()) dispose()
+      userTextRegistrationDisposers = []
+      fail(error)
+    }
+    return () => { for (const dispose of owned.reverse()) dispose(); if (userTextRegistrationDisposers === owned) userTextRegistrationDisposers = [] }
   }
   const syncTakeover = () => {
     if (syncing) return
@@ -354,34 +668,24 @@ export function apply(ctx: Context): void {
     try {
       if (!store.snapshot().settings?.takeover) {
         researchModes.clear()
-        injectionDispose?.(); injectionDispose = undefined; retract(); failed = false; store.setTakeoverError(undefined); return
+        retractInjections(); retract(); failed = false; store.setTakeoverError(undefined); return
       }
-      if (injectionDispose || failed) return
+      if (injectionDisposers.length || failed) return
+      const ownedInjections: Array<() => void> = []
       try {
-        injectionDispose = ctx.slots.inject('conversation.chat.node', () => {
-          if (failed) return () => {}
-          const owned: Array<() => void> = []
-          try {
-            owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -100 }, assistantView))
-            owned.push(ctx.slots.register({ name: 'conversation.chat.node', key: 'tool-call', priority: -100 }, toolView))
-            registrationDisposers = owned
-            checkWinners()
-          } catch (error) {
-            for (const dispose of owned.reverse()) dispose()
-            registrationDisposers = []
-            fail(error)
-          }
-          return () => { for (const dispose of owned.reverse()) dispose(); if (registrationDisposers === owned) registrationDisposers = [] }
-        })
-      } catch (error) { fail(error) }
+        ownedInjections.push(ctx.slots.inject('conversation.chat.node', registerChatNodes))
+        ownedInjections.push(ctx.slots.inject('conversation.user.text.node', registerUserText))
+        injectionDisposers = ownedInjections
+      } catch (error) { for (const dispose of ownedInjections.reverse()) dispose(); fail(error) }
     } finally { syncing = false }
   }
   const unsubscribeSlots = ctx.slots.subscribe('conversation.chat.node', checkWinners)
+  const unsubscribeUserTextSlots = ctx.slots.subscribe('conversation.user.text.node', checkWinners)
   const unsubscribe = store.subscribe(syncTakeover)
   ctx.effect(() => {
     void ctx.remote.$mount({ ...RPC_REMOTE, descriptors: [...RPC_REMOTE.descriptors, ...RESEARCH_REMOTE.descriptors] }).then(async dispose => { if (disposed) { await dispose(); return }; remoteDispose = dispose; const wire = ctx.get('remote.solarExperience') as unknown as Wire | undefined; if (!wire) { store.update({ error: '本机没有提供智能体验服务。' }); return }; store.update({ api: apiFromWire(wire, ctx.get('remote.solarResearch') as unknown as ResearchWire | undefined) }); await store.refresh() }).catch(e => { if (!disposed) store.update({ error: message(e) }) })
     const timer = setInterval(() => { void store.refresh() }, 5000)
-    return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); injectionDispose?.(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
+    return () => { disposed = true; clearInterval(timer); unsubscribe(); unsubscribeSlots(); unsubscribeUserTextSlots(); retractInjections(); retract(); store.update({}); if (remoteDispose) void remoteDispose() }
   }, 'intelligent-experience: remote')
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'solar-intelligent-experience-mode', order: 47 }, (props: PropsRuntime<'conversation.session.header.utilities'>) => h(HeaderControls, { store, sessionId: String(props.sessionId) })))
   function BrowserPanel(): ReactElement {

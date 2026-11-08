@@ -19,7 +19,7 @@ const baseInput = (value: unknown, overrides: Partial<Omit<CompositionInput, 'va
   themes: builtInThemes,
   selectedThemeId: 'empryo',
   styleMode: 'automatic',
-  capabilities: { webgl: true, reducedMotion: false },
+  capabilities: { webgl: true, webgpu: true, reducedMotion: false },
   ...overrides,
 })
 
@@ -128,6 +128,13 @@ describe('adaptive composition catalog', () => {
 })
 
 describe('buildCompositionCandidates', () => {
+  it('offers Rune automatically only when the actual caller reports WebGPU', () => {
+    for (const capabilities of [{ webgl: true, reducedMotion: false }, { webgl: true, webgpu: false, reducedMotion: false }]) {
+      expect(options(buildCompositionCandidates(baseInput(broadMarkdown, { capabilities })), 'theme')).not.toContain('rune')
+    }
+    expect(options(buildCompositionCandidates(baseInput(broadMarkdown)), 'theme')).toContain('rune')
+  })
+
   it('offers only source-backed semantic choices across every installed theme', () => {
     const bundle = buildCompositionCandidates(baseInput(broadMarkdown))
     expect(options(bundle, 'theme')).toEqual([...builtInThemes].sort((left, right) => left.id.localeCompare(right.id)).map(theme => theme.id))

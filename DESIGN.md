@@ -384,8 +384,20 @@ A single full-document Markdown AST preserves definitions, footnotes, original n
 Original/source tables fit their actual parent width with a measured CSS transform and reserved layout height. The compact fit toolbar reuses ThemeButton and existing13px metadata/line/accent tokens, remains unscaled and exposes native size for reading. Native size restores keyboard-accessible local horizontal scrolling; fit resets its horizontal offset. Resize follows container changes, including research comparison layouts and disclosure visibility. Full table DOM/cells/anchors remain intact; body text and other plugin/app surfaces retain their size. Very narrow dense overviews are navigation, not a claim of readable microtext.
 
 
+## DIL program cards (2026-11-06)
+
+The owner approved this direction on 2026-11-07 from reader screenshots. A `card` written by a DIL program is a visible container. With no material adapter it takes the theme's own card material (line border, card radius, card fill, card shadow), matching the explicit native card presentation; a card nested in a card uses the sunken tone without border or shadow. At 560px and below card insets cap at 12px (nested 8/10px). Cards with a material adapter keep that material. Markdown body text inherits the theme typeface; nested embedded Markdown inherits the enclosing theme tokens.
+
 ## Data browser and Insight preview
 
-Data browser is a plugin-owned main panel, reached through one fixed sidebar footer action so it is also reachable in DS Bot mode. A compact toolbar holds import, refresh, display mode and the existing theme selector. The file list is 180–260px beside a flexible reader; below 760px it becomes a 160px-high list above the reader. Both areas scroll independently. Source labels keep their prefix on one line, file names and report links wrap, and focused reader Home/End reaches the document boundaries. Use existing theme tokens and controls; no new visual theme is introduced.
+Data browser is a plugin-owned main panel, reached through the native Tools panel list; DS Bot mode can hide that list. A compact toolbar holds import, refresh, display mode and the existing theme selector. The file list is 180–260px beside a flexible reader; below 760px it becomes a 160px-high list above the reader. Both areas scroll independently. Source labels keep their prefix on one line, file names and report links wrap, and focused reader Home/End reaches the document boundaries. Use existing theme tokens and controls; no new visual theme is introduced.
 
 Conversation Insight preview selects an existing run and an already-produced stage/node output. Source status and complete original-run disclosure sit above the reader. PPTX waiting/manifest state is explicit. The local research workspace exposes report, judgments, sources and technical comparison without changing the conversation's research preference; its tabs form two columns at narrow widths. This is content preview rather than final slide-layout proof. Real output, units and source strings remain available in shared original/compare modes.
+
+
+## Compact grouped settings (2026-11-04)
+
+Grouped settings retain the existing opaque theme and 14px navigation type. The title/category tracks use 60/44px, navigation and header controls use 32px, and menu rows have a 2px gap. The category strip explicitly includes padding and border in its reserved track; the native list starts below it with an 8px inset. All entries use one plain 16px outline icon with the same stroke and alignment; known sections have semantic icons and unknown sections use sliders. Native decorative icons are visually suppressed only in grouped mode, without changing labels, original nodes, handlers or configuration. Cancellation removes the owned stylesheet and restores native icons and layout.
+Shell layout: keep native tool rows together, place Settings and ancillary footer actions above the scrolling cost-meter block, and float the Synapse switch at the upper right without a reserved row, retaining its native draggable grip and persisted position. Preserve native handlers and source data.
+
+The sidebar fee block fills its slot instead of sizing to its text. DS Bot’s existing return button occupies a compact seat to the right of the DeepSeek Harness brand, while the native macOS window controls retain their positions.

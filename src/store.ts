@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import type { Dirent } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { artifactSchema, initialSettings, saveSettingsSchema, saveWidgetStateSchema, settingsSchema, widgetInputSchema, widgetStateSchema, type ExperienceArtifact, type ExperienceSettings, type PublishInput, type SaveSettingsInput, type SaveWidgetStateInput, type WidgetState } from './contracts.js'
+import { DIL_PROTOCOL, artifactSchema, dilPersistInputSchema, initialSettings, publishSchema, saveSettingsSchema, saveWidgetStateSchema, settingsSchema, widgetInputSchema, widgetStateSchema, type DilPersistInput, type ExperienceArtifact, type ExperienceSettings, type PublishInput, type SaveSettingsInput, type SaveWidgetStateInput, type WidgetState } from './contracts.js'
 import { builtInThemes, installThemeSchema, removeThemeSchema, resolveTheme, MAX_IMPORTED_THEMES, MAX_THEME_BYTES, type InstallThemeInput, type RemoveThemeInput } from './theme-contracts.js'
 import { isLocalImport } from './file-library-contracts.js'
 
@@ -22,6 +22,9 @@ export class ArtifactLimitError extends ExperienceStoreError {
 }
 export class ArtifactNotFoundError extends ExperienceStoreError {
   constructor(readonly sessionId: string, readonly artifactId: string) { super(`Artifact ${artifactId} was not found in session ${sessionId}`) }
+}
+export class DilHostCompilationRequiredError extends ExperienceStoreError {
+  constructor() { super('DIL_HOST_COMPILATION_REQUIRED: Persist DIL only through the Host source compiler path.') }
 }
 export class WidgetStateTooLargeError extends ExperienceStoreError {
   constructor(readonly actualBytes: number, readonly maxBytes: number) { super(`Widget state is ${actualBytes} bytes; limit is ${maxBytes} bytes`) }
@@ -110,7 +113,12 @@ export class ExperienceStore {
       const target = parsed.themeId === undefined ? undefined : [...builtInThemes, ...theme!.installed].find(item => item.id === parsed.themeId)
       if (parsed.themeId !== undefined && !target) throw new ThemeNotFoundError(parsed.themeId)
       const appearance = parsed.appearance ?? (target && target.id !== previousId ? { ...target.appearance } : current.appearance)
-      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, appearance, theme, ...(parsed.adaptive === undefined ? {} : { adaptive: parsed.adaptive }), ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
+      const adaptive = parsed.adaptive === undefined ? current.adaptive : {
+        ...parsed.adaptive,
+        ...(parsed.adaptive.blockLayout === undefined && current.adaptive?.blockLayout !== undefined ? { blockLayout: current.adaptive.blockLayout } : {}),
+        ...(parsed.adaptive.blockLayoutShortcut === undefined && current.adaptive?.blockLayoutShortcut !== undefined ? { blockLayoutShortcut: current.adaptive.blockLayoutShortcut } : {}),
+      }
+      return { ...current, takeover: parsed.takeover, openui: parsed.openui, mcpApps: parsed.mcpApps, ...(parsed.settingsNavigation === undefined ? {} : { settingsNavigation: parsed.settingsNavigation }), appearance, theme, ...(adaptive === undefined ? {} : { adaptive }), ...(parsed.themeSource === undefined ? {} : { themeSource: parsed.themeSource }) }
     })
   }
 
@@ -227,12 +235,10 @@ export class ExperienceStore {
     })
   }
 
-  publish(input: PublishInput): Promise<ExperienceArtifact> {
-    const parsed = artifactSchema.omit({ id: true, createdAt: true }).parse({ formatVersion: 1, ...input })
-    const bytes = Buffer.byteLength(JSON.stringify(parsed))
+  private persistArtifact(artifact: ExperienceArtifact): Promise<ExperienceArtifact> {
+    const bytes = Buffer.byteLength(JSON.stringify(artifact))
     if (bytes > this.maxArtifactBytes) return Promise.reject(new ArtifactTooLargeError(bytes, this.maxArtifactBytes))
     return serialized(this.root, async () => {
-      const artifact = artifactSchema.parse({ ...parsed, id: randomUUID(), createdAt: new Date().toISOString() })
       const dir = join(this.root, 'artifacts', encodeURIComponent(artifact.source.sessionId))
       await mkdir(dir, { recursive: true })
       const names = await readdir(dir)
@@ -241,5 +247,20 @@ export class ExperienceStore {
       await atomicJson(join(dir, `${artifact.id}.json`), artifact)
       return artifact
     })
+  }
+
+  /** Non-DIL protocols retain the existing direct persistence route. */
+  publish(input: PublishInput): Promise<ExperienceArtifact> {
+    const parsed = publishSchema.parse(input)
+    if (parsed.protocol === DIL_PROTOCOL) return Promise.reject(new DilHostCompilationRequiredError())
+    const artifact = artifactSchema.parse({ formatVersion: 1, ...parsed, id: randomUUID(), createdAt: new Date().toISOString() })
+    return this.persistArtifact(artifact)
+  }
+
+  /** The Host calls this only after compiling the preserved DIL source. */
+  publishDil(input: DilPersistInput): Promise<ExperienceArtifact> {
+    const parsed = dilPersistInputSchema.parse(input)
+    const artifact = artifactSchema.parse({ formatVersion: 1, ...parsed, id: randomUUID(), createdAt: new Date().toISOString() })
+    return this.persistArtifact(artifact)
   }
 }

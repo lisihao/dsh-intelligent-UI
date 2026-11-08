@@ -129,7 +129,8 @@ describe('installed theme packages participate in conversation decisions', () =>
     const runtimeSettings = { ...settings, theme: { activeId: 'empryo', installed: imported } }
     const { host, port } = await mountScenario(scenario, false, runtimeSettings)
     const options = port.requests[0]!.questions.find(question => question.id === 'theme')!.options.map(option => option.id)
-    expect(options).toEqual(expect.arrayContaining([...builtInThemes.filter(theme => theme.id !== 'ascii-gpu'), ...imported].map(theme => theme.id)))
+    expect(options).toEqual(expect.arrayContaining([...builtInThemes.filter(theme => theme.id !== 'ascii-gpu' && theme.id !== 'rune'), ...imported].map(theme => theme.id)))
+    expect(options).not.toContain('rune') // This fixture reports no WebGPU API.
     const scope = host.querySelector<HTMLElement>('[data-iexp-composition-status="selected"]')!
     expect(scope.getAttribute('data-iexp-adaptive-theme')).toBe(theme.id)
     expect(scope.style.getPropertyValue('--iexp-card-radius')).toBe(`${theme.tokens.cardRadius}px`)

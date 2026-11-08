@@ -1,5 +1,6 @@
 lib/
 node_modules/
+/node_modules
 .acceptance/
 tsconfig.build.json
 tools/browser-experience/fixture.js
@@ -26,3 +27,7 @@ screenshots/
 *.webm
 
 tools/browser-research/fixture.js
+
+tools/model-center/fixture.js
+# Synthetic browser layout evidence
+/output/playwright/

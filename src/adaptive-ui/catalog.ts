@@ -1,3 +1,4 @@
+import { CANVAS_HTML_EFFECT_NAMES } from '../canvas-html-names.js'
 import { CANVAS_UI_COMPONENTS } from '../canvas-catalog.js'
 import { builtInThemes, type ComponentSet, type ThemePackage } from '../theme-contracts.js'
 import curatedSources from '../uiverse-sources.json' with { type: 'json' }
@@ -46,6 +47,7 @@ export interface CompositionCatalog {
   readonly revision: typeof COMPOSITION_CATALOG_REVISION
   readonly entries: readonly CatalogEntry[]
 }
+export interface ExecutableCatalogDescription {readonly id:string,readonly family:string,readonly title:string,readonly suitability:string,readonly rendererKey:string}
 
 export class InvalidCompositionCatalogInputError extends Error {
   readonly code: string
@@ -235,11 +237,14 @@ function adapterEntries(): CatalogEntry[] {
   })))
 }
 
-function canvasEntries(): CatalogEntry[] {
+function canvasEntries(experimentalBlocks = false): CatalogEntry[] {
+  const executableHtml = new Set<string>([...CANVAS_HTML_EFFECT_NAMES, 'bend', 'hex-float', 'particle-scroll'])
   return CANVAS_UI_COMPONENTS.map(component => {
     const native = nativeCanvasObjectEffects.has(component.slug)
     const automatic = native
       ? { availability: 'conditional' as const, eligibility: { allOf: ['explicit-supported-asset', 'webgl', 'not-streaming', 'not-reduced-motion'], reason: 'native-object-route' } }
+      : experimentalBlocks && executableHtml.has(component.slug)
+        ? { availability: 'conditional' as const, eligibility: { allOf: ['experimental-block-layout', 'bounded-noninteractive-source', 'separate-visible-source', 'webgl', 'not-streaming', 'not-reduced-motion'], reason: 'registered-source-bound-visual-copy' } }
       : component.kind === 'html'
         ? { availability: 'blocked' as const, eligibility: { allOf: ['explicit-registered-adapter'], reason: 'arbitrary-html-effects-are-not-automatic' } }
         : { availability: 'metadata-only' as const, eligibility: { allOf: ['explicit-registered-adapter'], reason: 'catalog-object-has-no-native-auto-route' } }
@@ -273,17 +278,28 @@ function normalizedThemes(themes: readonly ThemePackage[]): ThemePackage[] {
 /**
  * Complete discoverability catalog.  It is source-independent and therefore
  * safe for the existing `solar_ui_catalog` development lookup and the
- * composition RPC.  In particular, the 3,802-file Galaxy archive is one
- * development-only entry rather than 3,802 implied executable renderers.
+ * composition RPC. Without a runtime registry, archives stay discovery-only.
+ * Supplying the actual executable definitions exposes their exact IDs and
+ * source-dependent consumers; metadata alone never upgrades availability.
  */
-export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInThemes): CompositionCatalog {
+export function getCompositionCatalog(themes: readonly ThemePackage[] = builtInThemes, options: { experimentalBlocks?: boolean, executables?:readonly ExecutableCatalogDescription[] } = {}): CompositionCatalog {
   const entries = [
     ...sourceSurfaceEntries,
     ...libraryEntries(),
     archiveEntry,
     ...adapterEntries(),
-    ...canvasEntries(),
+    ...canvasEntries(options.experimentalBlocks === true),
     ...normalizedThemes(themes).map(themeEntry),
   ].sort((left, right) => left.id.localeCompare(right.id))
+  if(options.executables){
+    const mapped=new Map(entries.map(entry=>[entry.id,entry]))
+    for(const executable of options.executables){
+      const previous=mapped.get(executable.id)
+      mapped.set(executable.id,{...previous,id:executable.id,kind:previous?.kind??'library',name:executable.title,availability:'conditional',eligibility:{allOf:['experimental-block-layout','validated-component-input-contract','registered-executable-consumer'],reason:'same-id-executable-registry'},metadata:{...previous?.metadata,family:executable.family,rendererKey:executable.rendererKey,contentFit:executable.suitability}})
+    }
+    const archiveIds=options.executables.filter(entry=>entry.id.startsWith('uiverse:')&&entry.id.includes('/'))
+    if(archiveIds.length===3802)mapped.set(archiveEntry.id,{...archiveEntry,availability:'conditional',eligibility:{allOf:['experimental-block-layout','complete-source-slot-bindings'],reason:'complete-source-bound-archive'},metadata:{...archiveEntry.metadata,executable:true,registeredIds:archiveIds.length}})
+    return {revision:COMPOSITION_CATALOG_REVISION,entries:[...mapped.values()].sort((a,b)=>a.id.localeCompare(b.id))}
+  }
   return { revision: COMPOSITION_CATALOG_REVISION, entries }
 }

@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { BLOCK_PRESENTATION_IDS } from './presentation-recipes.js'
+import type { ExecutableComponentRegistry } from './executable-registry.js'
 import { componentSetSchema, type ComponentSet, type ThemePackage, type ThemePreference } from '../theme-contracts.js'
 
 /** The only Jev feature this consumer ever registers or evaluates. */
@@ -9,6 +11,7 @@ export const ADAPTIVE_COMPOSITION_INPUT_VERSION = 'adaptive-ui-composition@1'
 export const compositionStyleModeSchema = z.enum(['selected', 'automatic'])
 export const compositionCapabilitiesSchema = z.strictObject({
   webgl: z.boolean(),
+  webgpu: z.boolean().optional(),
   reducedMotion: z.boolean(),
 })
 
@@ -28,7 +31,7 @@ export const composeInputSchema = z.strictObject({
 })
 export type ComposeInput = z.infer<typeof composeInputSchema>
 
-export const compositionSelectionSchema = z.strictObject({
+export const baseCompositionSelectionSchema = z.strictObject({
   themeId: z.string().min(1).max(64),
   surface: z.enum(['semantic', 'source']),
   chart: z.enum(['auto', 'openui', 'compact', 'dense', 'ascii', 'visx']),
@@ -39,6 +42,45 @@ export const compositionSelectionSchema = z.strictObject({
   textMotion: z.enum(['torph', 'none']).optional(),
   live: z.enum(['liveline', 'native']).optional(),
 })
+export const executableComponentSelectionSchema = z.strictObject({
+  id: z.string().min(1).max(160),
+  family: z.string().min(1).max(160),
+  rendererKey: z.string().min(1).max(160),
+  input: z.json(),
+  actionIds: z.array(z.string().min(1).max(160)).max(128),
+})
+/** Experimental plans bind each choice to compiler-owned source ranges/paths. */
+export const blockCompositionSchema = z.strictObject({
+  id: z.string().min(1).max(160),
+  path: z.array(z.number().int().nonnegative()).max(16),
+  start: z.number().int().nonnegative().optional(),
+  end: z.number().int().nonnegative().optional(),
+  kind: z.string().min(1).max(64),
+  selection: baseCompositionSelectionSchema,
+  /** Explicit source-bound renderer recipe; absent reads earlier experimental results. */
+  presentation: z.enum(BLOCK_PRESENTATION_IDS).optional(),
+  /** Revalidated by the exact executable adapter before the native mount. */
+  component: executableComponentSelectionSchema.optional(),
+  componentName: z.string().min(1).max(200).optional(),
+  componentFit: z.string().min(1).max(2000).optional(),
+  evidence: z.array(z.string().min(1).max(500)).max(32),
+}).superRefine((block, ctx) => {
+  if ((block.start === undefined) !== (block.end === undefined) || block.start !== undefined && block.end! <= block.start) {
+    ctx.addIssue({code:'custom', message:'BLOCK_SOURCE_RANGE_INVALID'})
+  }
+})
+export const blockLayoutSchema = z.strictObject({
+  version: z.literal(1),
+  inspection: z.enum(['none', 'research']),
+  blocks: z.array(blockCompositionSchema).min(1).max(128),
+}).superRefine((plan, ctx) => {
+  const ids = new Set<string>()
+  for (const block of plan.blocks) {
+    if (ids.has(block.id)) ctx.addIssue({code:'custom', message:'BLOCK_SOURCE_ID_DUPLICATE'})
+    ids.add(block.id)
+  }
+})
+export const compositionSelectionSchema = baseCompositionSelectionSchema.extend({blockLayout: blockLayoutSchema.optional()})
 export type CompositionSelection = Omit<z.infer<typeof compositionSelectionSchema>, 'componentSet'> & {
   componentSet: ComponentSet | 'native'
 }
@@ -106,7 +148,7 @@ export type CompositionStatus = z.infer<typeof compositionStatusSchema>
 
 export interface AdaptiveCompositionSettings {
   takeover: boolean
-  adaptive?: { enabled: boolean, styleMode: z.infer<typeof compositionStyleModeSchema> }
+  adaptive?: { enabled: boolean, styleMode: z.infer<typeof compositionStyleModeSchema>, blockLayout?: boolean, blockLayoutShortcut?: string }
   theme?: ThemePreference
 }
 
@@ -163,7 +205,15 @@ export interface AdaptiveCompositionCoordinatorOptions {
   getJev?: () => JevCompositionPort | undefined
   /** Optional catalog provider; absent means built-ins plus the saved imported themes. */
   getThemes?: (settings: AdaptiveCompositionSettings) => readonly ThemePackage[] | Promise<readonly ThemePackage[]>
+  /** Actual production adapters, never the discovery-only visual catalog. */
+  getExecutableComponents?: () => ExecutableComponentRegistry | Promise<ExecutableComponentRegistry>
   maxSourceBytes?: number
   maxCacheEntries?: number
   now?: () => Date
+  /** Optional store of adopted decisions that outlives this process (Host side only). */
+  decisions?: {
+    get(key: string, sourceVersion: string): Omit<CompositionResult, 'requestId'> | undefined
+    put(key: string, result: Omit<CompositionResult, 'requestId'>): void
+    flush(): void
+  }
 }

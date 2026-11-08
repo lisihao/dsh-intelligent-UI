@@ -26,12 +26,13 @@ function glb(): Uint8Array {
 function fixture() {
   const cleanups: Array<() => void> = [], services = new Map<string, unknown>()
   const ctx = {
+    locale: { subscribe: () => () => {} },
     inject: () => () => {},
     effect: (callback: () => () => void) => { const cleanup = callback(); cleanups.push(cleanup); return cleanup },
     provide: (key: string, service: unknown) => { services.set(key, service); return () => services.delete(key) },
     get: (key: string) => key === 'sessions' ? { using: vi.fn() } : key === 'theme' ? { getTheme: () => ({ active: { colorScheme: 'light' } }) } : services.get(key),
     on: () => () => {},
-    slots: { register: () => () => {}, inject: (_name: string, callback: () => () => void) => callback(), entriesOfSlot: () => [], subscribe: () => () => {} },
+    slots: { register: () => () => {}, inject: (_name: string, callback: () => () => void) => callback(), entries: () => [], entriesOfSlot: () => [], subscribe: () => () => {} },
     remote: { $mount: async () => async () => {} },
   } as unknown as Context
   apply(ctx)
