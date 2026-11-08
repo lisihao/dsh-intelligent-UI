@@ -51,12 +51,12 @@ describe('source-preserving ASCII categorical plots', () => {
       expect([...host.querySelectorAll('.iexp-ascii-chart-value')].map(node => node.textContent)).toEqual(['约 -10.0', '-20.0', '0.00', '1（暂估）', '+20', '10'])
       expect([...host.querySelectorAll('.iexp-ascii-chart-series')].map(node => node.textContent)).toEqual(['本期（万元）', '同期（万元）', '本期（万元）', '同期（万元）', '本期（万元）', '同期（万元）'])
       const marks = [...host.querySelectorAll('.iexp-ascii-chart-mark')]
-      expect(marks.map(mark => mark.textContent)).toEqual(['-----#####|----------', '##########|----------', '----------|----------', '----------|#---------', '----------|##########', '----------|#####-----'])
+      expect(marks.map(mark => mark.textContent)).toEqual(['·····▉▉▉▉▉|··········', '▉▉▉▉▉▉▉▉▉▉|··········', '··········|··········', '··········|▌·········', '··········|▉▉▉▉▉▉▉▉▉▉', '··········|▉▉▉▉▉·····'])
       for (const mark of marks) {
         expect(mark.getAttribute('aria-hidden')).toBe('true')
-        expect(mark.textContent).toMatch(/^[-#]{10}\|[-#]{10}$/)
+        expect(mark.textContent).toMatch(/^[·▉▐]{10}\|[·▏▎▍▌▋▊▉]{10}$/)
       }
-      expect(host.textContent).toContain('非零值至少显示一格')
+      expect(host.textContent).toContain('非零值总能看到')
     })
     expect(JSON.stringify(plan)).toBe(before)
   })
@@ -64,9 +64,16 @@ describe('source-preserving ASCII categorical plots', () => {
   it('keeps zero empty, shows nonzero values at least once, and avoids overflow at numeric extremes', async () => {
     const plan: AutoChartPlan = { kind: 'bar', labels: ['零', '最小', '最大', '负最大'], series: [{ name: '值', unit: '', values: [0, Number.MIN_VALUE, Number.MAX_VALUE, -Number.MAX_VALUE] }], reason: '', icon: 'chart-column' }
     await withChart(plan, host => {
-      expect([...host.querySelectorAll('.iexp-ascii-chart-mark')].map(node => node.textContent)).toEqual(['----------|----------', '----------|#---------', '----------|##########', '##########|----------'])
+      expect([...host.querySelectorAll('.iexp-ascii-chart-mark')].map(node => node.textContent)).toEqual(['··········|··········', '··········|▏·········', '··········|▉▉▉▉▉▉▉▉▉▉', '▉▉▉▉▉▉▉▉▉▉|··········'])
       expect([...host.querySelectorAll('.iexp-ascii-chart-value')].map(node => node.textContent)).toEqual(plan.series[0]!.values.map(String))
       expect(host.innerHTML).not.toContain('NaN')
+    })
+  })
+
+  it('draws negative bars in half cells and keeps a tiny negative value visible', async () => {
+    const plan: AutoChartPlan = { kind: 'bar', labels: ['小亏', '微亏', '盈利'], series: [{ name: '值', unit: '', values: [-5, -Number.MIN_VALUE, 20] }], reason: '', icon: 'chart-column' }
+    await withChart(plan, host => {
+      expect([...host.querySelectorAll('.iexp-ascii-chart-mark')].map(node => node.textContent)).toEqual(['·······▐▉▉|··········', '·········▐|··········', '··········|▉▉▉▉▉▉▉▉▉▉'])
     })
   })
 
@@ -79,24 +86,24 @@ describe('source-preserving ASCII categorical plots', () => {
     const host = document.createElement('div'), root = createRoot(host)
     try {
       await act(async () => root.render(h(ChartViewport, { plan, children: view => h(AsciiChart, { plan: view, scalePlan: plan }) })))
-      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'#'.repeat(2)}${'-'.repeat(18)}`)
+      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'▉'.repeat(2)}${'·'.repeat(18)}`)
       await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === '下一组')!.click())
       expect(host.querySelector('.iexp-ascii-chart-label')!.textContent).toBe('对象8')
-      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'#'.repeat(18)}${'-'.repeat(2)}`)
+      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'▉'.repeat(18)}${'·'.repeat(2)}`)
       await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === '上一组')!.click())
-      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'#'.repeat(2)}${'-'.repeat(18)}`)
+      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'▉'.repeat(2)}${'·'.repeat(18)}`)
     } finally { await act(async () => root.unmount()) }
   })
 
   it('places zero at the end for negative-only data and at the start for all-zero data', async () => {
     const plan: AutoChartPlan = { kind: 'bar', labels: ['亏损', '较小亏损', '持平'], series: [{ name: '值', unit: '', values: [-10, -5, 0] }], reason: '', icon: 'chart-column' }
     await withChart(plan, host => {
-      expect([...host.querySelectorAll('.iexp-ascii-chart-mark')].map(mark => mark.textContent)).toEqual([`${'#'.repeat(20)}|`, `${'-'.repeat(10)}${'#'.repeat(10)}|`, `${'-'.repeat(20)}|`])
+      expect([...host.querySelectorAll('.iexp-ascii-chart-mark')].map(mark => mark.textContent)).toEqual([`${'▉'.repeat(20)}|`, `${'·'.repeat(10)}${'▉'.repeat(10)}|`, `${'·'.repeat(20)}|`])
       expect(host.textContent).toContain('零线在右侧')
     })
     const zero = { ...plan, series: [{ ...plan.series[0]!, values: [0, 0, 0] }] }
     await withChart(zero, host => {
-      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'-'.repeat(20)}`)
+      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe(`|${'·'.repeat(20)}`)
       expect(host.textContent).toContain('零线在左侧')
     })
   })
@@ -106,10 +113,10 @@ describe('source-preserving ASCII categorical plots', () => {
     const host = document.createElement('div'), root = createRoot(host)
     try {
       await act(async () => root.render(h(ChartViewport, { plan, children: view => h(AsciiChart, { plan: view, scalePlan: plan }) })))
-      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe('----------|#---------')
+      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe('··········|▉·········')
       expect(host.textContent).toContain('零线居中')
       await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === '下一组')!.click())
-      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe('##########|----------')
+      expect(host.querySelector('.iexp-ascii-chart-mark')!.textContent).toBe('▉▉▉▉▉▉▉▉▉▉|··········')
       expect(host.textContent).toContain('零线居中')
     } finally { await act(async () => root.unmount()) }
   })
@@ -137,19 +144,19 @@ describe('source-preserving ASCII categorical plots', () => {
       await act(async () => root.render(h(AsciiChart, { plan })))
       const mark = () => host.querySelector('.iexp-ascii-chart-mark')!.textContent!
       expect(observed.map(node => node.className)).toEqual(['iexp-ascii-chart', 'iexp-ascii-chart-probe'])
-      expect(mark()).toBe(`|${'#'.repeat(28)}`)
+      expect(mark()).toBe(`|${'▉'.repeat(28)}`)
       width = 160
       await act(async () => callback!([], {} as ResizeObserver))
-      expect(mark()).toBe(`|${'#'.repeat(18)}`)
+      expect(mark()).toBe(`|${'▉'.repeat(18)}`)
       width = 720
       await act(async () => callback!([], {} as ResizeObserver))
-      expect(mark()).toBe(`|${'#'.repeat(63)}`)
+      expect(mark()).toBe(`|${'▉'.repeat(88)}`)
       width = 480; glyphWidth = 12
       await act(async () => fontChanged!())
-      expect(mark()).toBe(`|${'#'.repeat(38)}`)
+      expect(mark()).toBe(`|${'▉'.repeat(38)}`)
       glyphWidth = 16
       await act(async () => { fontReady(); await Promise.resolve() })
-      expect(mark()).toBe(`|${'#'.repeat(28)}`)
+      expect(mark()).toBe(`|${'▉'.repeat(28)}`)
     } finally {
       await act(async () => root.unmount())
       if (fontsDescriptor) Object.defineProperty(document, 'fonts', fontsDescriptor)

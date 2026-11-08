@@ -28,7 +28,7 @@ describe('explicit classic and GPU ASCII selection',()=>{
       themePreferences.set({activeId:'ascii',installed:[]})
       await act(async()=>root.render(h(ContentView,{value:text})))
       expect(host.querySelector('[data-ascii-chart=bar]')).not.toBeNull()
-      expect(host.querySelector('.iexp-ascii-chart-mark')?.textContent).toContain('#')
+      expect(host.querySelector('.iexp-ascii-chart-mark')?.textContent).toContain('▉')
       const original=host.querySelector('.iexp-full-table')?.textContent
       await act(async()=>themePreferences.set({activeId:'ascii-gpu',installed:[]}))
       expect(host.querySelector('[data-ascii-chart=bar]')).toBeNull()
