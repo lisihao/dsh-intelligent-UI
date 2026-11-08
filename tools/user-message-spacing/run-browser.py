@@ -36,6 +36,8 @@ for theme in ['empryo','paper']:
    for name in ['fencedCode','indentedCode']:
     c=cases[name];assert c['before']['code']==c['after']['code'] and c['after']['code'],(label,name,'code text changed')
     assert c['after']['codeWhitespace'] in ['pre','pre-wrap','break-spaces'],(label,name,'code spacing not preserved')
+   j=cases['pastedJson']['after']['jsonCode'];assert j and j.startswith('[\n  [\n    "search",\n    {\n      "query": "K13ORIGINALALPHA",'),(label,'pasted JSON not rendered as indented json block',j)
+   assert cases['pastedJson']['before']['jsonCode'] is None,(label,'host bubble unexpectedly highlighted JSON')
    blank=cases['whitespaceOnly']['after'];assert blank['cards']==0 and blank['height']<=24,(label,'blank slice creates empty card',blank)
    for name,c in cases.items():
     assert c['after']['iframes']==0,(label,name,'user input executed iframe')

@@ -545,6 +545,12 @@ describe('adaptive composition through the real ContentView', () => {
       expect(host.textContent).toContain('用户自己的消息')
       expect(host.querySelector('br')).not.toBeNull()
       expect(wire.composition.mock.calls.length).toBe(calls)
+      // A pasted, unfenced JSON array becomes an indented json code block.
+      await act(async () => root.render(h(UserText, { sessionId: 'session-1', raw: 'Run these calls.\n[\n[\n"search",\n{\n"query": "K13"\n}\n]\n]' })))
+      await flush(); await flush()
+      const code = host.querySelector('code[data-iexp-code-language="json"]')
+      expect(code?.textContent).toBe('[\n  [\n    "search",\n    {\n      "query": "K13"\n    }\n  ]\n]')
+      expect(wire.composition.mock.calls.length).toBe(calls)
     } finally {
       await act(async () => root.unmount())
       host.remove()

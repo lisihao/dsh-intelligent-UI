@@ -16,6 +16,7 @@ const cases = {
   "whitespaceOnly": " \r\n\t\r\n\n\n",
   "mixed": "# 标题\r\n\r\n\r\n- 第一项\r\n- 第二项\r\n\r\n> 引用原文\r\n\r\n[安全示例链接](https://example.invalid)",
   "table": "| 项目 | 数量 |\n| --- | ---: |\n| 甲 | 2 |\n| 乙 | 3 |",
+  "pastedJson": "按顺序执行这些调用：\n[\n[\n\"search\",\n{\n\"query\": \"K13ORIGINALALPHA\",\n\"path\": \"/Users/example/very/long/path/that/should/wrap/or/scroll/inside/the/code/block/only\"\n}\n]\n]\n完成后用中文报告。",
   "inert": "<iframe src=\"https://untrusted.invalid\"></iframe>\n\n```openui\nroot = TextContent(\"仅显示，不执行\")\n```"
 }
 const core = new SlotCore()
@@ -43,7 +44,7 @@ for(const [id,raw] of Object.entries(cases)){
  for(const mode of ['before','after']){
   const e=document.querySelector<HTMLElement>(`[data-case="${id}"] [data-mode="${mode}"]`)!
   const p=e.querySelector('p'),code=e.querySelector('pre code,code')
-  row[mode]={height:e.getBoundingClientRect().height,width:e.clientWidth,scrollWidth:e.scrollWidth,text:e.textContent,paragraphs:e.querySelectorAll('p').length,paragraphWhitespace:p?getComputedStyle(p).whiteSpace:null,paragraphHeight:p?.getBoundingClientRect().height??0,lineHeight:p?parseFloat(getComputedStyle(p).lineHeight):0,code:code?.textContent??null,codeWhitespace:code?getComputedStyle(code).whiteSpace:null,cards:e.querySelectorAll('.iexp-reply-surface').length,iframes:e.querySelectorAll('iframe').length}
+  row[mode]={height:e.getBoundingClientRect().height,width:e.clientWidth,scrollWidth:e.scrollWidth,text:e.textContent,paragraphs:e.querySelectorAll('p').length,paragraphWhitespace:p?getComputedStyle(p).whiteSpace:null,paragraphHeight:p?.getBoundingClientRect().height??0,lineHeight:p?parseFloat(getComputedStyle(p).lineHeight):0,code:code?.textContent??null,jsonCode:e.querySelector('code[data-iexp-code-language="json"]')?.textContent??null,codeWhitespace:code?getComputedStyle(code).whiteSpace:null,cards:e.querySelectorAll('.iexp-reply-surface').length,iframes:e.querySelectorAll('iframe').length}
  }
  measurements[id]=row
 }

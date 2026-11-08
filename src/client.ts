@@ -38,6 +38,7 @@ import { ThemeQuickSwitch } from './theme-quick-switch.js'
 import { ThemeSettings } from './theme-settings.js'
 import { RPC_REMOTE } from './remote.js'
 import { ArtifactView, ContentView, DisplayModeControl, OutputView, displayModes, rawText, openUiWidgets, experienceTheme, type McpUiApi } from './presentation.js'
+import { fenceStandaloneJson } from './user-json-fence.js'
 import { DocumentView } from './document-view.js'
 import { createCanvasClientScope } from './canvas-client-scope.js'
 import { CanvasRuntimeContext } from './canvas-runtime-context.js'
@@ -548,7 +549,7 @@ function ToolNode({ store, nodeProps, onContinue }: { store: ExperienceStore, on
 /** The Chat-owned user row keeps attachments, timestamps, copy, and actions; only its raw text node is visualized. */
 function UserTextNode({ raw }: PropsRuntime<'conversation.user.text.node', 'text'>): ReactElement {
   if (!raw.trim()) return h('span', { className: 'iexp-user-message-whitespace' }, raw)
-  return h('div', { className: 'iexp-user-message-text' }, h(ContentView, { value: raw, preserveSoftBreaks: true }))
+  return h('div', { className: 'iexp-user-message-text' }, h(ContentView, { value: fenceStandaloneJson(raw), preserveSoftBreaks: true }))
 }
 export function Workspace({ store, sessionId, onContinue, onOrganize }: { store: ExperienceStore, sessionId: string, onContinue?: Continue, onOrganize?: (prompt: string, signal: AbortSignal) => Promise<void> }): ReactElement {
   const { api, settings } = useStore(store); const [items, setItems] = useState<Awaited<ReturnType<ExperienceApi['artifacts']>>>([]); const [error, setError] = useState(''); const dilEnabled = settings?.adaptive?.blockLayout === true; const dilArtifactApi = dilApi(api)
