@@ -1,6 +1,6 @@
 # Local ASCII GPU fixture
 
-This fixture exercises the real plugin components and unmodified, pinned Canvas UI Asciify, ASCII Object and Ink Object factories. Its charts, graph data and raster images are deterministic synthetic samples, not measured results. It does not connect to the official DSH app or call a model.
+This fixture exercises the real plugin components, the plugin's own GPU ASCII glyph renderer, and the unmodified, pinned Canvas UI ASCII Object and Ink Object factories. Its charts, graph data and raster images are deterministic synthetic samples, not measured results. It does not connect to the official DSH app or call a model.
 
 From the plugin root, after `src/ascii-visual-theme.ts` is available:
 

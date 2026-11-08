@@ -1,7 +1,7 @@
 import type { ExperienceSettings } from './contracts.js'
 import { isGpuAsciiTheme, resolveTheme } from './theme-contracts.js'
 import { appearanceTokens } from './appearance.js'
-import { acquireCanvasSlot, type CanvasEffectFactory } from './canvas-runtime-client.js'
+import { acquireCanvasSlot } from './canvas-runtime-client.js'
 import { createAsciiGpuEffect, type AsciiGpuEffect } from './ascii-gpu-effect.js'
 import { captureAsciiVisual, measureAsciiVisualBounds, type AsciiVisualCapture } from './ascii-visual-capture.js'
 import { readAsciiVisualFrame, subscribeAsciiVisualFrames } from './ascii-visual-frames.js'
@@ -20,7 +20,7 @@ const ADAPTIVE_THEME = 'data-iexp-adaptive-theme'
 const SHAPES = 'path,rect,circle,ellipse,line,polyline,polygon,use,image'
 
 /** A disposable graphics projection. Native text, data, DOM hit targets and source state stay owned by their original renderer. */
-export function installAsciiVisualTheme(store: Store, options: { document?: Document; loadFactory?: (slug: string) => Promise<CanvasEffectFactory> } = {}): () => void {
+export function installAsciiVisualTheme(store: Store, options: { document?: Document } = {}): () => void {
   const doc = options.document ?? document, win = doc.defaultView
   if (!win || !doc.body) return () => {}
   let stop: (() => void) | undefined, key = '', disposed = false
@@ -261,7 +261,8 @@ export function installAsciiVisualTheme(store: Store, options: { document?: Docu
       const initialScale = Math.min(1, 1200 / Math.max(1, win!.innerWidth), 900 / Math.max(1, win!.innerHeight))
       width = Math.max(1, Math.round(win!.innerWidth * initialScale)); height = Math.max(1, Math.round(win!.innerHeight * initialScale)); scale = initialScale
       stage.style.width = `${width}px`; stage.style.height = `${height}px`; stage.style.transform = `scale(${1 / scale})`
-      void createAsciiGpuEffect({stage,width,height,background,loadFactory:options.loadFactory,signal:abort.signal,onError:report,onFrame: painted => {
+      const font = win!.getComputedStyle(doc.querySelector('.dsh-experience') ?? doc.body).getPropertyValue('--iexp-font').trim() || 'ui-monospace, Menlo, monospace'
+      void createAsciiGpuEffect({stage,width,height,background,font,signal:abort.signal,onError:report,onFrame: painted => {
         if (closed || failed || pending?.revision !== painted) return
         if (hasPopup()) { for (const entry of entries.values()) restore(entry); committed = []; clip([]); return }
         committed = pending.items.filter(item => item.epoch === item.entry.epoch && !item.entry.inspecting && item.entry.source.isConnected && sourceEligible(item.entry.source))
