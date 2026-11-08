@@ -31,6 +31,7 @@ for theme in ['empryo','paper']:
    cases=d['cases'];before=cases['paragraphs']['before'];after=cases['paragraphs']['after']
    assert after['height'] < before['height']-20,(label,'paragraph spacing did not shrink',before['height'],after['height'])
    assert before['text']==after['text'],(label,'paragraph content changed')
+   assert cases['looseTable']['after']['tableRows']==2,(label,'copied loose table not rendered as a table',cases['looseTable']['after'])
    for name in ['softLines','hardBreaks']:
     c=cases[name]['after'];assert abs(c['paragraphHeight'] - c['lineHeight']*3) <= 1,(label,name,'line breaks collapsed')
    for name in ['fencedCode','indentedCode']:

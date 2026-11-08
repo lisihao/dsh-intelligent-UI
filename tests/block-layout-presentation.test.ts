@@ -413,4 +413,20 @@ export const answer = 42
     expect(item.host.textContent).toContain('第一章完整说明。')
     expect(item.host.textContent).toContain('第二章完整说明。')
   })
+
+  it('repairs a copied loose table only when no composition selection reads source offsets', async () => {
+    const loose = '### 核心判断\n\n| 研究维度 | 当前判断 |\n\n| --- | --- |\n\n| 甲 | 明确 |\n\n| 乙 | 较强 |\n\n结论段落。'
+    const host = document.createElement('div'), root = createRoot(host)
+    mounted.push({ root, host })
+    document.body.append(host)
+    await act(async () => root.render(h(ContentView, { value: loose })))
+    expect(host.querySelector('table')?.textContent).toContain('研究维度')
+    expect(host.querySelectorAll('tbody tr')).toHaveLength(2)
+
+    const fake = apiFor(value => plannedResult(value))
+    const item = await mount(loose, fake.api)
+    await waitFor(item.host, '[data-iexp-composition-status="selected"]')
+    expect(item.host.querySelector('table')).toBeNull()
+    expect(item.host.textContent).toContain('| 研究维度 | 当前判断 |')
+  })
 })

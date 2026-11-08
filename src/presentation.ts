@@ -2,6 +2,7 @@ import { DilArtifactView, dilArtifactIdentity } from './dil/artifact.js'
 import { createDilLibraryRenderer } from './dil/library-view.js'
 import type { DilApi } from './contracts.js'
 import {normalizeCompositionSource} from './adaptive-ui/source-contracts.js'
+import { compactLooseTables } from './loose-tables.js'
 import { AdaptiveCompositionView, CompositionRuntimeContext } from './adaptive-ui/view.js'
 import { CompositionSelectionContext, ExperimentalBlockDispatchContext, useCompositionSelection, useExperimentalBlockDispatch } from './adaptive-ui/scope.js'
 import { HistoricalChart, LiveSeriesView, recognizeLiveSeries, AdaptiveLoading, AdaptiveText } from './adaptive-ui/components.js'
@@ -647,6 +648,9 @@ function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH
   const rootProgram:CompositionSelection|undefined = embedded ? {themeId:presentationTheme.id,surface:'semantic',chart:'auto',componentSet:'native',objectEffect:'none',layout:'document'} : program ?? contextualProgram
   const normalized = normalizeCompositionSource(value)
   const childCount = normalized.kind === 'blocks' ? normalized.values.length : 0
+  // Repair copied loose tables only when no composition selection reads source offsets.
+  const markdownSource = normalized.kind === 'markdown' ? normalized.markdown : '', repairTables = !embedded && rootProgram === undefined
+  const displayMarkdown = useMemo(() => repairTables ? compactLooseTables(markdownSource) : markdownSource, [markdownSource, repairTables])
   const childPaths = useMemo(() => Array.from({ length: childCount }, (_part, index) => [...path, index]), [path, childCount])
   const structured = normalized.kind === 'structured' || normalized.kind === 'scalar' || normalized.kind === 'empty'
   const block = structured ? structuredBlockAt(rootProgram, path) : undefined
@@ -655,7 +659,7 @@ function ContentBody({ value, isStreaming = false, path = EMPTY_COMPOSITION_PATH
   const content:ReactNode=normalized.kind==='blocks'
     ?normalized.values.map((part,index)=>h(ContentBody,{key:index,value:part,isStreaming,path:childPaths[index]!,program:rootProgram,embedded,preserveSoftBreaks}))
     :normalized.kind==='markdown'
-      ?h(MarkdownContent,{text:normalized.markdown,isStreaming,path,program:rootProgram,preserveSoftBreaks})
+      ?h(MarkdownContent,{text:displayMarkdown,isStreaming,path,program:rootProgram,preserveSoftBreaks})
       :block ? h(BlockPresentationView, { block, value: structuredValue, isStreaming }, structuredContent) : structuredContent
   const basis = structured ? h(BlockLayoutBasis, { program: rootProgram, path }) : undefined
   const body=h('div', { className: `dsh-experience iexp-content ${embedded?'iexp-embedded-markdown':'iexp-reply-surface'}`, 'data-experience-theme': theme }, basis, content)
