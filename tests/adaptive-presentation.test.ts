@@ -535,6 +535,16 @@ describe('adaptive composition through the real ContentView', () => {
       await act(async () => root.render(h(Assistant, { sessionId: 'session-1', node, loadImage: () => Promise.resolve('') })))
       await vi.waitFor(() => expect(wire.composition).toHaveBeenCalled())
       expect(wire.composition.mock.calls[0]?.[0]?.documentId).toBe('artifact:stream-42-0')
+      // With the Jev feature off the Host answers `local` (with a local selection); a copied loose table still renders as a table.
+      const local = selectedResult({ themeId: 'plain' }, 'operation-local')
+      wire.composition.mockImplementation(async () => ok({ status: 'local' as const, reason: 'JEV_FEATURE_DISABLED', sourceVersion: local.sourceVersion, selection: local.selection }))
+      const loose = { anchorSeq: 43, data: { status: 'done', blocks: [{ kind: 'text', text: '| 研究维度 | 当前判断 |\n\n| --- | --- |\n\n| 甲 | 明确 |\n\n| 乙 | 较强 |' }] } }
+      const before = wire.composition.mock.calls.length
+      await act(async () => root.render(h(Assistant, { sessionId: 'session-1', node: loose, loadImage: () => Promise.resolve('') })))
+      await vi.waitFor(() => expect(wire.composition.mock.calls.length).toBeGreaterThan(before))
+      await flush(); await flush()
+      expect(host.querySelector('[data-iexp-composition-status="local"]')).not.toBeNull()
+      expect(host.querySelectorAll('table tbody tr')).toHaveLength(2)
       // The user's own message is visualized locally; it is never a composition input.
       const userText = core.entriesOfSlot('conversation.user.text.node').find(item => item.options.key === 'text')
       expect(userText).toBeDefined()
