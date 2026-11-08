@@ -87,6 +87,19 @@ describe('GPU ASCII glyph renderer', () => {
     effect.dispose()
   })
 
+  it('clamps the device scale on very wide displays instead of failing, keeping cells their on-screen size', async () => {
+    // 320 logical px shown 2400 px wide at 2x would need 4800 device px; the cap is 4096.
+    const f = fixture({ dpr: 2, shownWidth: 2400 })
+    const effect = await f.create()
+    expect(effect.output.width).toBe(4096)
+    expect(effect.output.height).toBe(2048)
+    effect.update(f.bitmap, 1)
+    const perCssPixel = 4096 / 320 / (2400 / 320)
+    expect(f.gl.uniform2f).toHaveBeenCalledWith(expect.anything(), Math.round(ASCII_GLYPH_CELL.width * perCssPixel), Math.round(ASCII_GLYPH_CELL.height * perCssPixel))
+    expect(f.onError).not.toHaveBeenCalled()
+    effect.dispose()
+  })
+
   it('shows a frame only after the atlas upload and draw succeed, with strictly increasing revisions', async () => {
     const f = fixture()
     const effect = await f.create()

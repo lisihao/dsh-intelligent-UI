@@ -168,16 +168,22 @@ export async function createAsciiGpuEffect(options: AsciiGpuEffectOptions): Prom
     if (error !== gl.NO_ERROR) throw failure('ASCII_GLYPH_OPERATION', `${operation} failed (${error}).`)
   }
 
-  /** Output pixels follow the stage's on-screen size, so one cell is a fixed number of CSS pixels. */
+  /**
+   * Output pixels follow the stage's on-screen size, so one cell is a fixed
+   * number of CSS pixels. On very wide or dense displays the device scale is
+   * clamped to the texture budget; cells keep their on-screen size and only
+   * lose sharpness.
+   */
   const layout = () => {
+    if (!(width > 0 && height > 0)) throw failure('ASCII_GLYPH_SIZE', 'The effect size is outside the supported budget.')
     const shown = stage.getBoundingClientRect().width
-    deviceScale = (shown > 0 ? shown / width : 1) * (win.devicePixelRatio || 1)
-    const pixelWidth = Math.round(width * deviceScale), pixelHeight = Math.round(height * deviceScale)
-    if (pixelWidth < 1 || pixelHeight < 1 || pixelWidth > MAX_SIDE || pixelHeight > MAX_SIDE || pixelWidth * pixelHeight > MAX_PIXELS) throw failure('ASCII_GLYPH_SIZE', 'The effect size is outside the supported budget.')
+    const shownScale = shown > 0 ? shown / width : 1
+    deviceScale = Math.min(shownScale * (win.devicePixelRatio || 1), MAX_SIDE / width, MAX_SIDE / height, Math.sqrt(MAX_PIXELS / (width * height)))
+    const pixelWidth = Math.max(1, Math.floor(width * deviceScale)), pixelHeight = Math.max(1, Math.floor(height * deviceScale))
     output.width = pixelWidth; output.height = pixelHeight
     output.style.width = `${width}px`; output.style.height = `${height}px`
-    const dpr = win.devicePixelRatio || 1
-    cellWidth = Math.max(3, Math.round(ASCII_GLYPH_CELL.width * dpr)); cellHeight = Math.max(5, Math.round(ASCII_GLYPH_CELL.height * dpr))
+    const perCssPixel = deviceScale / shownScale
+    cellWidth = Math.max(3, Math.round(ASCII_GLYPH_CELL.width * perCssPixel)); cellHeight = Math.max(5, Math.round(ASCII_GLYPH_CELL.height * perCssPixel))
     const strip = drawGlyphStrip(doc, options.font, cellWidth, cellHeight)
     gl.bindTexture(gl.TEXTURE_2D, glyphTexture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, strip)

@@ -28,7 +28,10 @@ const insightOnly = params.get('insight') === '1'
 const requestedTheme = params.get('theme')
 const themeId = requestedTheme && ['empryo','ascii','ascii-gpu','uiverse-soft-relief'].includes(requestedTheme) ? requestedTheme : 'ascii-gpu'
 const preference = { activeId: themeId, installed: [] }
-let settings: ExperienceSettings = { ...initialSettings(), takeover: true, openui: true, theme: preference, appearance: resolveTheme(preference).appearance }
+// Optional `?background=rrggbb` replaces only the appearance ground, for checking a light user ground.
+const requestedBackground = /^[0-9a-f]{6}$/i.test(params.get('background') ?? '') ? `#${params.get('background')!.toLowerCase()}` : undefined
+const themeAppearance = resolveTheme(preference).appearance
+let settings: ExperienceSettings = { ...initialSettings(), takeover: true, openui: true, theme: preference, appearance: requestedBackground ? { ...themeAppearance, backgroundColor: requestedBackground } : themeAppearance }
 const store = new ExperienceStore()
 const importedArtifacts: ExperienceArtifact[] = []
 store.update({ settings, api: {
