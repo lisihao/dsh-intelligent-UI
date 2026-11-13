@@ -77,12 +77,12 @@ function asRecord(value, code) {
   if (!isRecord(value)) throw new Error(code)
   return value
 }
-function safeSchema(bundle) {
+function safeSchema(bundle, questions) {
   return {
     revision: bundle.revision,
-    questionIds: bundle.questions.map(question => question.id).sort(),
-    optionCounts: Object.fromEntries(bundle.questions.map(question => [question.id, question.options.length])),
-    optionIds: Object.fromEntries(bundle.questions.map(question => [question.id, question.options.map(option => option.id)])),
+    questionIds: questions.map(question => question.id).sort(),
+    optionCounts: Object.fromEntries(questions.map(question => [question.id, question.options.length])),
+    optionIds: Object.fromEntries(questions.map(question => [question.id, question.options.map(option => option.id)])),
   }
 }
 function questionShape(questions) {
@@ -100,7 +100,7 @@ function plannerBundleFromRequest(request) {
     capabilities: composition.capabilities,
     isStreaming: composition.isStreaming,
   })
-  if (questionShape(rebuilt.questions) !== questionShape(request.questions)) throw new Error('SYNTHETIC_CANDIDATE_SCHEMA_MISMATCH')
+  if (questionShape(rebuilt.questions.filter(question => question.options.length > 1)) !== questionShape(request.questions)) throw new Error('SYNTHETIC_CANDIDATE_SCHEMA_MISMATCH')
   return rebuilt
 }
 
@@ -160,20 +160,21 @@ class SyntheticJevPort {
     if (!fixture) return { kind: 'not-adopted', operationId, reason: 'SYNTHETIC_DOCUMENT_UNKNOWN' }
     const bundle = plannerBundleFromRequest(request)
     const preferred = scenarioChoices[fixture.scenario]
-    const answers = {}
+    const answers = { ...bundle.defaultAnswers }
     for (const question of request.questions) {
+      if (question.options.length < 2) throw new Error('SYNTHETIC_DECISIONS_REQUIRES_TWO_CHOICES')
       const desired = preferred[question.id]
       const option = desired === undefined ? question.options[0]?.id : question.options.find(candidate => candidate.id === desired)?.id
       if (!option) throw new Error(`SYNTHETIC_OPTION_NOT_ALLOWED_${question.id}`)
       answers[question.id] = option
     }
     const selection = validateCompositionChoices(bundle, answers)
-    const response = { answers: Object.entries(answers).map(([id, optionId]) => ({ id, kind: 'choice', optionId })) }
+    const response = { answers: request.questions.map(question => ({ id: question.id, kind: 'choice', optionId: answers[question.id] })) }
     const interpreted = await options.interpret?.(response, options.signal ?? new AbortController().signal)
     if (interpreted && !interpreted.usable) return { kind: 'not-adopted', operationId, reason: interpreted.reason }
     const adoption = await options.canAdopt?.(response, options.signal ?? new AbortController().signal)
     if (adoption !== undefined && adoption !== true) return { kind: 'not-adopted', operationId, reason: adoption }
-    operationEvidence.set(operationId, { documentId, scenario: fixture.scenario, schema: safeSchema(bundle), selection, observed: false })
+    operationEvidence.set(operationId, { documentId, scenario: fixture.scenario, schema: safeSchema(bundle, request.questions), selection, observed: false })
     return { kind: 'ok', operationId, attemptId: `synthetic-attempt-${operationCount}`, response }
   }
   async writeReceipt(operationId) {

@@ -283,6 +283,9 @@ export class AdaptiveCompositionCoordinator {
 
     if (!snapshot.enabled) return this.base('local', 'ADAPTIVE_COMPOSITION_DISABLED', sourceVersion, localSelection)
     if (input.isStreaming === true) return this.base('local', 'COMPOSITION_STREAMING_SOURCE', sourceVersion, localSelection)
+    if (!bundle.questions.some(question => question.options.length >= 2)) {
+      return this.base('local', 'COMPOSITION_NO_CHOICES', sourceVersion, localSelection)
+    }
 
     const port = this.resolvePort()
     if (!port) return this.base('local', this.attachError ?? 'JEV_UNAVAILABLE', sourceVersion, localSelection)
@@ -495,6 +498,7 @@ export class AdaptiveCompositionCoordinator {
 
   private async runDecision(active: ActiveRequest): Promise<Omit<CompositionResult, 'requestId'>> {
     const request = this.jevRequest(active)
+    const sentQuestionIds = request.questions.map(question => question.id)
     const exactRequest = stableJson(request)
     let selected: CompositionSelection | undefined
     let selectionReason: string | undefined
@@ -516,7 +520,7 @@ export class AdaptiveCompositionCoordinator {
         interpret: (response, signal) => {
           try {
             this.assertFresh(active, signal)
-            selected = compositionSelectionSchema.parse(validateCompositionChoices(active.bundle, this.choiceAnswers(active.bundle, response)))
+            selected = compositionSelectionSchema.parse(validateCompositionChoices(active.bundle, this.choiceAnswers(active.bundle, sentQuestionIds, response)))
             return { usable: true }
           } catch (error) {
             selectionReason = reasonFrom(error, 'COMPOSITION_SELECTION_INVALID')
@@ -550,6 +554,7 @@ export class AdaptiveCompositionCoordinator {
 
   private jevRequest(active: ActiveRequest): { state: JevJson, questions: readonly JevQuestion[] } {
     const questions = cloneJson<readonly JevQuestion[]>(active.bundle.questions)
+      .filter(question => question.options.length >= 2)
     const state = cloneJson<JevJson>({
       formatVersion: ADAPTIVE_COMPOSITION_FORMAT_VERSION,
       kind: 'adaptive-ui-composition',
@@ -572,20 +577,30 @@ export class AdaptiveCompositionCoordinator {
     return { state, questions }
   }
 
-  private choiceAnswers(bundle: CandidateBundle, response: JevResponse): Readonly<Record<string, string>> {
+  private choiceAnswers(bundle: CandidateBundle, sentQuestionIds: readonly string[], response: JevResponse): Readonly<Record<string, string>> {
     if (!response || !Array.isArray(response.answers)) throw new NamedError('COMPOSITION_RESPONSE_INVALID')
     const questions = bundle.questions
     if (!questions.every(isChoiceQuestion)) throw new NamedError('COMPOSITION_QUESTION_INVALID')
-    if (response.answers.length !== questions.length) throw new NamedError('COMPOSITION_ANSWER_COUNT_INVALID')
-    const expected = new Set(questions.map(question => question.id))
+    const expected = new Set(questions.filter(question => question.options.length >= 2).map(question => question.id))
+    const sent = new Set(sentQuestionIds)
+    if (sent.size !== sentQuestionIds.length || sent.size !== expected.size || [...sent].some(id => !expected.has(id))) {
+      throw new NamedError('COMPOSITION_REQUEST_QUESTIONS_INVALID')
+    }
+    if (response.answers.length !== sentQuestionIds.length) throw new NamedError('COMPOSITION_ANSWER_COUNT_INVALID')
     const answers: Record<string, string> = Object.create(null) as Record<string, string>
+    for (const question of questions) {
+      if (question.options.length !== 1) continue
+      const answer = bundle.defaultAnswers[question.id]
+      if (typeof answer !== 'string') throw new NamedError('COMPOSITION_DEFAULT_CHOICES_MISSING')
+      answers[question.id] = answer
+    }
     for (const answer of response.answers) {
-      if (!isChoiceAnswer(answer) || !expected.has(answer.id) || Object.hasOwn(answers, answer.id)) {
+      if (!isChoiceAnswer(answer) || !sent.has(answer.id) || Object.hasOwn(answers, answer.id)) {
         throw new NamedError('COMPOSITION_ANSWER_INVALID')
       }
       answers[answer.id] = answer.optionId
     }
-    if (Object.keys(answers).length !== expected.size) throw new NamedError('COMPOSITION_ANSWER_INCOMPLETE')
+    if (Object.keys(answers).length !== questions.length) throw new NamedError('COMPOSITION_ANSWER_INCOMPLETE')
     return answers
   }
 

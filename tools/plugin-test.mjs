@@ -178,6 +178,7 @@ async function themeProbe(ctx) {
               })
               return { kind: 'cancelled', operationId }
             }
+            assert(request.questions.every(question => question.options.length >= 2), 'real Decisions choice questions require at least two options')
             const answers = request.questions.map(question => {
               const desired = preferred[question.id]
               const option = question.options.find(candidate => candidate.id === desired) ?? question.options[0]
