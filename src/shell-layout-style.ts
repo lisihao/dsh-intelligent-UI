@@ -47,6 +47,7 @@ ${sidebarFoot} .cm-footer-stack {
 /* Float without reserving header space. Synapse's saved inline left/top/transform
    take precedence over these defaults, so native drag and restart restore work. */
 ${synapse} .dsh-synapse-switch {
+  user-select:none;
   position:fixed;left:auto;right:12px;
   top:calc(var(--dsh-frame-chrome-top,0px) + 48px);transform:none;
   box-sizing:border-box;width:max-content;max-width:calc(100% - 16px);height:36px;z-index:200;
@@ -65,10 +66,88 @@ ${synapse} .dsh-synapse-switch button:focus-visible {
 
 `
 
+const captionControls = [
+  'button', 'a[href]', 'input', 'select', 'textarea', 'summary', '[contenteditable="true"]',
+  '[tabindex]', '[data-window-drag-recall]', '.dsh-synapse-switch', '.solar-wm-entry', '.solar-wm-panel',
+  'iframe', 'webview',
+  ...['button', 'tab', 'link', 'dialog', 'alertdialog', 'menu', 'menuitem', 'listbox', 'combobox', 'textbox']
+    .map(role => `[role="${role}"]`),
+].join(',')
+
+function installMacTitlebar(): () => void {
+  const html = document.documentElement
+  if (html.dataset.platform !== 'darwin') return () => {}
+  const strips: HTMLElement[] = []
+  const viewport = document.documentElement
+  let request = 0
+  let last = ''
+  const update = () => {
+    request = 0
+    const frame = document.querySelector(frameRoot)
+    const width = viewport.clientWidth
+    const height = Number.parseFloat(getComputedStyle(html).getPropertyValue('--dsh-frame-top-clearance')) || 48
+    const gaps: [number, number][] = []
+    if (frame && !html.hasAttribute('data-fullscreen')) {
+      // The three native traffic lights and their immediate margins.
+      let left = 84
+      const blocked: [number, number][] = []
+      for (const node of document.querySelectorAll(captionControls)) {
+        const r = node.getBoundingClientRect()
+        if (r.top >= height || r.bottom <= 0 || r.right <= left || r.left >= width || !r.width) continue
+        const style = getComputedStyle(node)
+        if (style.visibility !== 'visible' || style.pointerEvents === 'none') continue
+        blocked.push([Math.floor(r.left), Math.ceil(r.right)])
+      }
+      blocked.sort((a, b) => a[0] - b[0])
+      for (const [start, end] of blocked) {
+        if (start > left) gaps.push([left, start])
+        left = Math.max(left, end)
+      }
+      if (left < width) gaps.push([left, width])
+    }
+    const key = JSON.stringify([height, gaps])
+    if (key === last) return
+    last = key
+    for (const strip of strips.splice(0)) strip.remove()
+    for (const [left, right] of gaps) {
+      const strip = document.createElement('div')
+      strip.dataset.solarTitlebarZoom = ''
+      strip.setAttribute('aria-hidden', 'true')
+      // Host rules mark body portals no-drag. Each strip must itself be a
+      // top-level drag rectangle, above those portals, with no parent band.
+      strip.style.cssText = `position:fixed;top:0;left:${left}px;width:${right - left}px;height:${height}px;z-index:2147483647;-webkit-app-region:drag!important;user-select:none`
+      document.body.append(strip)
+      strips.push(strip)
+    }
+  }
+  const schedule = () => { if (!request) request = requestAnimationFrame(update) }
+  const changes = new MutationObserver(records => {
+    if (records.some(record => record.type !== 'childList' || [...record.addedNodes, ...record.removedNodes].some(node => !(node instanceof HTMLElement && node.hasAttribute('data-solar-titlebar-zoom'))))) schedule()
+  })
+  changes.observe(document.body, {
+    subtree: true, childList: true, attributes: true,
+    attributeFilter: ['class', 'style', 'hidden', 'open', 'tabindex', 'role', 'aria-expanded', 'data-sidebar-collapsed'],
+  })
+  changes.observe(html, { attributes: true, attributeFilter: ['data-fullscreen'] })
+  const bounds = new ResizeObserver(schedule)
+  bounds.observe(viewport)
+  // CSS transitions can finish after their class mutation has been measured.
+  document.addEventListener('transitionend', schedule, true)
+  schedule()
+  return () => {
+    changes.disconnect()
+    bounds.disconnect()
+    if (request) cancelAnimationFrame(request)
+    document.removeEventListener('transitionend', schedule, true)
+    for (const strip of strips) strip.remove()
+  }
+}
+
 export function installShellLayoutStyles(): () => void {
   const style = document.createElement('style')
   style.dataset.solarShellLayout = ''
   style.textContent = shellLayoutCss
   document.head.append(style)
-  return () => style.remove()
+  const disposeTitlebar = installMacTitlebar()
+  return () => { disposeTitlebar(); style.remove() }
 }
