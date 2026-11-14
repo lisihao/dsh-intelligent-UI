@@ -8,19 +8,14 @@ const frameRoot = `[data-slot="root"] > ${moduleClass('frame')}`
 const synapse = `body:has(${frameRoot} > [data-shell-overlay]):has(.dsh-synapse-host > .dsh-synapse-switch)`
 
 export const shellLayoutCss = `
-/* Native macOS title-bar gestures belong to the top strip, not the page.
-   Leave room for the traffic lights. Keep controls and floating surfaces
-   interactive even when they overlap the strip. */
-html[data-platform="darwin"]:not([data-fullscreen]) ${frameRoot}::before {
-  content:"";position:absolute;inset:0 0 auto 84px;
-  height:var(--dsh-frame-top-clearance,48px);
-  -webkit-app-region:drag;user-select:none;pointer-events:none;
+/* The native caption strips are above full-window plugin portals. The
+   transparent container itself must not subtract a no-drag rectangle. */
+[data-solar-titlebar-zoom] {
+  position:fixed;inset:0 0 auto;height:var(--dsh-frame-top-clearance,48px);
+  z-index:2147483647;pointer-events:none;-webkit-app-region:initial!important;
 }
-html[data-platform="darwin"]:not([data-fullscreen]) :is(
-  ${frameRoot} :is(button,a[href],input,select,textarea,[role="button"],[role="tab"],[role="menuitem"],[role="dialog"],[contenteditable="true"]),
-  .dsh-synapse-switch
-) {
-  -webkit-app-region:no-drag;
+[data-solar-titlebar-zoom] > div {
+  position:absolute;top:0;bottom:0;-webkit-app-region:drag;user-select:none;
 }
 /* Settings and other actions stay above the independently scrolling fee block. */
 ${sidebarFoot} {
@@ -80,10 +75,85 @@ ${synapse} .dsh-synapse-switch button:focus-visible {
 
 `
 
+const captionControls = [
+  'button', 'a[href]', 'input', 'select', 'textarea', 'summary', '[contenteditable="true"]',
+  '[tabindex]', '[data-window-drag-recall]', '.dsh-synapse-switch', '.solar-wm-entry', '.solar-wm-panel',
+  'iframe', 'webview',
+  ...['button', 'tab', 'link', 'dialog', 'alertdialog', 'menu', 'menuitem', 'listbox', 'combobox', 'textbox']
+    .map(role => `[role="${role}"]`),
+].join(',')
+
+function installMacTitlebar(): () => void {
+  const html = document.documentElement
+  if (html.dataset.platform !== 'darwin') return () => {}
+  const layer = document.createElement('div')
+  layer.dataset.solarTitlebarZoom = ''
+  layer.setAttribute('aria-hidden', 'true')
+  document.body.append(layer)
+  let request = 0
+  let last = ''
+  const update = () => {
+    request = 0
+    const frame = document.querySelector(frameRoot)
+    const { width, height } = layer.getBoundingClientRect()
+    const gaps: [number, number][] = []
+    if (frame && !html.hasAttribute('data-fullscreen')) {
+      // The three native traffic lights and their immediate margins.
+      let left = 84
+      const blocked: [number, number][] = []
+      for (const node of document.querySelectorAll(captionControls)) {
+        const r = node.getBoundingClientRect()
+        if (r.top >= height || r.bottom <= 0 || r.right <= left || r.left >= width || !r.width) continue
+        const style = getComputedStyle(node)
+        if (style.visibility !== 'visible' || style.pointerEvents === 'none') continue
+        blocked.push([Math.floor(r.left), Math.ceil(r.right)])
+      }
+      blocked.sort((a, b) => a[0] - b[0])
+      for (const [start, end] of blocked) {
+        if (start > left) gaps.push([left, start])
+        left = Math.max(left, end)
+      }
+      if (left < width) gaps.push([left, width])
+    }
+    const key = JSON.stringify(gaps)
+    if (key === last) return
+    last = key
+    layer.replaceChildren(...gaps.map(([left, right]) => {
+      const strip = document.createElement('div')
+      strip.style.left = `${left}px`
+      strip.style.width = `${right - left}px`
+      return strip
+    }))
+  }
+  const schedule = () => { if (!request) request = requestAnimationFrame(update) }
+  const changes = new MutationObserver(records => {
+    if (records.some(record => !layer.contains(record.target))) schedule()
+  })
+  changes.observe(document.body, {
+    subtree: true, childList: true, attributes: true,
+    attributeFilter: ['class', 'style', 'hidden', 'open', 'tabindex', 'role', 'aria-expanded', 'data-sidebar-collapsed'],
+  })
+  changes.observe(html, { attributes: true, attributeFilter: ['data-fullscreen'] })
+  const bounds = new ResizeObserver(schedule)
+  bounds.observe(layer)
+  bounds.observe(document.body)
+  // CSS transitions can finish after their class mutation has been measured.
+  document.addEventListener('transitionend', schedule, true)
+  schedule()
+  return () => {
+    changes.disconnect()
+    bounds.disconnect()
+    if (request) cancelAnimationFrame(request)
+    document.removeEventListener('transitionend', schedule, true)
+    layer.remove()
+  }
+}
+
 export function installShellLayoutStyles(): () => void {
   const style = document.createElement('style')
   style.dataset.solarShellLayout = ''
   style.textContent = shellLayoutCss
   document.head.append(style)
-  return () => style.remove()
+  const disposeTitlebar = installMacTitlebar()
+  return () => { disposeTitlebar(); style.remove() }
 }
