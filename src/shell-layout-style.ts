@@ -8,6 +8,20 @@ const frameRoot = `[data-slot="root"] > ${moduleClass('frame')}`
 const synapse = `body:has(${frameRoot} > [data-shell-overlay]):has(.dsh-synapse-host > .dsh-synapse-switch)`
 
 export const shellLayoutCss = `
+/* Native macOS title-bar gestures belong to the top strip, not the page.
+   Leave room for the traffic lights. Keep controls and floating surfaces
+   interactive even when they overlap the strip. */
+html[data-platform="darwin"]:not([data-fullscreen]) ${frameRoot}::before {
+  content:"";position:absolute;inset:0 0 auto 84px;
+  height:var(--dsh-frame-top-clearance,48px);
+  -webkit-app-region:drag;user-select:none;pointer-events:none;
+}
+html[data-platform="darwin"]:not([data-fullscreen]) :is(
+  ${frameRoot} :is(button,a[href],input,select,textarea,[role="button"],[role="tab"],[role="menuitem"],[role="dialog"],[contenteditable="true"]),
+  .dsh-synapse-switch
+) {
+  -webkit-app-region:no-drag;
+}
 /* Settings and other actions stay above the independently scrolling fee block. */
 ${sidebarFoot} {
   display:flex!important;flex-direction:column!important;align-items:stretch!important;
@@ -47,6 +61,7 @@ ${sidebarFoot} .cm-footer-stack {
 /* Float without reserving header space. Synapse's saved inline left/top/transform
    take precedence over these defaults, so native drag and restart restore work. */
 ${synapse} .dsh-synapse-switch {
+  user-select:none;
   position:fixed;left:auto;right:12px;
   top:calc(var(--dsh-frame-chrome-top,0px) + 48px);transform:none;
   box-sizing:border-box;width:max-content;max-width:calc(100% - 16px);height:36px;z-index:200;
