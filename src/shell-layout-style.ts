@@ -8,15 +8,6 @@ const frameRoot = `[data-slot="root"] > ${moduleClass('frame')}`
 const synapse = `body:has(${frameRoot} > [data-shell-overlay]):has(.dsh-synapse-host > .dsh-synapse-switch)`
 
 export const shellLayoutCss = `
-/* The native caption strips are above full-window plugin portals. The
-   transparent container itself must not subtract a no-drag rectangle. */
-[data-solar-titlebar-zoom] {
-  position:fixed;inset:0 0 auto;height:var(--dsh-frame-top-clearance,48px);
-  z-index:2147483647;pointer-events:none;-webkit-app-region:initial!important;
-}
-[data-solar-titlebar-zoom] > div {
-  position:absolute;top:0;bottom:0;-webkit-app-region:drag;user-select:none;
-}
 /* Settings and other actions stay above the independently scrolling fee block. */
 ${sidebarFoot} {
   display:flex!important;flex-direction:column!important;align-items:stretch!important;
@@ -86,16 +77,15 @@ const captionControls = [
 function installMacTitlebar(): () => void {
   const html = document.documentElement
   if (html.dataset.platform !== 'darwin') return () => {}
-  const layer = document.createElement('div')
-  layer.dataset.solarTitlebarZoom = ''
-  layer.setAttribute('aria-hidden', 'true')
-  document.body.append(layer)
+  const strips: HTMLElement[] = []
+  const viewport = document.documentElement
   let request = 0
   let last = ''
   const update = () => {
     request = 0
     const frame = document.querySelector(frameRoot)
-    const { width, height } = layer.getBoundingClientRect()
+    const width = viewport.clientWidth
+    const height = Number.parseFloat(getComputedStyle(html).getPropertyValue('--dsh-frame-top-clearance')) || 48
     const gaps: [number, number][] = []
     if (frame && !html.hasAttribute('data-fullscreen')) {
       // The three native traffic lights and their immediate margins.
@@ -115,19 +105,24 @@ function installMacTitlebar(): () => void {
       }
       if (left < width) gaps.push([left, width])
     }
-    const key = JSON.stringify(gaps)
+    const key = JSON.stringify([height, gaps])
     if (key === last) return
     last = key
-    layer.replaceChildren(...gaps.map(([left, right]) => {
+    for (const strip of strips.splice(0)) strip.remove()
+    for (const [left, right] of gaps) {
       const strip = document.createElement('div')
-      strip.style.left = `${left}px`
-      strip.style.width = `${right - left}px`
-      return strip
-    }))
+      strip.dataset.solarTitlebarZoom = ''
+      strip.setAttribute('aria-hidden', 'true')
+      // Host rules mark body portals no-drag. Each strip must itself be a
+      // top-level drag rectangle, above those portals, with no parent band.
+      strip.style.cssText = `position:fixed;top:0;left:${left}px;width:${right - left}px;height:${height}px;z-index:2147483647;-webkit-app-region:drag!important;user-select:none`
+      document.body.append(strip)
+      strips.push(strip)
+    }
   }
   const schedule = () => { if (!request) request = requestAnimationFrame(update) }
   const changes = new MutationObserver(records => {
-    if (records.some(record => !layer.contains(record.target))) schedule()
+    if (records.some(record => record.type !== 'childList' || [...record.addedNodes, ...record.removedNodes].some(node => !(node instanceof HTMLElement && node.hasAttribute('data-solar-titlebar-zoom'))))) schedule()
   })
   changes.observe(document.body, {
     subtree: true, childList: true, attributes: true,
@@ -135,8 +130,7 @@ function installMacTitlebar(): () => void {
   })
   changes.observe(html, { attributes: true, attributeFilter: ['data-fullscreen'] })
   const bounds = new ResizeObserver(schedule)
-  bounds.observe(layer)
-  bounds.observe(document.body)
+  bounds.observe(viewport)
   // CSS transitions can finish after their class mutation has been measured.
   document.addEventListener('transitionend', schedule, true)
   schedule()
@@ -145,7 +139,7 @@ function installMacTitlebar(): () => void {
     bounds.disconnect()
     if (request) cancelAnimationFrame(request)
     document.removeEventListener('transitionend', schedule, true)
-    layer.remove()
+    for (const strip of strips) strip.remove()
   }
 }
 
